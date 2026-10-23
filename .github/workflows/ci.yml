@@ -1,0 +1,66 @@
+# Integración continua: pruebas del backend sobre PostgreSQL 16 y compilación del frontend.
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cdss
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: cdss
+      CDSS_DB_PWD_CLINICA: clin_ci
+      CDSS_DB_PWD_GENERACION: gen_ci
+      CDSS_DB_PWD_ADMIN: adm_ci
+      CDSS_DB_PWD_AUDITOR: aud_ci
+      DATABASE_URL_CLINICA: postgresql+psycopg://cdss_clinica:clin_ci@localhost:5432/cdss
+      DATABASE_URL_GENERACION: postgresql+psycopg://cdss_generacion:gen_ci@localhost:5432/cdss
+      DATABASE_URL_ADMIN: postgresql+psycopg://cdss_admin:adm_ci@localhost:5432/cdss
+      TEST_DATABASE_URL_SUPER: postgresql+psycopg://postgres:postgres@localhost:5432/cdss
+      JWT_SECRETO: secreto-de-ci-con-al-menos-32-caracteres-xx
+      CDSS_CLAVE_PII: clave-pii-de-ci-con-al-menos-32-caracteres
+      CDSS_CLAVE_HMAC: clave-hmac-de-ci-con-al-menos-32-caracteres
+      CHROMA_URL: http://localhost:59999
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Base de datos
+        run: |
+          sudo apt-get install -y postgresql-client
+          ./db/aplicar_bd.sh
+      - name: Dependencias
+        working-directory: backend
+        run: pip install -r requirements-dev.txt
+      - name: Datos de prueba y pruebas
+        working-directory: backend
+        run: |
+          python -m app.scripts.seed_demo
+          pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - working-directory: frontend
+        run: |
+          npm ci
+          npm run build

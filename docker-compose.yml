@@ -1,0 +1,66 @@
+# Entorno local del CDSS. Uso:  docker compose up --build
+# Aplicación: http://localhost:8080   ·   API: http://localhost:8080/api/salud
+name: cdss-anemia
+
+services:
+  db:
+    # Imita a Azure Database for PostgreSQL - Servidor flexible (PostgreSQL 16)
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: cdss
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      CDSS_DB_PWD_CLINICA: ${CDSS_DB_PWD_CLINICA}
+      CDSS_DB_PWD_GENERACION: ${CDSS_DB_PWD_GENERACION}
+      CDSS_DB_PWD_ADMIN: ${CDSS_DB_PWD_ADMIN}
+      CDSS_DB_PWD_AUDITOR: ${CDSS_DB_PWD_AUDITOR}
+    volumes:
+      - datos_pg:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro   # esquema, catálogos y usuarios (solo la primera vez)
+      - ./db/sql:/cdss-sql:ro
+    ports:
+      - "5432:5432"   # solo para inspeccionar la base en desarrollo
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cdss"]
+      interval: 5s
+      retries: 10
+
+  chromadb:
+    image: chromadb/chroma:0.6.3
+    environment:
+      IS_PERSISTENT: "TRUE"
+      ANONYMIZED_TELEMETRY: "FALSE"
+    volumes:
+      - datos_chroma:/chroma/chroma
+    ports:
+      - "8001:8000"
+
+  backend:
+    build: ./backend
+    environment:
+      CDSS_ENTORNO: desarrollo
+      DATABASE_URL_CLINICA: postgresql+psycopg://cdss_clinica:${CDSS_DB_PWD_CLINICA}@db:5432/cdss
+      DATABASE_URL_GENERACION: postgresql+psycopg://cdss_generacion:${CDSS_DB_PWD_GENERACION}@db:5432/cdss
+      DATABASE_URL_ADMIN: postgresql+psycopg://cdss_admin:${CDSS_DB_PWD_ADMIN}@db:5432/cdss
+      JWT_SECRETO: ${JWT_SECRETO}
+      CDSS_CLAVE_PII: ${CDSS_CLAVE_PII}
+      CDSS_CLAVE_HMAC: ${CDSS_CLAVE_HMAC}
+      SEED_CONTRASENA: ${SEED_CONTRASENA}
+      CHROMA_URL: http://chromadb:8000
+      CORS_ORIGENES: '["http://localhost:8080","http://localhost:5173"]'
+    depends_on:
+      db:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
+
+  nginx:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  datos_pg:
+  datos_chroma:
