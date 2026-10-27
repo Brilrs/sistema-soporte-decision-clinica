@@ -30,10 +30,15 @@ BEGIN
     IF par.pwd IS NULL OR par.pwd = '' THEN
       RAISE EXCEPTION 'Falta la contraseña para %, defina cdss.pwd_* antes de ejecutar el script', par.usuario;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = par.usuario) THEN
-      EXECUTE format('CREATE ROLE %I LOGIN PASSWORD %L IN ROLE %I', par.usuario, par.pwd, par.rol);
-    ELSE
-      EXECUTE format('ALTER ROLE %I LOGIN PASSWORD %L', par.usuario, par.pwd);
-    END IF;
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = par.usuario) THEN
+        EXECUTE format('CREATE ROLE %I LOGIN PASSWORD %L IN ROLE %I', par.usuario, par.pwd, par.rol);
+      ELSE
+        EXECUTE format('ALTER ROLE %I LOGIN PASSWORD %L', par.usuario, par.pwd);
+      END IF;
+    EXCEPTION WHEN OTHERS THEN
+      -- No se propaga el error original: su contexto incluye la sentencia con la contraseña
+      RAISE EXCEPTION 'No se pudo crear o actualizar el usuario % (código de error %)', par.usuario, SQLSTATE;
+    END;
   END LOOP;
 END $$;

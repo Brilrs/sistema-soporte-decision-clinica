@@ -69,3 +69,15 @@ def requiere_permiso(codigo: str):
         return usuario
 
     return _verificar
+
+
+def requiere_algun_permiso(*codigos: str):
+    """Permite el acceso si el rol tiene al menos uno de los permisos indicados.
+    Se usa en las rutas de lectura de pacientes (registro o consulta clínica)."""
+
+    def _verificar(usuario: UsuarioActual = Depends(usuario_actual)) -> UsuarioActual:
+        if usuario.permisos.isdisjoint(codigos):
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Su rol no tiene acceso a esta información")
+        return usuario
+
+    return _verificar

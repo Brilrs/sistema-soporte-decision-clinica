@@ -1,5 +1,14 @@
 """Cálculos de fechas compartidos."""
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
+
+# Perú no aplica horario de verano: UTC-5 todo el año. Se fija aquí para que
+# "hoy" no dependa de la zona horaria del contenedor (UTC en Docker y Azure).
+ZONA_PERU = timezone(timedelta(hours=-5), "America/Lima")
+
+
+def hoy() -> date:
+    """Fecha actual en Perú."""
+    return datetime.now(ZONA_PERU).date()
 
 
 def edad_en_meses(fecha_nacimiento: date, fecha_referencia: date) -> int:
