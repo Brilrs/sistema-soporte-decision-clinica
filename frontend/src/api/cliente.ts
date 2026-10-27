@@ -25,6 +25,11 @@ export class ErrorApi extends Error {
   }
 }
 
+// Texto para mostrar al usuario a partir de cualquier error de una llamada.
+export function mensajeError(err: unknown): string {
+  return err instanceof ErrorApi ? err.message : "No se pudo conectar con el servidor";
+}
+
 export async function api<T>(ruta: string, opciones: RequestInit = {}): Promise<T> {
   const token = leerToken();
   const cabeceras = new Headers(opciones.headers);

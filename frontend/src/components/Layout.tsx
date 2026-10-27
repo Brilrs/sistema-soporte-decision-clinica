@@ -2,19 +2,20 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
-type Opcion = { ruta: string; texto: string; permiso: string };
+// Cada opción se muestra si el rol tiene alguno de sus permisos.
+type Opcion = { ruta: string; texto: string; permisos: string[] };
 
 const ATENCION: Opcion[] = [
-  { ruta: "/pacientes", texto: "Pacientes", permiso: "REGISTRAR_PACIENTE" },
-  { ruta: "/consultas", texto: "Historial de consultas", permiso: "REALIZAR_CONSULTA" },
-  { ruta: "/reportes", texto: "Reportes", permiso: "EXPORTAR_REPORTE" },
+  { ruta: "/pacientes", texto: "Pacientes", permisos: ["REGISTRAR_PACIENTE", "REALIZAR_CONSULTA"] },
+  { ruta: "/consultas", texto: "Historial de consultas", permisos: ["REALIZAR_CONSULTA"] },
+  { ruta: "/reportes", texto: "Reportes", permisos: ["EXPORTAR_REPORTE"] },
 ];
 
 const ADMINISTRACION: Opcion[] = [
-  { ruta: "/admin/usuarios", texto: "Usuarios", permiso: "ADMINISTRAR_USUARIOS" },
-  { ruta: "/admin/conocimiento", texto: "Base de conocimiento", permiso: "ADMINISTRAR_GUIAS" },
-  { ruta: "/admin/parametros", texto: "Parámetros clínicos", permiso: "CONFIGURAR_PARAMETROS" },
-  { ruta: "/admin/auditoria", texto: "Auditoría", permiso: "VER_AUDITORIA" },
+  { ruta: "/admin/usuarios", texto: "Usuarios", permisos: ["ADMINISTRAR_USUARIOS"] },
+  { ruta: "/admin/conocimiento", texto: "Base de conocimiento", permisos: ["ADMINISTRAR_GUIAS"] },
+  { ruta: "/admin/parametros", texto: "Parámetros clínicos", permisos: ["CONFIGURAR_PARAMETROS"] },
+  { ruta: "/admin/auditoria", texto: "Auditoría", permisos: ["VER_AUDITORIA"] },
 ];
 
 function iniciales(nombre: string): string {
@@ -24,8 +25,8 @@ function iniciales(nombre: string): string {
 export default function Layout() {
   const { usuario, cerrarSesion, tienePermiso } = useAuth();
   if (!usuario) return null;
-  const atencion = ATENCION.filter((o) => tienePermiso(o.permiso));
-  const admin = ADMINISTRACION.filter((o) => tienePermiso(o.permiso));
+  const atencion = ATENCION.filter((o) => o.permisos.some(tienePermiso));
+  const admin = ADMINISTRACION.filter((o) => o.permisos.some(tienePermiso));
 
   return (
     <div className="app">

@@ -10,5 +10,6 @@ __pycache__/
 # Node
 node_modules/
 dist/
+*.tsbuildinfo
 # Datos locales
 *.log
