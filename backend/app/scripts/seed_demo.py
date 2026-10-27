@@ -7,6 +7,8 @@ Uso (desde backend/):
 - Los pacientes se crean con la conexión del componente clínico; nombre, DNI,
   historia clínica y dirección se cifran con pgcrypto (AES-256) y el DNI y la
   historia clínica se guardan además como HMAC para la búsqueda.
+- Los tamizajes con hemoglobina se clasifican con los parámetros vigentes
+  (cálculo clínico determinístico), igual que al registrarlos desde la aplicación.
 - Todos los datos son ficticios. El script es idempotente: no duplica registros.
 """
 import os
@@ -18,6 +20,7 @@ from app.core.config import get_settings
 from app.core.db import engines
 from app.core.fechas import edad_en_meses
 from app.core.seguridad import hash_contrasena, hmac_identificador
+from app.services.clasificacion import clasificar, guardar_resultado
 
 USUARIOS = [
     # nombre_usuario, nombre_completo, rol, correo
@@ -129,12 +132,34 @@ def crear_pacientes(id_enfermera: str) -> int:
     return creados
 
 
+def clasificar_pendientes() -> int:
+    """Clasifica los tamizajes con hemoglobina que aún no tienen resultado (incluye los
+    cargados por versiones anteriores de este script)."""
+    clasificados = 0
+    with engines()["clinica"].begin() as c:
+        pendientes = c.execute(text(
+            """SELECT t.id_tamizaje::text, t.hemoglobina_g_dl, t.edad_meses, d.altitud_msnm
+                 FROM clinico.tamizaje t
+                 JOIN clinico.paciente p ON p.id_paciente = t.id_paciente
+                 JOIN clinico.distrito d ON d.ubigeo = p.ubigeo_residencia
+                WHERE t.hemoglobina_g_dl IS NOT NULL
+                  AND NOT EXISTS (SELECT 1 FROM clinico.resultado_clasificacion r WHERE r.id_tamizaje = t.id_tamizaje)""")).all()
+        for id_tamizaje, hb, edad, altitud in pendientes:
+            evaluacion = clasificar(c, hb, edad, altitud)
+            if evaluacion.clasificacion is not None:
+                guardar_resultado(c, id_tamizaje, evaluacion.clasificacion)
+                clasificados += 1
+    return clasificados
+
+
 def main() -> None:
     contrasena = os.environ.get("SEED_CONTRASENA", "Cdss2026!")
     ids = crear_usuarios(contrasena)
     nuevos = crear_pacientes(ids["enf.rojas"])
+    clasificados = clasificar_pendientes()
     print(f"Usuarios de prueba: {', '.join(ids)} (contraseña de SEED_CONTRASENA)")
     print(f"Pacientes ficticios creados: {nuevos}")
+    print(f"Tamizajes clasificados: {clasificados}")
 
 
 if __name__ == "__main__":
