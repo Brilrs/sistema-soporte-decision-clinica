@@ -81,9 +81,133 @@ input:focus { outline: 2px solid var(--azul-600); outline-offset: 0; border-colo
 .estado--ok { background: var(--verde-50); color: var(--verde); }
 .estado--mal { background: var(--rojo-50); color: var(--rojo); }
 
+/* Sprint 1 · Pacientes (M02, M03, M08, M14) */
+:root {
+  --ambar: #9a5b00;
+  --ambar-50: #fff4dc;
+  --rojo-100: #f9d4d0;
+  --rojo-900: #7a1209;
+}
+.boton--secundario { background: var(--blanco); color: var(--azul-700); border: 1px solid var(--azul-700); }
+.boton--neutro { background: var(--blanco); color: var(--gris-700); border: 1px solid var(--gris-300); }
+.boton--chico { padding: .35rem .7rem; font-size: .85rem; }
+.boton:disabled { opacity: .55; cursor: not-allowed; }
+.acciones { display: flex; gap: .6rem; justify-content: flex-end; align-items: center; flex-wrap: wrap; margin-top: 1.25rem; }
+.acciones .boton--primario { width: auto; }
+.nota-sprint { font-size: .78rem; color: var(--gris-500); }
+.encabezado-pagina { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+.migas { font-size: .85rem; color: var(--gris-500); margin-bottom: .35rem; }
+.migas a { color: var(--gris-500); text-decoration: none; }
+.migas a:hover { text-decoration: underline; }
+.alerta--exito { background: var(--verde-50); color: var(--verde); }
+.alerta--aviso { background: var(--ambar-50); color: var(--ambar); }
+.tarjeta--ancha { max-width: none; }
+.obligatorio { color: var(--rojo); }
+
+/* Buscador e indicadores (M02) */
+.buscador { display: flex; gap: .6rem; flex-wrap: wrap; }
+.buscador input { flex: 1; min-width: 220px; }
+.buscador .boton--primario { width: auto; }
+.indicadores { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin-top: 1.25rem; }
+.indicador { background: var(--blanco); border: 1px solid var(--gris-300); border-radius: var(--radio); padding: 1rem 1.1rem; }
+.indicador__titulo { font-size: .85rem; color: var(--gris-500); margin: 0; }
+.indicador__valor { font-size: 1.7rem; font-weight: 700; margin: .25rem 0 0; }
+.indicador__valor--sin-datos { font-size: 1rem; font-weight: 600; color: var(--gris-500); padding-top: .55rem; }
+.indicador__nota { font-size: .75rem; color: var(--gris-500); margin: .25rem 0 0; }
+
+/* Tablas de pacientes y tamizajes */
+.tabla th { text-align: left; font-size: .75rem; letter-spacing: .04em; text-transform: uppercase; color: var(--gris-500);
+  padding: .55rem .4rem; border-bottom: 1px solid var(--gris-300); background: var(--gris-100); }
+.tabla td { vertical-align: middle; }
+.tabla__acciones { display: flex; gap: .4rem; justify-content: flex-end; white-space: nowrap; }
+.tabla-contenedor { overflow-x: auto; }
+.vacio { color: var(--gris-500); padding: 1rem .4rem; }
+
+/* Etiquetas de clasificación y vigencia */
+.etiqueta { display: inline-block; border-radius: 999px; padding: .15rem .6rem; font-size: .8rem; font-weight: 600; white-space: nowrap; }
+.etiqueta--SIN_ANEMIA { background: var(--verde-50); color: var(--verde); }
+.etiqueta--ANEMIA_LEVE { background: var(--ambar-50); color: var(--ambar); }
+.etiqueta--ANEMIA_MODERADA { background: var(--rojo-50); color: var(--rojo); }
+.etiqueta--ANEMIA_SEVERA { background: var(--rojo-100); color: var(--rojo-900); }
+.etiqueta--sin { background: var(--gris-100); color: var(--gris-700); }
+.etiqueta--no-vigente { background: var(--ambar-50); color: var(--ambar); margin-left: .4rem; }
+.etiqueta--cambio { background: var(--azul-50); color: var(--azul-700); margin-left: .4rem; }
+.etiqueta--privado { background: var(--gris-100); color: var(--gris-700); font-weight: 500; margin-left: .5rem; }
+
+/* Formularios en rejilla (M03, M14) */
+.formulario { display: grid; grid-template-columns: minmax(280px, 2fr) minmax(0, 3fr); gap: 1.25rem; align-items: start; }
+.formulario .tarjeta { max-width: none; margin-top: 0; }
+.rejilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0 1rem; }
+.rejilla--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+select, textarea { width: 100%; padding: .6rem .7rem; border: 1px solid var(--gris-300); border-radius: 8px; font: inherit; background: var(--blanco); }
+textarea { min-height: 70px; resize: vertical; }
+select:focus, textarea:focus { outline: 2px solid var(--azul-600); outline-offset: 0; border-color: var(--azul-600); }
+input:disabled, input[readonly] { background: var(--gris-100); color: var(--gris-700); }
+.casillas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .35rem 1rem; }
+.casilla { display: flex; align-items: center; gap: .5rem; font-weight: 400; margin: 0; font-size: .92rem; }
+.casilla input { width: auto; }
+.columnas { display: grid; grid-template-columns: 3fr 2fr; gap: 1rem; }
+.anterior { font-size: .78rem; color: var(--gris-500); margin: .25rem 0 0; }
+.subtitulo { font-size: .85rem; font-weight: 600; margin: 1rem 0 .4rem; }
+.subtitulo span { font-weight: 400; color: var(--gris-500); }
+.solo-lectura dt { font-size: .8rem; font-weight: 600; color: var(--gris-700); margin-top: .8rem; }
+.solo-lectura dd { margin: .25rem 0 0; padding: .55rem .7rem; background: var(--gris-100); border-radius: 8px; }
+.vista-previa { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; background: var(--gris-100);
+  border-radius: 8px; padding: .7rem .9rem; margin-top: 1.25rem; font-size: .9rem; }
+.vista-previa strong { margin-right: .4rem; }
+
+/* Historial (M08) */
+.ficha-cabecera { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.ficha-cabecera__paciente { display: flex; align-items: center; gap: .9rem; }
+.avatar--grande { width: 52px; height: 52px; font-size: 1.05rem; background: var(--azul-50); color: var(--azul-700); }
+.ficha-cabecera h1 { margin: 0; }
+.historial { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 1.25rem; align-items: start; }
+.historial .tarjeta { max-width: none; margin-top: 0; }
+.datos-paciente { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: .5rem 1.25rem; margin: 0; }
+.datos-paciente dt { font-size: .75rem; color: var(--gris-500); }
+.datos-paciente dd { margin: .1rem 0 0; font-weight: 600; }
+.grafico { width: 100%; height: auto; display: block; }
+.grafico__nota { font-size: .78rem; color: var(--gris-500); margin: .5rem 0 0; }
+
+/* Sprint 1 · Gestión de usuarios (M10) */
+:root {
+  --morado: #6d28d9;
+  --morado-50: #f1eafe;
+  --turquesa: #0f766e;
+  --turquesa-50: #e2f5f2;
+}
+.boton--auto { width: auto; }
+.boton--peligro { background: var(--blanco); color: var(--rojo); border: 1px solid var(--rojo); }
+.usuarios { display: grid; grid-template-columns: minmax(0, 3fr) minmax(300px, 2fr); gap: 1.25rem; align-items: start; }
+.usuarios .tarjeta { margin-top: 1.25rem; }
+.panel-usuario h2 { margin-bottom: 0; }
+.fila--seleccionada td { background: var(--azul-50); }
+.estado--inactivo { background: var(--gris-100); color: var(--gris-700); }
+.etiqueta--rol { background: var(--gris-100); color: var(--gris-700); }
+.rol--enfermera-cred { background: var(--azul-50); color: var(--azul-700); }
+.rol--medico { background: var(--morado-50); color: var(--morado); }
+.rol--nutricionista { background: var(--turquesa-50); color: var(--turquesa); }
+.rol--coordinador-cred { background: var(--ambar-50); color: var(--ambar); }
+.rol--administrador { background: var(--azul-900); color: var(--blanco); }
+.permisos { display: grid; gap: .45rem; }
+.permisos input:disabled { cursor: default; }
+.acciones--izquierda { justify-content: flex-start; margin-top: .9rem; }
+.velo { position: fixed; inset: 0; background: rgba(17, 24, 39, .45); display: grid; place-items: center; padding: 1rem; z-index: 10; }
+.dialogo { background: var(--blanco); border-radius: var(--radio); padding: 1.5rem; width: 100%; max-width: 460px;
+  box-shadow: 0 20px 40px rgba(17, 24, 39, .25); }
+.contrasena { display: flex; gap: .5rem; }
+.contrasena input { font-family: Consolas, "Courier New", monospace; font-size: 1.05rem; letter-spacing: .05em; }
+
+@media (max-width: 1100px) {
+  .usuarios { grid-template-columns: 1fr; }
+  .formulario, .historial { grid-template-columns: 1fr; }
+  .indicadores { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 @media (max-width: 800px) {
   .login { grid-template-columns: 1fr; }
   .login__marca { padding: 1.5rem; }
   .menu { display: none; }
   .contenido { padding: 1rem; }
+  .columnas, .casillas, .rejilla--2 { grid-template-columns: 1fr; }
 }

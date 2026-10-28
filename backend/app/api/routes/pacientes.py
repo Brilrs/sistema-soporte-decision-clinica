@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -35,6 +35,10 @@ DATOS_NO_VALIDOS = 422
 # ---------------------------------------------------------------------------
 class _Entrada(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+
+class Busqueda(_Entrada):
+    texto: str = Field(min_length=1, max_length=150, description="DNI, N.° de historia clínica o nombre")
 
 
 class SintomaEntrada(_Entrada):
@@ -271,13 +275,18 @@ def _error_negocio(exc: Exception) -> HTTPException:
 # Panel y búsqueda (M02)
 # ---------------------------------------------------------------------------
 @router.get("", response_model=list[PacienteListado])
-def listar(request: Request,
-           q: str | None = Query(None, max_length=150, description="DNI, N.° de historia clínica o nombre"),
-           usuario: UsuarioActual = Depends(lectura), sesion: Session = Depends(sesion_clinica)) -> list[dict]:
-    """Sin «q»: pacientes atendidos recientemente. Con «q»: búsqueda."""
-    if not q or not q.strip():
-        return srv.recientes(sesion)
-    encontrados, coincidencias = srv.buscar(sesion, q)
+def recientes(_: UsuarioActual = Depends(lectura), sesion: Session = Depends(sesion_clinica)) -> list[dict]:
+    """Pacientes atendidos recientemente."""
+    return srv.recientes(sesion)
+
+
+@router.post("/buscar", response_model=list[PacienteListado])
+def buscar(datos: Busqueda, request: Request, usuario: UsuarioActual = Depends(lectura),
+           sesion: Session = Depends(sesion_clinica)) -> list[dict]:
+    """El texto va en el cuerpo y no en la URL, para que el DNI o el nombre no queden en los
+    registros de acceso de Nginx ni del servidor. La auditoría guarda solo el tipo de
+    coincidencia y el número de resultados, nunca el texto buscado."""
+    encontrados, coincidencias = srv.buscar(sesion, datos.texto)
     registrar_evento(sesion, "PACIENTE_BUSCADO", usuario.id_usuario, "paciente", None,
                      {"coincidencias": coincidencias, "resultados": len(encontrados)}, _ip(request))
     sesion.commit()

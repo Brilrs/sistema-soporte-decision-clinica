@@ -1,6 +1,8 @@
 """Contraseñas (Argon2id), tokens JWT y hash HMAC de identificadores."""
 import hashlib
 import hmac
+import secrets
+import string
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -21,6 +23,27 @@ def verificar_contrasena(hash_guardado: str, contrasena: str) -> bool:
         return _hasher.verify(hash_guardado, contrasena)
     except (VerifyMismatchError, InvalidHashError):
         return False
+
+
+def cumple_politica(contrasena: str) -> bool:
+    """Longitud mínima configurable (CONTRASENA_LONGITUD_MINIMA), al menos una letra y un número."""
+    return (len(contrasena) >= get_settings().contrasena_longitud_minima
+            and any(c.isalpha() for c in contrasena) and any(c.isdigit() for c in contrasena))
+
+
+# Sin caracteres que se confunden al leerlos en pantalla (0/O, 1/l/I)
+_ALFABETO = "".join(c for c in string.ascii_letters + string.digits if c not in "0O1lI") + "#%+=?@"
+_LONGITUD_GENERADA = 16
+
+
+def generar_contrasena() -> str:
+    """Contraseña aleatoria (módulo secrets) que cumple la política. El administrador nunca la escribe:
+    el sistema la genera al crear la cuenta o al restablecerla y la muestra una sola vez."""
+    longitud = max(_LONGITUD_GENERADA, get_settings().contrasena_longitud_minima)
+    while True:
+        contrasena = "".join(secrets.choice(_ALFABETO) for _ in range(longitud))
+        if cumple_politica(contrasena):
+            return contrasena
 
 
 def crear_token(id_usuario: str, rol: str) -> tuple[str, int]:

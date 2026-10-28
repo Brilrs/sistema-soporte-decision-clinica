@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     jwt_secreto: str = Field(..., alias="JWT_SECRETO", min_length=32)
     jwt_minutos: int = Field(480, alias="JWT_MINUTOS")
     max_intentos_fallidos: int = Field(5, alias="MAX_INTENTOS_FALLIDOS")
+    # Política de contraseñas de las cuentas (HU11): longitud mínima, con al menos una letra y un número
+    contrasena_longitud_minima: int = Field(10, alias="CONTRASENA_LONGITUD_MINIMA", ge=8, le=64)
 
     # Protección de la identidad del paciente
     clave_pii: str = Field(..., alias="CDSS_CLAVE_PII", min_length=32)

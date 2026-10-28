@@ -2,6 +2,7 @@
 
 Todos los pacientes de estas pruebas son ficticios y se generan al vuelo; el
 fixture pacientes_creados los elimina al terminar."""
+import json
 import random
 from datetime import timedelta
 from decimal import Decimal
@@ -188,14 +189,14 @@ def test_busqueda_por_dni_historia_clinica_y_nombre(cliente, cabeceras, paciente
     h = cabeceras("enf.rojas")
     for termino in (datos["dni"], f" {datos['numero_hc'].lower()} ", datos["nombres_apellidos"].split(" ", 1)[1].lower(),
                     datos["nombres_apellidos"].upper()):
-        encontrados = cliente.get("/api/pacientes", params={"q": termino}, headers=h).json()
+        encontrados = cliente.post("/api/pacientes/buscar", json={"texto": termino}, headers=h).json()
         assert [p["id_paciente"] for p in encontrados] == [r["id_paciente"]], termino
     fila = encontrados[0]
     assert fila["nombres_apellidos"] == datos["nombres_apellidos"] and fila["numero_hc"] == datos["numero_hc"]
     assert fila["ultimo_tamizaje"]["vigente"] is True
-    assert cliente.get("/api/pacientes", params={"q": "00000000"}, headers=h).json() == []
+    assert cliente.post("/api/pacientes/buscar", json={"texto": "00000000"}, headers=h).json() == []
     # Los comodines de SQL se buscan como texto literal
-    assert cliente.get("/api/pacientes", params={"q": "%%%"}, headers=h).json() == []
+    assert cliente.post("/api/pacientes/buscar", json={"texto": "%%%"}, headers=h).json() == []
 
 
 def test_busqueda_por_nombre_sin_tildes_ni_mayusculas(cliente, cabeceras, pacientes_creados):
@@ -204,13 +205,13 @@ def test_busqueda_por_nombre_sin_tildes_ni_mayusculas(cliente, cabeceras, pacien
     h = cabeceras("enf.rojas")
 
     def ids(termino: str) -> list[str]:
-        return [p["id_paciente"] for p in cliente.get("/api/pacientes", params={"q": termino}, headers=h).json()]
+        return [p["id_paciente"] for p in cliente.post("/api/pacientes/buscar", json={"texto": termino}, headers=h).json()]
 
     for termino in ("Huaman", "nunez", "NUÑEZ", "NÚÑEZ HUAMÁN", "ximena nunez"):
         assert r["id_paciente"] in ids(termino), termino
     assert ids(f"nunez huaman {sufijo.lower()}") == [r["id_paciente"]]
     # También sobre los datos de demostración: «Huaman» encuentra «Mateo Quispe Huamán»
-    nombres = [p["nombres_apellidos"] for p in cliente.get("/api/pacientes", params={"q": "huaman"}, headers=h).json()]
+    nombres = [p["nombres_apellidos"] for p in cliente.post("/api/pacientes/buscar", json={"texto": "huaman"}, headers=h).json()]
     assert "Mateo Quispe Huamán" in nombres
     assert ids("Nuñezz") == []
 
@@ -226,11 +227,11 @@ def test_pacientes_recientes_con_el_ultimo_tamizaje(cliente, cabeceras, paciente
 def test_datos_de_demostracion_clasificados(cliente, cabeceras):
     """seed_demo clasifica sus tamizajes; el menor de 6 meses queda sin clasificar."""
     h = cabeceras("enf.rojas")
-    mateo = cliente.get("/api/pacientes", params={"q": "81234567"}, headers=h).json()[0]
+    mateo = cliente.post("/api/pacientes/buscar", json={"texto": "81234567"}, headers=h).json()[0]
     assert mateo["ultimo_tamizaje"]["categoria"] is not None
-    sofia = cliente.get("/api/pacientes", params={"q": "82123456"}, headers=h).json()[0]
+    sofia = cliente.post("/api/pacientes/buscar", json={"texto": "82123456"}, headers=h).json()[0]
     assert sofia["ultimo_tamizaje"]["categoria"] is None
-    luana = cliente.get("/api/pacientes", params={"q": "81567890"}, headers=h).json()[0]
+    luana = cliente.post("/api/pacientes/buscar", json={"texto": "81567890"}, headers=h).json()[0]
     assert luana["ultimo_tamizaje"]["vigente"] is False
 
 
@@ -297,8 +298,8 @@ def test_correccion_de_datos_actualiza_el_hmac_y_no_toca_los_tamizajes(cliente, 
     assert respuesta.status_code == 200, respuesta.text
     ficha = respuesta.json()
     assert ficha["numero_hc"] == nueva_hc and ficha["direccion"] is None and ficha["distrito"] == "Puno"
-    assert cliente.get("/api/pacientes", params={"q": nueva_hc}, headers=h).json()[0]["id_paciente"] == id_paciente
-    assert cliente.get("/api/pacientes", params={"q": datos["numero_hc"]}, headers=h).json() == []
+    assert cliente.post("/api/pacientes/buscar", json={"texto": nueva_hc}, headers=h).json()[0]["id_paciente"] == id_paciente
+    assert cliente.post("/api/pacientes/buscar", json={"texto": datos["numero_hc"]}, headers=h).json() == []
     # La clasificación anterior es una instantánea: no cambia con el distrito
     assert cliente.get(f"/api/pacientes/{id_paciente}/historial", headers=h).json()["tamizajes"] == antes
 
@@ -372,8 +373,8 @@ def test_auditoria_sin_identificadores_en_claro(cliente, cabeceras, pacientes_cr
     desde = _ultimo_evento(super_engine)
     datos, r = _registrar(cliente, cabeceras, pacientes_creados)
     h = cabeceras("enf.rojas")
-    cliente.get("/api/pacientes", params={"q": datos["dni"]}, headers=h)
-    cliente.get("/api/pacientes", params={"q": datos["nombres_apellidos"]}, headers=h)
+    cliente.post("/api/pacientes/buscar", json={"texto": datos["dni"]}, headers=h)
+    cliente.post("/api/pacientes/buscar", json={"texto": datos["nombres_apellidos"]}, headers=h)
     cliente.post(f"/api/pacientes/{r['id_paciente']}/tamizajes", json=_tamizaje(), headers=h)
 
     eventos = _eventos(super_engine, desde=desde)
@@ -385,3 +386,42 @@ def test_auditoria_sin_identificadores_en_claro(cliente, cabeceras, pacientes_cr
     texto = " ".join(str(e) for e in eventos)
     for valor in (datos["dni"], datos["numero_hc"], datos["nombres_apellidos"], datos["direccion"]):
         assert valor not in texto
+
+
+def test_busqueda_por_post_sin_el_texto_en_la_url_ni_en_la_auditoria(cliente, cabeceras, pacientes_creados,
+                                                                    super_engine):
+    """La búsqueda viaja en el cuerpo (POST /buscar) y la auditoría no guarda el texto buscado,
+    ni cuando hay resultados ni cuando no los hay."""
+    datos, r = _registrar(cliente, cabeceras, pacientes_creados)
+    h = cabeceras("enf.rojas")
+    sin_resultado = "Texto Inexistente Zq"
+    terminos = (datos["dni"], f" {datos['numero_hc'].lower()} ", datos["nombres_apellidos"], sin_resultado)
+    desde = _ultimo_evento(super_engine)
+    for termino in terminos:
+        respuesta = cliente.post("/api/pacientes/buscar", json={"texto": termino}, headers=h)
+        assert respuesta.status_code == 200
+        assert [p["id_paciente"] for p in respuesta.json()] == ([] if termino == sin_resultado else [r["id_paciente"]])
+
+    busquedas = _eventos(super_engine, tipo="PACIENTE_BUSCADO", desde=desde)
+    assert len(busquedas) == len(terminos)
+    for evento in busquedas:
+        assert evento["id_entidad"] is None
+        assert set(json.loads(evento["detalle"])) == {"coincidencias", "resultados"}
+        for termino in terminos:
+            assert termino.strip().lower() not in evento["detalle"].lower()
+    assert json.loads(busquedas[-1]["detalle"]) == {"coincidencias": [], "resultados": 0}
+
+    # El listado por GET ya no busca: ignora cualquier parámetro y no registra búsquedas
+    desde = _ultimo_evento(super_engine)
+    cliente.get("/api/pacientes", params={"q": datos["dni"]}, headers=h)
+    assert _eventos(super_engine, tipo="PACIENTE_BUSCADO", desde=desde) == []
+
+
+def test_busqueda_valida_el_texto_y_los_permisos(cliente, cabeceras):
+    ruta = "/api/pacientes/buscar"
+    assert cliente.post(ruta, json={"texto": "   "}, headers=cabeceras("enf.rojas")).status_code == 422
+    assert cliente.post(ruta, json={}, headers=cabeceras("enf.rojas")).status_code == 422
+    assert cliente.post(ruta, json={"texto": "x" * 151}, headers=cabeceras("enf.rojas")).status_code == 422
+    assert cliente.post(ruta, json={"texto": "81234567"}, headers=cabeceras("coord.ortiz")).status_code == 200
+    assert cliente.post(ruta, json={"texto": "81234567"}, headers=cabeceras("admin.cdss")).status_code == 403
+    assert cliente.post(ruta, json={"texto": "81234567"}).status_code == 401
