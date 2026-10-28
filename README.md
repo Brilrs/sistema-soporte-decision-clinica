@@ -15,7 +15,7 @@ Sistema de soporte a la decisión clínica para la evaluación del riesgo de ane
 | Sprint | Contenido | Estado |
 | --- | --- | --- |
 | 0 | Repositorio, Docker Compose, base de datos con catálogos, login y control de acceso por rol | Completado |
-| 1 | Gestión de pacientes y tamizajes (HU01, HU02, HU04, HU05, HU11, HU18), pantallas M02, M03, M08, M10 y M14 | Pendiente |
+| 1 | Gestión de pacientes y tamizajes (HU01, HU02, HU04, HU05, HU11, HU18), pantallas M02, M03, M08, M10 y M14 | Completado |
 | 2 | Base de conocimiento y motor RAG (HU03, HU06 a HU09, HU12, HU15) | Pendiente |
 | 3 | Verificación, reportes y administración (HU10, HU13, HU14, HU16, HU17) | Pendiente |
 
@@ -82,7 +82,8 @@ Las pruebas cubren: login correcto, mensaje genérico ante usuario o contraseña
 ```
 backend/        API FastAPI
   app/core/       configuración, conexiones por rol, seguridad, auditoría
-  app/api/        rutas (auth, salud) y dependencias de permisos
+  app/api/        rutas (auth, salud, catálogos, pacientes, usuarios) y dependencias de permisos
+  app/services/   reglas del negocio (pacientes, clasificación, usuarios)
   app/scripts/    seed_demo (usuarios y pacientes ficticios)
   tests/          pruebas automáticas
 frontend/       React + Vite; Dockerfile con Nginx (único punto de entrada)

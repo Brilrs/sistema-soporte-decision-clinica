@@ -23,6 +23,11 @@ export function fechaRelativa(isoFecha: string, isoRegistro?: string | null): st
   return fecha(isoFecha);
 }
 
+// Momento con fecha y hora (p. ej., último acceso) con el mismo criterio que fechaRelativa.
+export function momentoRelativo(iso: string | null | undefined, sinDato = VACIO): string {
+  return iso ? fechaRelativa(aIso(new Date(iso)), iso) : sinDato;
+}
+
 export function fechaHora(iso: string): string {
   const f = new Date(iso);
   return `${fecha(aIso(f))} ${f.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit", hour12: false })}`;

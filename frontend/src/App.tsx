@@ -3,6 +3,7 @@ import { useAuth } from "./auth/AuthContext";
 import Layout from "./components/Layout";
 import EditarPaciente from "./pages/EditarPaciente";
 import EnConstruccion from "./pages/EnConstruccion";
+import GestionUsuarios from "./pages/GestionUsuarios";
 import HistorialPaciente from "./pages/HistorialPaciente";
 import Inicio from "./pages/Inicio";
 import Login from "./pages/Login";
@@ -41,7 +42,7 @@ export default function App() {
         <Route path="pacientes/:id/editar" element={<ConPermiso permisos={REGISTRAR}><EditarPaciente /></ConPermiso>} />
         <Route path="consultas" element={<ConPermiso permisos={LEER_PACIENTES}><PanelPacientes modo="historial" /></ConPermiso>} />
         <Route path="reportes" element={<EnConstruccion titulo="Reportes" pantalla="M09 Reporte exportable" sprint={3} />} />
-        <Route path="admin/usuarios" element={<EnConstruccion titulo="Usuarios" pantalla="M10 Gestión de usuarios" sprint={1} />} />
+        <Route path="admin/usuarios" element={<ConPermiso permisos={["ADMINISTRAR_USUARIOS"]}><GestionUsuarios /></ConPermiso>} />
         <Route path="admin/conocimiento" element={<EnConstruccion titulo="Base de conocimiento" pantalla="M11 Base de conocimiento" sprint={2} />} />
         <Route path="admin/parametros" element={<EnConstruccion titulo="Parámetros clínicos" pantalla="M12 Parámetros clínicos" sprint={3} />} />
         <Route path="admin/auditoria" element={<EnConstruccion titulo="Auditoría" pantalla="M13 Auditoría y trazabilidad" sprint={3} />} />

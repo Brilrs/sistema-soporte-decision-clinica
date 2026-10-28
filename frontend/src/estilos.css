@@ -169,7 +169,37 @@ input:disabled, input[readonly] { background: var(--gris-100); color: var(--gris
 .grafico { width: 100%; height: auto; display: block; }
 .grafico__nota { font-size: .78rem; color: var(--gris-500); margin: .5rem 0 0; }
 
+/* Sprint 1 · Gestión de usuarios (M10) */
+:root {
+  --morado: #6d28d9;
+  --morado-50: #f1eafe;
+  --turquesa: #0f766e;
+  --turquesa-50: #e2f5f2;
+}
+.boton--auto { width: auto; }
+.boton--peligro { background: var(--blanco); color: var(--rojo); border: 1px solid var(--rojo); }
+.usuarios { display: grid; grid-template-columns: minmax(0, 3fr) minmax(300px, 2fr); gap: 1.25rem; align-items: start; }
+.usuarios .tarjeta { margin-top: 1.25rem; }
+.panel-usuario h2 { margin-bottom: 0; }
+.fila--seleccionada td { background: var(--azul-50); }
+.estado--inactivo { background: var(--gris-100); color: var(--gris-700); }
+.etiqueta--rol { background: var(--gris-100); color: var(--gris-700); }
+.rol--enfermera-cred { background: var(--azul-50); color: var(--azul-700); }
+.rol--medico { background: var(--morado-50); color: var(--morado); }
+.rol--nutricionista { background: var(--turquesa-50); color: var(--turquesa); }
+.rol--coordinador-cred { background: var(--ambar-50); color: var(--ambar); }
+.rol--administrador { background: var(--azul-900); color: var(--blanco); }
+.permisos { display: grid; gap: .45rem; }
+.permisos input:disabled { cursor: default; }
+.acciones--izquierda { justify-content: flex-start; margin-top: .9rem; }
+.velo { position: fixed; inset: 0; background: rgba(17, 24, 39, .45); display: grid; place-items: center; padding: 1rem; z-index: 10; }
+.dialogo { background: var(--blanco); border-radius: var(--radio); padding: 1.5rem; width: 100%; max-width: 460px;
+  box-shadow: 0 20px 40px rgba(17, 24, 39, .25); }
+.contrasena { display: flex; gap: .5rem; }
+.contrasena input { font-family: Consolas, "Courier New", monospace; font-size: 1.05rem; letter-spacing: .05em; }
+
 @media (max-width: 1100px) {
+  .usuarios { grid-template-columns: 1fr; }
   .formulario, .historial { grid-template-columns: 1fr; }
   .indicadores { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
