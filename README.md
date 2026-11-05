@@ -8,7 +8,8 @@ Sistema de soporte a la decisión clínica para la evaluación del riesgo de ane
 | API y orquestación | FastAPI + LangGraph (Python 3.12) |
 | Datos | PostgreSQL 16 (Azure Database for PostgreSQL en producción) |
 | Base vectorial | ChromaDB |
-| Modelo de lenguaje | Claude Sonnet 4.5 vía API de Anthropic (Sprint 2) |
+| Modelos locales | bge-m3 (embeddings) y bge-reranker-v2-m3, PyTorch solo CPU, en el contenedor interno `modelos` |
+| Modelo de lenguaje | Claude Sonnet 5.5 (`claude-sonnet-5-5`) vía API de Anthropic (Sprint 2) |
 
 ## Estado por Sprint
 
@@ -24,7 +25,7 @@ Sistema de soporte a la decisión clínica para la evaluación del riesgo de ane
 Requisitos: [Docker Desktop](https://www.docker.com/products/docker-desktop/) y Git. En Windows, use la terminal **Git Bash** para los comandos `.sh`.
 
 ```bash
-# 1. Crear el archivo .env con secretos aleatorios
+# 1. Crear el archivo .env con secretos aleatorios (si ya existe, solo agrega las variables que falten)
 ./generar_env.sh
 
 # 2. Levantar todo (la primera vez crea la base de datos y sus catálogos)
@@ -47,6 +48,24 @@ Abra **http://localhost:8080** e inicie sesión con cualquiera de estas cuentas 
 Estado de los servicios: http://localhost:8080/api/salud. La documentación interactiva de la API está en http://localhost:8000/docs cuando el backend corre en modo desarrollo (abajo).
 
 Para empezar de cero (borra la base de datos y la base vectorial): `docker compose down -v`.
+
+### Modelos locales
+
+El servicio `modelos` necesita los pesos de bge-m3 y bge-reranker-v2-m3 (unos 4,6 GB), fijados a una revisión exacta en `modelos/revisiones.json`. Se descargan una sola vez:
+
+```bash
+docker compose run --rm descargar-modelos
+```
+
+Quedan en `./data/modelos` (carpeta del equipo, no un volumen de Docker), así que `docker compose down -v` no los borra. En ejecución el servicio los lee en solo lectura y sin conexión a internet.
+
+### Procesos fuera de línea
+
+El servicio `jobs` (indexador de guías) no arranca con el resto: se ejecuta bajo demanda con `docker compose run --rm jobs python -m app.<módulo>`.
+
+### Memoria
+
+Cada servicio tiene un límite (`mem_limit` en `docker-compose.yml`): `modelos` 5,5 GB, `db` y `chromadb` 0,75 GB cada uno, `backend` 0,5 GB, `nginx` 64 MB y `jobs` 0,75 GB. En total, 8,31 GB con el indexador en marcha; Docker necesita al menos 8,5 GB asignados.
 
 ## Desarrollo sin reconstruir contenedores
 
@@ -73,9 +92,14 @@ cd backend
 cp .env.test.example .env.test   # conexiones a la base de pruebas
 python -m app.scripts.seed_demo
 pytest -q
+
+# Servicio de modelos, con el motor falso (sin PyTorch ni pesos descargados)
+cd modelos
+pip install -r requirements-dev.txt
+python -m pytest -q
 ```
 
-Las pruebas cubren: login correcto, mensaje genérico ante usuario o contraseña incorrectos, bloqueo tras 5 intentos fallidos, cuentas inactivas, permisos por rol, registro en la auditoría, separación de privilegios entre componentes, cifrado de la identidad del paciente, bitácora inmutable, unicidad de parámetros vigentes y cálculo de la edad en meses. El flujo de GitHub Actions (`.github/workflows/ci.yml`) las ejecuta en cada push.
+Las pruebas cubren: login correcto, mensaje genérico ante usuario o contraseña incorrectos, bloqueo tras 5 intentos fallidos, cuentas inactivas, permisos por rol, registro en la auditoría, separación de privilegios entre componentes, cifrado de la identidad del paciente, bitácora inmutable, unicidad de parámetros vigentes, cálculo de la edad en meses, idempotencia de las migraciones, permisos por columna de los componentes de generación e indexación, `generar_env.sh` y los endpoints del servicio de modelos. El flujo de GitHub Actions (`.github/workflows/ci.yml`) las ejecuta en cada push.
 
 ## Estructura del repositorio
 
@@ -88,19 +112,30 @@ backend/        API FastAPI
   tests/          pruebas automáticas
 frontend/       React + Vite; Dockerfile con Nginx (único punto de entrada)
 db/
-  init/           01 esquema (26 tablas), 02 catálogos, 03 usuarios de conexión
+  init/           01 esquema (27 tablas), 02 catálogos, 03 usuarios de conexión, 04 migraciones
+  migraciones/    cambios idempotentes para bases existentes (001: Sprint 2)
   sql/            usuarios de conexión con mínimo privilegio
-  aplicar_bd.sh   aplica todo sobre una base existente (Azure)
+  aplicar_bd.sh   aplica todo sobre una base nueva, o solo las migraciones (--solo-migraciones)
+modelos/        servicio interno de modelos locales (bge-m3 y bge-reranker-v2-m3)
 jobs/           indexador, evaluación OE3 y respaldo (Sprint 2)
+data/           guías en PDF, pesos de los modelos y mediciones (no se versiona, ver data/README.md)
 docs/           documentación del desarrollo
 ```
 
 ## Base de datos
 
-- **Esquema:** 26 tablas en 6 esquemas (`seguridad`, `clinico`, `asistencia`, `conocimiento`, `configuracion`, `auditoria`), triggers de integridad y vistas.
-- **Usuarios de conexión:** el backend usa un usuario por componente (`cdss_clinica`, `cdss_generacion`, `cdss_admin`, `cdss_auditor`). El de generación no puede leer la identidad de los pacientes.
+- **Esquema:** 27 tablas en 6 esquemas (`seguridad`, `clinico`, `asistencia`, `conocimiento`, `configuracion`, `auditoria`), triggers de integridad y vistas.
+- **Usuarios de conexión:** el backend usa un usuario por componente (`cdss_clinica`, `cdss_generacion`, `cdss_admin`, `cdss_auditor`) y el indexador usa `cdss_indexador`. El de generación no puede leer la identidad de los pacientes, el texto original de la consulta ni las observaciones del tamizaje; el indexador solo accede a la base de conocimiento.
 - **Identidad del paciente:** nombre, DNI, historia clínica y dirección se cifran con pgcrypto (AES-256) usando `CDSS_CLAVE_PII`. El DNI y la historia clínica se guardan además como HMAC para buscarlos sin descifrar. **Guarde `CDSS_CLAVE_PII`: sin ella no se puede recuperar la identidad.**
-- **Catálogos iniciales:** roles y permisos, síntomas, distritos con altitud, puntos de corte de hemoglobina, ajuste por altitud y 17 parámetros del sistema.
+- **Catálogos iniciales:** roles y permisos, síntomas, distritos con altitud, puntos de corte de hemoglobina, ajuste por altitud y 21 parámetros del sistema vigentes.
+- **Migraciones:** `db/migraciones/` lleva una base existente al estado actual sin perder datos. Son idempotentes: se pueden aplicar varias veces.
+
+```bash
+# Base local en Docker (PowerShell; en Git Bash anteponga MSYS_NO_PATHCONV=1 a cada comando)
+docker compose up -d db                                                         # recrea el contenedor con los montajes nuevos; el volumen de datos se conserva
+docker compose exec db bash /docker-entrypoint-initdb.d/04_migraciones.sh     # aplica las migraciones
+docker compose exec db bash /docker-entrypoint-initdb.d/03_usuarios_bd.sh     # crea los usuarios nuevos (cdss_indexador)
+```
 
 > Los valores clínicos marcados con `[VERIFICAR]` en `db/init/02_catalogos.sql` (puntos de corte, ajuste por altitud, descriptores MeSH y altitud de distritos) deben contrastarse con el texto oficial de la NTS N.° 213-MINSA/DGIESP-2024 y la guía OMS 2024 antes de la validación con usuarios. Todos se pueden cambiar desde la pantalla de parámetros clínicos (M12).
 
@@ -112,7 +147,9 @@ docs/           documentación del desarrollo
 ```bash
 export PGHOST=<servidor>.postgres.database.azure.com PGUSER=<admin> PGPASSWORD=<...> PGDATABASE=cdss PGSSLMODE=require
 export CDSS_DB_PWD_CLINICA=<...> CDSS_DB_PWD_GENERACION=<...> CDSS_DB_PWD_ADMIN=<...> CDSS_DB_PWD_AUDITOR=<...>
-./db/aplicar_bd.sh
+export CDSS_DB_PWD_INDEXADOR=<...>
+./db/aplicar_bd.sh                       # base nueva
+./db/aplicar_bd.sh --solo-migraciones    # base existente: aplica las migraciones y crea los usuarios nuevos
 ```
 
 ## Seguridad en desarrollo

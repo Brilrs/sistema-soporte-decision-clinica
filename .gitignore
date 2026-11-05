@@ -13,3 +13,6 @@ dist/
 *.tsbuildinfo
 # Datos locales
 *.log
+# Datos locales (guías, modelos y mediciones): solo se versiona data/README.md
+data/*
+!data/README.md

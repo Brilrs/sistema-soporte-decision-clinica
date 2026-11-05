@@ -62,25 +62,29 @@ INSERT INTO clinico.distrito (ubigeo, nombre, provincia, departamento, altitud_m
 
 -- ---------------------------------------------------------------------------
 -- Documentos de referencia de los parámetros clínicos.
--- Quedan PENDIENTES de indexación: el PDF real se carga en el Sprint 2
--- (pipeline de indexación), que actualiza ruta_blob y hash_archivo.
+-- Quedan PENDIENTES de indexación, sin ruta ni hash: el pipeline de
+-- indexación (Sprint 2) los completa al cargar el PDF real.
+-- La NTS 213 fue aprobada por la RM 251-2024/MINSA (08/04/2024) y modificada
+-- por la RM 429-2024/MINSA (18/06/2024), cuyo Anexo trae 12 modificaciones.
 -- ---------------------------------------------------------------------------
 INSERT INTO conocimiento.documento_fuente
   (id_documento, titulo, codigo_documento, entidad_emisora, tipo_documento, nivel, anio_publicacion,
-   ruta_blob, hash_archivo, cargado_por)
+   fecha_publicacion, version, idioma, pagina_inicio_cuerpo, pagina_fin_cuerpo, cargado_por)
 VALUES
   ('10000000-0000-0000-0000-000000000213',
    'Norma técnica de salud para la prevención y control de la anemia', 'NTS 213-MINSA/DGIESP-2024',
-   'MINSA', 'NORMA_TECNICA', 1, 2024, 'pendiente://nts-213-2024.pdf',
-   encode(sha256('pendiente:nts-213-2024'::bytea), 'hex'), '00000000-0000-0000-0000-000000000001'),
+   'MINSA', 'NORMA_TECNICA', 1, 2024, DATE '2024-04-08', 'RM 251-2024/MINSA', 'es', 4, 36,
+   '00000000-0000-0000-0000-000000000001'),
+  ('10000000-0000-0000-0000-000000000429',
+   'NTS 213-MINSA/DGIESP-2024 modificada por RM 429-2024/MINSA', 'RM 429-2024/MINSA',
+   'MINSA', 'RESOLUCION', 1, 2024, DATE '2024-06-18', 'RM 429-2024/MINSA', 'es', 4, 11,
+   '00000000-0000-0000-0000-000000000001'),
   ('10000000-0000-0000-0000-000000002024',
    'Guideline on haemoglobin cutoffs to define anaemia in individuals and populations', 'OMS 2024',
-   'OMS', 'GUIA', 1, 2024, 'pendiente://oms-hb-cutoffs-2024.pdf',
-   encode(sha256('pendiente:oms-2024'::bytea), 'hex'), '00000000-0000-0000-0000-000000000001'),
+   'OMS', 'GUIA', 1, 2024, NULL, NULL, 'en', NULL, NULL, '00000000-0000-0000-0000-000000000001'),
   ('10000000-0000-0000-0000-000000002016',
    'Guideline: daily iron supplementation in infants and children', 'OMS 2016',
-   'OMS', 'GUIA', 1, 2016, 'pendiente://oms-iron-2016.pdf',
-   encode(sha256('pendiente:oms-2016'::bytea), 'hex'), '00000000-0000-0000-0000-000000000001');
+   'OMS', 'GUIA', 1, 2016, NULL, NULL, 'en', NULL, NULL, '00000000-0000-0000-0000-000000000001');
 
 -- ---------------------------------------------------------------------------
 -- Puntos de corte de hemoglobina (g/dL, a nivel del mar) [VERIFICAR]
@@ -105,16 +109,25 @@ JOIN configuracion.categoria_anemia c ON c.nombre = v.cat;
 
 -- ---------------------------------------------------------------------------
 -- Ajuste de hemoglobina por altitud (g/dL que se restan) [VERIFICAR]
--- Valores de la guía OMS (2024) por rangos de 500 m.
+-- Valores de la guía OMS (2024) por rangos de 500 m. Los dos últimos rangos
+-- siguen la Tabla 1 del Anexo de la RM 429-2024/MINSA (modificación 2).
 -- ---------------------------------------------------------------------------
 INSERT INTO configuracion.ajuste_altitud
   (id_documento, altitud_min_msnm, altitud_max_msnm, ajuste_g_dl, modificado_por)
-SELECT '10000000-0000-0000-0000-000000002024', v.amin, v.amax, v.aj, '00000000-0000-0000-0000-000000000001'
+SELECT v.doc::uuid, v.amin, v.amax, v.aj, '00000000-0000-0000-0000-000000000001'
 FROM (VALUES
-  (   0,  499, 0.0), ( 500,  999, 0.4), (1000, 1499, 0.8), (1500, 1999, 1.1),
-  (2000, 2499, 1.4), (2500, 2999, 1.8), (3000, 3499, 2.1), (3500, 3999, 2.5),
-  (4000, 4499, 2.9), (4500, 5500, 3.3)
-) AS v(amin, amax, aj);
+  ('10000000-0000-0000-0000-000000002024',    0,  499, 0.0),
+  ('10000000-0000-0000-0000-000000002024',  500,  999, 0.4),
+  ('10000000-0000-0000-0000-000000002024', 1000, 1499, 0.8),
+  ('10000000-0000-0000-0000-000000002024', 1500, 1999, 1.1),
+  ('10000000-0000-0000-0000-000000002024', 2000, 2499, 1.4),
+  ('10000000-0000-0000-0000-000000002024', 2500, 2999, 1.8),
+  ('10000000-0000-0000-0000-000000002024', 3000, 3499, 2.1),
+  ('10000000-0000-0000-0000-000000002024', 3500, 3999, 2.5),
+  ('10000000-0000-0000-0000-000000002024', 4000, 4499, 2.9),
+  ('10000000-0000-0000-0000-000000000429', 4500, 4999, 3.3),
+  ('10000000-0000-0000-0000-000000000429', 5000, 5500, 4.0)
+) AS v(doc, amin, amax, aj);
 
 -- ---------------------------------------------------------------------------
 -- Parámetros del sistema (valores iniciales del diseño, OE2 sección 4)
@@ -135,9 +148,19 @@ FROM (VALUES
   ('FRAGMENTOS_ENVIADOS',        '5',   'ENTERO',  1,    10,   'Fragmentos enviados al modelo de lenguaje'),
   ('UMBRAL_RELEVANCIA',          '0.60','DECIMAL', 0,    1,    'Puntaje mínimo del reranker para considerar suficiente la evidencia'),
   ('REINTENTOS_MAXIMOS',         '1',   'ENTERO',  0,    1,    'Reintentos permitidos por consulta'),
-  ('MODELO_LLM',                 'claude-sonnet-4-5', 'TEXTO', NULL, NULL, 'Identificador del modelo de lenguaje'),
+  ('MODELO_LLM',                 'claude-sonnet-5-5', 'TEXTO', NULL, NULL, 'Identificador del modelo de lenguaje'),
   ('TEMPERATURA_LLM',            '0',   'DECIMAL', 0,    1,    'Temperatura del modelo de lenguaje'),
   ('MAX_TOKENS_SALIDA',          '1000','ENTERO',  100,  4000, 'Longitud máxima de la respuesta del modelo'),
   ('TIMEOUT_LLM_S',              '15',  'ENTERO',  3,    60,   'Tiempo máximo de espera de la API del modelo en segundos'),
-  ('VERSION_PROMPT',             'v1.0','TEXTO',   NULL, NULL, 'Versión vigente del prompt clínico')
+  ('VERSION_PROMPT',             'v1.0','TEXTO',   NULL, NULL, 'Versión vigente del prompt clínico'),
+  ('UMBRAL_DOMINIO',             '0.50','DECIMAL', 0,    1,    'Similitud mínima con las consultas de referencia del dominio (valor provisional, se calibra con las pruebas de recuperación)'),
+  ('PRECIO_ENTRADA_USD_MTOK',    '2.00','DECIMAL', 0,    1000, 'Precio en dólares por millón de tokens de entrada del modelo de lenguaje'),
+  ('PRECIO_SALIDA_USD_MTOK',     '10.00','DECIMAL',0,    1000, 'Precio en dólares por millón de tokens de salida del modelo de lenguaje'),
+  ('MODELO_RESPALDO',            '',    'TEXTO',   NULL, NULL, 'Modelo de lenguaje de respaldo ante un rechazo; vacío significa desactivado'),
+  ('IDIOMA_RESPUESTA_DEFECTO',   'es',  'TEXTO',   NULL, NULL, 'Idioma de la recomendación cuando la consulta no indica otro (es o en)')
 ) AS v(clave, valor, tipo, vmin, vmax, descr);
+
+-- El modelo vigente no admite el parámetro de temperatura: el valor se cierra
+-- y se conserva en el historial.
+UPDATE configuracion.parametro_sistema SET vigente_hasta = now()
+ WHERE clave = 'TEMPERATURA_LLM' AND vigente_hasta IS NULL;

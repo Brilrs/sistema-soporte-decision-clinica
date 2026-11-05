@@ -1,4 +1,5 @@
-# Integración continua: pruebas del backend sobre PostgreSQL 16 y compilación del frontend.
+# Integración continua: pruebas del backend sobre PostgreSQL 16, pruebas del servicio de
+# modelos (sin PyTorch ni pesos descargados) y compilación del frontend.
 name: CI
 
 on:
@@ -27,6 +28,7 @@ jobs:
       CDSS_DB_PWD_GENERACION: gen_ci
       CDSS_DB_PWD_ADMIN: adm_ci
       CDSS_DB_PWD_AUDITOR: aud_ci
+      CDSS_DB_PWD_INDEXADOR: idx_ci
       DATABASE_URL_CLINICA: postgresql+psycopg://cdss_clinica:clin_ci@localhost:5432/cdss
       DATABASE_URL_GENERACION: postgresql+psycopg://cdss_generacion:gen_ci@localhost:5432/cdss
       DATABASE_URL_ADMIN: postgresql+psycopg://cdss_admin:adm_ci@localhost:5432/cdss
@@ -44,6 +46,13 @@ jobs:
         run: |
           sudo apt-get install -y postgresql-client
           ./db/aplicar_bd.sh
+      - name: Idempotencia de las migraciones (dos aplicaciones más sobre la base nueva)
+        run: |
+          for vuelta in 1 2; do
+            for archivo in db/migraciones/*.sql; do
+              psql -q -v ON_ERROR_STOP=1 --single-transaction -f "$archivo"
+            done
+          done
       - name: Dependencias
         working-directory: backend
         run: pip install -r requirements-dev.txt
@@ -52,6 +61,19 @@ jobs:
         run: |
           python -m app.scripts.seed_demo
           pytest -q
+
+  modelos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Pruebas con el motor falso
+        working-directory: modelos
+        run: |
+          pip install -r requirements-dev.txt
+          python -m pytest -q
 
   frontend:
     runs-on: ubuntu-latest
