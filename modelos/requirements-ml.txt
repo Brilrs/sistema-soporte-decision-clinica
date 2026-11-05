@@ -1,0 +1,4 @@
+# Se instala solo en la imagen (no en CI). PyTorch se instala antes, en su versión
+# solo CPU, desde https://download.pytorch.org/whl/cpu (ver Dockerfile).
+sentence-transformers==3.4.1
+transformers==4.48.3

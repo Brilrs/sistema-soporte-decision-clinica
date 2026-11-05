@@ -1,5 +1,11 @@
 # Entorno local del CDSS. Uso:  docker compose up --build
 # Aplicación: http://localhost:8080   ·   API: http://localhost:8080/api/salud
+#
+# Límites de memoria (mem_limit), pensados para Docker con 8,7 GB (WSL2). Son valores
+# iniciales: se ajustan con las mediciones de docker stats del Sprint 2.
+#   modelos 5,5 GB · db 0,75 GB · chromadb 0,75 GB · backend 0,5 GB · nginx 64 MB
+#   = 7,56 GB con el stack levantado; + jobs 0,75 GB mientras se indexa = 8,31 GB.
+#   descargar-modelos (1 GB) se ejecuta una sola vez, sin el resto del stack.
 name: cdss-anemia
 
 services:
@@ -14,12 +20,15 @@ services:
       CDSS_DB_PWD_GENERACION: ${CDSS_DB_PWD_GENERACION}
       CDSS_DB_PWD_ADMIN: ${CDSS_DB_PWD_ADMIN}
       CDSS_DB_PWD_AUDITOR: ${CDSS_DB_PWD_AUDITOR}
+      CDSS_DB_PWD_INDEXADOR: ${CDSS_DB_PWD_INDEXADOR:?Falta CDSS_DB_PWD_INDEXADOR en .env, ejecute ./generar_env.sh}
     volumes:
       - datos_pg:/var/lib/postgresql/data
-      - ./db/init:/docker-entrypoint-initdb.d:ro   # esquema, catálogos y usuarios (solo la primera vez)
+      - ./db/init:/docker-entrypoint-initdb.d:ro   # esquema, catálogos, usuarios y migraciones (solo la primera vez)
       - ./db/sql:/cdss-sql:ro
+      - ./db/migraciones:/cdss-migraciones:ro
     ports:
       - "5432:5432"   # solo para inspeccionar la base en desarrollo
+    mem_limit: 768m
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d cdss"]
       interval: 5s
@@ -34,9 +43,12 @@ services:
       - datos_chroma:/chroma/chroma
     ports:
       - "8001:8000"
+    mem_limit: 768m
 
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      target: api
     environment:
       CDSS_ENTORNO: desarrollo
       DATABASE_URL_CLINICA: postgresql+psycopg://cdss_clinica:${CDSS_DB_PWD_CLINICA}@db:5432/cdss
@@ -48,6 +60,13 @@ services:
       SEED_CONTRASENA: ${SEED_CONTRASENA}
       CHROMA_URL: http://chromadb:8000
       CORS_ORIGENES: '["http://localhost:8080","http://localhost:5173"]'
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/salud', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
     depends_on:
       db:
         condition: service_healthy
@@ -58,9 +77,64 @@ services:
     build: ./frontend
     ports:
       - "8080:80"
+    mem_limit: 64m
     depends_on:
       - backend
+
+  # Modelos locales (bge-m3 y bge-reranker-v2-m3). Interno: sin puerto publicado.
+  # Necesita los pesos en ./data/modelos: docker compose run --rm descargar-modelos
+  modelos:
+    build: ./modelos
+    environment:
+      HF_HOME: /modelos/hf
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      MODELOS_MOTOR: real
+      MODELOS_CONCURRENCIA: "1"
+    volumes:
+      - ./data/modelos:/modelos:ro
+    mem_limit: 5632m
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/salud', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 180s
+
+  # Descarga única de los modelos a ./data/modelos (carpeta del equipo, no un
+  # volumen de Docker: docker compose down -v no la borra).
+  descargar-modelos:
+    build: ./modelos
+    profiles: ["descarga"]
+    command: ["python", "-m", "app.descargar_modelos"]
+    environment:
+      HF_HOME: /modelos/hf
+    volumes:
+      - ./data/modelos:/modelos
+    mem_limit: 1g
+
+  # Procesos fuera de línea (indexador de guías). No arranca con el stack:
+  #   docker compose run --rm jobs python -m app.<módulo>
+  jobs:
+    build:
+      context: ./backend
+      target: jobs
+    profiles: ["jobs"]
+    environment:
+      CDSS_ENTORNO: desarrollo
+      DATABASE_URL_INDEXADOR: postgresql+psycopg://cdss_indexador:${CDSS_DB_PWD_INDEXADOR}@db:5432/cdss
+      CHROMA_URL: http://chromadb:8000
+      MODELOS_URL: http://modelos:8000
+    volumes:
+      - ./data/guias:/datos/guias:ro
+      - datos_guias_cargadas:/datos/guias_cargadas:ro
+    mem_limit: 768m
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   datos_pg:
   datos_chroma:
+  # Simula Azure Blob Storage: PDF cargados desde la pantalla de base de conocimiento (M11).
+  datos_guias_cargadas:

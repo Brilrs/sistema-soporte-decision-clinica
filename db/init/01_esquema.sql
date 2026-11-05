@@ -180,9 +180,13 @@ CREATE TABLE conocimiento.documento_fuente (
   tipo_documento VARCHAR(20) NOT NULL CHECK (tipo_documento IN ('NORMA_TECNICA','GUIA','DIRECTIVA','RESOLUCION','LITERATURA')),
   nivel SMALLINT NOT NULL CHECK (nivel IN (1,2)),
   anio_publicacion SMALLINT NOT NULL,
+  fecha_publicacion DATE,
   version VARCHAR(20),
-  ruta_blob VARCHAR(300) NOT NULL,
-  hash_archivo CHAR(64) NOT NULL UNIQUE,
+  idioma CHAR(2) NOT NULL DEFAULT 'es' CONSTRAINT ck_documento_fuente_idioma CHECK (idioma IN ('es','en')),
+  pagina_inicio_cuerpo SMALLINT,
+  pagina_fin_cuerpo SMALLINT,
+  ruta_blob VARCHAR(300),
+  hash_archivo CHAR(64) UNIQUE,
   estado VARCHAR(10) NOT NULL DEFAULT 'VIGENTE' CHECK (estado IN ('VIGENTE','OBSOLETA')),
   estado_indexacion VARCHAR(12) NOT NULL DEFAULT 'PENDIENTE' CHECK (estado_indexacion IN ('PENDIENTE','EN_PROCESO','COMPLETADA','ERROR')),
   total_fragmentos INTEGER NOT NULL DEFAULT 0,
@@ -191,7 +195,14 @@ CREATE TABLE conocimiento.documento_fuente (
   fecha_carga TIMESTAMPTZ NOT NULL DEFAULT now(),
   retirado_por UUID REFERENCES seguridad.usuario (id_usuario),
   fecha_retiro TIMESTAMPTZ,
-  motivo_retiro VARCHAR(250)
+  motivo_retiro VARCHAR(250),
+  CONSTRAINT ck_documento_fuente_fecha_publicacion
+    CHECK (fecha_publicacion IS NULL OR extract(year FROM fecha_publicacion) = anio_publicacion),
+  CONSTRAINT ck_documento_fuente_paginas_cuerpo
+    CHECK ((pagina_inicio_cuerpo IS NULL AND pagina_fin_cuerpo IS NULL)
+        OR (pagina_inicio_cuerpo >= 1 AND pagina_inicio_cuerpo <= pagina_fin_cuerpo)),
+  CONSTRAINT ck_documento_fuente_archivo_indexado
+    CHECK (estado_indexacion <> 'COMPLETADA' OR (ruta_blob IS NOT NULL AND hash_archivo IS NOT NULL))
 );
 COMMENT ON TABLE conocimiento.documento_fuente IS 'Catálogo de las guías clínicas y documentos que conforman la base de conocimiento. El nivel 1 agrupa las fuentes citables (normas MINSA y guías OMS) y el nivel 2, la literatura metodológica que no se cita al usuario. Los documentos no se eliminan: al retirarse pasan a estado OBSOLETA para conservar la trazabilidad de las evaluaciones anteriores.';
 COMMENT ON COLUMN conocimiento.documento_fuente.id_documento IS 'Identificador del documento.';
@@ -201,9 +212,13 @@ COMMENT ON COLUMN conocimiento.documento_fuente.entidad_emisora IS 'MINSA, OMS u
 COMMENT ON COLUMN conocimiento.documento_fuente.tipo_documento IS 'NORMA_TECNICA, GUIA, DIRECTIVA, RESOLUCION o LITERATURA.';
 COMMENT ON COLUMN conocimiento.documento_fuente.nivel IS '1 = citable clínicamente; 2 = respaldo metodológico.';
 COMMENT ON COLUMN conocimiento.documento_fuente.anio_publicacion IS 'Año de publicación.';
+COMMENT ON COLUMN conocimiento.documento_fuente.fecha_publicacion IS 'Fecha de publicación o aprobación oficial del documento, cuando se conoce.';
 COMMENT ON COLUMN conocimiento.documento_fuente.version IS 'Versión del documento.';
-COMMENT ON COLUMN conocimiento.documento_fuente.ruta_blob IS 'Ubicación del PDF original en Azure Blob Storage.';
-COMMENT ON COLUMN conocimiento.documento_fuente.hash_archivo IS 'SHA-256 del archivo, para evitar cargas duplicadas.';
+COMMENT ON COLUMN conocimiento.documento_fuente.idioma IS 'Idioma del texto del documento (es o en); orienta la búsqueda léxica.';
+COMMENT ON COLUMN conocimiento.documento_fuente.pagina_inicio_cuerpo IS 'Primera página del PDF que se indexa (excluye la resolución de aprobación).';
+COMMENT ON COLUMN conocimiento.documento_fuente.pagina_fin_cuerpo IS 'Última página del PDF que se indexa.';
+COMMENT ON COLUMN conocimiento.documento_fuente.ruta_blob IS 'Ubicación del PDF original en Azure Blob Storage; nula hasta que se carga el archivo.';
+COMMENT ON COLUMN conocimiento.documento_fuente.hash_archivo IS 'SHA-256 del archivo, para evitar cargas duplicadas; nulo hasta que se carga el archivo.';
 COMMENT ON COLUMN conocimiento.documento_fuente.estado IS 'VIGENTE u OBSOLETA.';
 COMMENT ON COLUMN conocimiento.documento_fuente.estado_indexacion IS 'PENDIENTE, EN_PROCESO, COMPLETADA o ERROR.';
 COMMENT ON COLUMN conocimiento.documento_fuente.total_fragmentos IS 'Número de fragmentos generados en la indexación.';
@@ -233,7 +248,16 @@ CREATE TABLE conocimiento.fragmento (
   conceptos_umls TEXT[],
   modelo_embedding VARCHAR(40) NOT NULL,
   fecha_indexacion TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (id_documento, numero_orden)
+  vigente BOOLEAN NOT NULL DEFAULT true,
+  id_documento_modificatorio UUID REFERENCES conocimiento.documento_fuente (id_documento),
+  motivo_exclusion VARCHAR(250),
+  tipo_contenido VARCHAR(10) NOT NULL DEFAULT 'TEXTO' CONSTRAINT ck_fragmento_tipo_contenido CHECK (tipo_contenido IN ('TEXTO','TABLA')),
+  fuente_texto VARCHAR(15) NOT NULL DEFAULT 'CAPA_TEXTO' CONSTRAINT ck_fragmento_fuente_texto CHECK (fuente_texto IN ('CAPA_TEXTO','OCR','TRANSCRIPCION')),
+  verificado BOOLEAN NOT NULL DEFAULT false,
+  fecha_verificacion TIMESTAMPTZ,
+  UNIQUE (id_documento, numero_orden),
+  CONSTRAINT ck_fragmento_motivo_exclusion CHECK (vigente OR motivo_exclusion IS NOT NULL),
+  CONSTRAINT ck_fragmento_verificacion CHECK (verificado = (fecha_verificacion IS NOT NULL))
 );
 COMMENT ON TABLE conocimiento.fragmento IS 'Fragmento de texto de un documento, generado por el pipeline de indexación. Su identificador es el mismo que el del vector en ChromaDB, lo que mantiene la correspondencia entre ambos almacenes. El texto se usa además para construir el índice léxico BM25.';
 COMMENT ON COLUMN conocimiento.fragmento.id_fragmento IS 'Identificador del fragmento; igual al identificador del vector en ChromaDB.';
@@ -248,7 +272,51 @@ COMMENT ON COLUMN conocimiento.fragmento.terminos_mesh IS 'Descriptores MeSH asi
 COMMENT ON COLUMN conocimiento.fragmento.conceptos_umls IS 'Identificadores de concepto UMLS (CUI) asignados.';
 COMMENT ON COLUMN conocimiento.fragmento.modelo_embedding IS 'Modelo con el que se generó el vector (bge-m3).';
 COMMENT ON COLUMN conocimiento.fragmento.fecha_indexacion IS 'Fecha y hora de indexación.';
+COMMENT ON COLUMN conocimiento.fragmento.vigente IS 'Falso cuando el texto fue sustituido por un documento modificatorio; el fragmento se conserva para la trazabilidad pero no se recupera.';
+COMMENT ON COLUMN conocimiento.fragmento.id_documento_modificatorio IS 'Documento que sustituye el texto de este fragmento (p. ej., la RM 429-2024/MINSA).';
+COMMENT ON COLUMN conocimiento.fragmento.motivo_exclusion IS 'Motivo por el que el fragmento no es vigente; obligatorio cuando vigente es falso.';
+COMMENT ON COLUMN conocimiento.fragmento.tipo_contenido IS 'TEXTO o TABLA; las tablas se conservan completas en un solo fragmento.';
+COMMENT ON COLUMN conocimiento.fragmento.fuente_texto IS 'Origen del texto: CAPA_TEXTO del PDF, OCR o TRANSCRIPCION manual.';
+COMMENT ON COLUMN conocimiento.fragmento.verificado IS 'Indica que el texto fue contrastado con la imagen del documento original.';
+COMMENT ON COLUMN conocimiento.fragmento.fecha_verificacion IS 'Fecha y hora de la verificación; obligatoria si verificado es verdadero.';
 CREATE INDEX ix_fragmento_id_documento ON conocimiento.fragmento (id_documento);
+CREATE INDEX ix_fragmento_id_documento_modificatorio ON conocimiento.fragmento (id_documento_modificatorio);
+
+-- ---------------------------------------------------------------------------
+-- conocimiento.trabajo_indexacion
+-- ---------------------------------------------------------------------------
+CREATE TABLE conocimiento.trabajo_indexacion (
+  id_trabajo UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id_documento UUID NOT NULL REFERENCES conocimiento.documento_fuente (id_documento),
+  tipo VARCHAR(12) NOT NULL CONSTRAINT ck_trabajo_indexacion_tipo CHECK (tipo IN ('INDEXACION','REINDEXACION','RETIRO')),
+  estado VARCHAR(10) NOT NULL DEFAULT 'PENDIENTE' CONSTRAINT ck_trabajo_indexacion_estado CHECK (estado IN ('PENDIENTE','EN_CURSO','COMPLETADO','ERROR')),
+  etapa VARCHAR(15) CONSTRAINT ck_trabajo_indexacion_etapa CHECK (etapa IN ('EXTRACCION','FRAGMENTACION','NORMALIZACION','EMBEDDINGS','INDEXACION')),
+  procesados INTEGER NOT NULL DEFAULT 0 CHECK (procesados >= 0),
+  total INTEGER CHECK (total >= 0),
+  mensaje_error VARCHAR(500),
+  solicitado_por UUID NOT NULL REFERENCES seguridad.usuario (id_usuario),
+  fecha_solicitud TIMESTAMPTZ NOT NULL DEFAULT now(),
+  fecha_inicio TIMESTAMPTZ,
+  fecha_fin TIMESTAMPTZ,
+  CONSTRAINT ck_trabajo_indexacion_avance CHECK (total IS NULL OR procesados <= total),
+  CONSTRAINT ck_trabajo_indexacion_error CHECK (estado <> 'ERROR' OR mensaje_error IS NOT NULL)
+);
+COMMENT ON TABLE conocimiento.trabajo_indexacion IS 'Cola y avance de los trabajos del pipeline de indexación. El contenedor Jobs toma los trabajos pendientes y la pantalla de base de conocimiento (M11) lee aquí la etapa y el número de fragmentos procesados.';
+COMMENT ON COLUMN conocimiento.trabajo_indexacion.id_trabajo IS 'Identificador del trabajo.';
+COMMENT ON COLUMN conocimiento.trabajo_indexacion.id_documento IS 'Documento que se procesa.';
+COMMENT ON COLUMN conocimiento.trabajo_indexacion.tipo IS 'INDEXACION, REINDEXACION o RETIRO.';
+COMMENT ON COLUMN conocimiento.trabajo_indexacion.estado IS 'PENDIENTE, EN_CURSO, COMPLETADO o ERROR.';
+COMMENT ON COLUMN conocimiento.trabajo_indexacion.etapa IS 'Etapa en curso: EXTRACCION, FRAGMENTACION, NORMALIZACION, EMBEDDINGS o INDEXACION.';
+COMMENT ON COLUMN conocimiento.trabajo_indexacion.procesados IS 'Fragmentos procesados en la etapa en curso.';
+COMMENT ON COLUMN conocimiento.trabajo_indexacion.total IS 'Total de fragmentos de la etapa en curso, cuando ya se conoce.';
+COMMENT ON COLUMN conocimiento.trabajo_indexacion.mensaje_error IS 'Descripción del error; obligatoria si el estado es ERROR.';
+COMMENT ON COLUMN conocimiento.trabajo_indexacion.solicitado_por IS 'Usuario que solicitó el trabajo.';
+COMMENT ON COLUMN conocimiento.trabajo_indexacion.fecha_solicitud IS 'Fecha y hora de la solicitud.';
+COMMENT ON COLUMN conocimiento.trabajo_indexacion.fecha_inicio IS 'Inicio del procesamiento.';
+COMMENT ON COLUMN conocimiento.trabajo_indexacion.fecha_fin IS 'Fin del procesamiento.';
+CREATE INDEX ix_trabajo_indexacion_id_documento ON conocimiento.trabajo_indexacion (id_documento);
+CREATE INDEX ix_trabajo_indexacion_solicitado_por ON conocimiento.trabajo_indexacion (solicitado_por);
+CREATE INDEX ix_trabajo_indexacion_estado ON conocimiento.trabajo_indexacion (estado, fecha_solicitud);
 
 -- ---------------------------------------------------------------------------
 -- configuracion.categoria_anemia
@@ -446,7 +514,9 @@ CREATE TABLE asistencia.consulta (
   fecha_hora_inicio TIMESTAMPTZ NOT NULL DEFAULT now(),
   fecha_hora_fin TIMESTAMPTZ,
   latencia_total_ms INTEGER CHECK (latencia_total_ms >= 0),
-  confirma_tamizaje_no_vigente BOOLEAN NOT NULL DEFAULT false
+  confirma_tamizaje_no_vigente BOOLEAN NOT NULL DEFAULT false,
+  texto_filtrado TEXT,
+  idioma_respuesta CHAR(2) NOT NULL DEFAULT 'es' CONSTRAINT ck_consulta_idioma_respuesta CHECK (idioma_respuesta IN ('es','en'))
 );
 COMMENT ON TABLE asistencia.consulta IS 'Pregunta clínica formulada por el profesional sobre un tamizaje. Registra su estado a lo largo del flujo y el tiempo total de respuesta (RNF3). Las consultas de seguimiento se enlazan con la consulta previa para conservar el contexto de sesión (1.3).';
 COMMENT ON COLUMN asistencia.consulta.id_consulta IS 'Identificador de la consulta.';
@@ -460,6 +530,8 @@ COMMENT ON COLUMN asistencia.consulta.fecha_hora_inicio IS 'Inicio del procesami
 COMMENT ON COLUMN asistencia.consulta.fecha_hora_fin IS 'Fin del procesamiento.';
 COMMENT ON COLUMN asistencia.consulta.latencia_total_ms IS 'Tiempo total de respuesta en milisegundos, usado para el control del percentil 90.';
 COMMENT ON COLUMN asistencia.consulta.confirma_tamizaje_no_vigente IS 'Indica que el profesional decidió continuar con un tamizaje que superaba el plazo de vigencia.';
+COMMENT ON COLUMN asistencia.consulta.texto_filtrado IS 'Texto de la consulta tras el filtro de texto libre (4.4), sin identificadores; es el único texto de la consulta que lee el componente de generación.';
+COMMENT ON COLUMN asistencia.consulta.idioma_respuesta IS 'Idioma en que se genera la recomendación (es o en).';
 CREATE INDEX ix_consulta_id_consulta_previa ON asistencia.consulta (id_consulta_previa);
 CREATE INDEX ix_consulta_id_tamizaje ON asistencia.consulta (id_tamizaje);
 CREATE INDEX ix_consulta_id_usuario ON asistencia.consulta (id_usuario);
@@ -516,7 +588,7 @@ CREATE TABLE asistencia.intento_generacion (
   fecha_hora TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (id_consulta, numero_intento)
 );
-COMMENT ON TABLE asistencia.intento_generacion IS 'Cada ejecución del ciclo recuperación–protección–generación–verificación de una consulta. El primer intento corresponde a la búsqueda inicial y el segundo, al único reintento permitido. Registra la solicitud desidentificada efectivamente enviada al proveedor, el consumo de tokens, el costo y el resultado de cada verificación en línea.';
+COMMENT ON TABLE asistencia.intento_generacion IS 'Cada ejecución del ciclo de recuperación, protección, generación y verificación de una consulta. El primer intento corresponde a la búsqueda inicial y el segundo, al único reintento permitido. Registra la solicitud desidentificada efectivamente enviada al proveedor, el consumo de tokens, el costo y el resultado de cada verificación en línea.';
 COMMENT ON COLUMN asistencia.intento_generacion.id_intento IS 'Identificador del intento.';
 COMMENT ON COLUMN asistencia.intento_generacion.id_consulta IS 'Consulta a la que pertenece el intento.';
 COMMENT ON COLUMN asistencia.intento_generacion.numero_intento IS '1 = búsqueda inicial; 2 = reintento.';
@@ -598,6 +670,7 @@ CREATE TABLE asistencia.cita_evidencia (
   id_fragmento UUID NOT NULL,
   orden SMALLINT NOT NULL,
   texto_citado TEXT NOT NULL,
+  extracto_traducido TEXT,
   FOREIGN KEY (id_intento, id_fragmento) REFERENCES asistencia.fragmento_recuperado (id_intento, id_fragmento),
   UNIQUE (id_recomendacion, id_fragmento)
 );
@@ -608,6 +681,7 @@ COMMENT ON COLUMN asistencia.cita_evidencia.id_intento IS 'Intento del fragmento
 COMMENT ON COLUMN asistencia.cita_evidencia.id_fragmento IS 'Fragmento citado (parte de la clave foránea compuesta).';
 COMMENT ON COLUMN asistencia.cita_evidencia.orden IS 'Orden de aparición de la cita en la recomendación.';
 COMMENT ON COLUMN asistencia.cita_evidencia.texto_citado IS 'Extracto del fragmento mostrado al usuario, conservado como instantánea.';
+COMMENT ON COLUMN asistencia.cita_evidencia.extracto_traducido IS 'Traducción de apoyo al español del extracto cuando la guía está en otro idioma; no oficial.';
 CREATE INDEX ix_cita_evidencia_id_recomendacion ON asistencia.cita_evidencia (id_recomendacion);
 
 -- ---------------------------------------------------------------------------
@@ -803,7 +877,8 @@ BEGIN
   -- rol_app_generacion: recuperación, solicitud mínima (4.4) y verificación
   -- rol_app_admin: usuarios, guías y parámetros
   -- rol_auditor: solo lectura de auditoría e indicadores
-  FOREACH r IN ARRAY ARRAY['rol_app_clinica','rol_app_generacion','rol_app_admin','rol_auditor'] LOOP
+  -- rol_app_indexador: pipeline de indexación de guías (contenedor Jobs)
+  FOREACH r IN ARRAY ARRAY['rol_app_clinica','rol_app_generacion','rol_app_admin','rol_auditor','rol_app_indexador'] LOOP
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r) THEN
       EXECUTE format('CREATE ROLE %I NOLOGIN', r);
     END IF;
@@ -817,16 +892,29 @@ GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA clinico TO rol_app_clinica;
 GRANT SELECT, INSERT, UPDATE ON asistencia.consulta, asistencia.dato_faltante,
       asistencia.decision_clinica, asistencia.reporte TO rol_app_clinica;
 GRANT SELECT ON ALL TABLES IN SCHEMA configuracion, conocimiento TO rol_app_clinica;
+REVOKE ALL ON conocimiento.trabajo_indexacion FROM rol_app_clinica;
 GRANT SELECT ON asistencia.recomendacion, asistencia.cita_evidencia,
       asistencia.v_historial_hemoglobina TO rol_app_clinica;
 
--- El componente de generación no puede leer la identidad del paciente
-GRANT SELECT ON clinico.paciente, clinico.tamizaje, clinico.tamizaje_sintoma, clinico.sintoma,
-      clinico.resultado_clasificacion TO rol_app_generacion;
-GRANT SELECT, UPDATE ON asistencia.consulta TO rol_app_generacion;
+-- El componente de generación no puede leer la identidad del paciente ni el texto
+-- libre sin filtrar: de la consulta lee todo salvo texto_consulta y del tamizaje
+-- todo salvo observaciones (permisos por columna).
+GRANT SELECT ON clinico.paciente, clinico.tamizaje_sintoma, clinico.sintoma,
+      clinico.resultado_clasificacion, asistencia.v_historial_hemoglobina TO rol_app_generacion;
+GRANT SELECT (id_tamizaje, id_paciente, id_usuario, fecha_tamizaje, edad_meses, hemoglobina_g_dl,
+              metodo_medicion, peso_kg, talla_cm, recibe_suplementacion_hierro,
+              lactancia_materna_actual, parasitosis_reciente, fecha_registro)
+  ON clinico.tamizaje TO rol_app_generacion;
+GRANT SELECT (id_consulta, id_consulta_previa, id_tamizaje, id_usuario, texto_filtrado, estado,
+              numero_intentos, fecha_hora_inicio, fecha_hora_fin, latencia_total_ms,
+              confirma_tamizaje_no_vigente, idioma_respuesta)
+  ON asistencia.consulta TO rol_app_generacion;
+GRANT UPDATE (estado, numero_intentos, fecha_hora_fin, latencia_total_ms)
+  ON asistencia.consulta TO rol_app_generacion;
 GRANT SELECT, INSERT, UPDATE ON asistencia.intento_generacion, asistencia.fragmento_recuperado,
       asistencia.recomendacion, asistencia.cita_evidencia TO rol_app_generacion;
 GRANT SELECT ON ALL TABLES IN SCHEMA conocimiento, configuracion TO rol_app_generacion;
+REVOKE ALL ON conocimiento.trabajo_indexacion FROM rol_app_generacion;
 REVOKE ALL ON clinico.paciente_identidad FROM rol_app_generacion;
 
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA seguridad, conocimiento, configuracion TO rol_app_admin;
@@ -834,9 +922,20 @@ GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA seguridad, conocimiento, co
 GRANT SELECT ON ALL TABLES IN SCHEMA auditoria TO rol_auditor;
 GRANT SELECT ON asistencia.v_auditoria_consulta, asistencia.v_indicadores_operativos TO rol_auditor;
 
-GRANT INSERT ON auditoria.evento_auditoria TO rol_app_clinica, rol_app_generacion, rol_app_admin;
+-- El indexador solo trabaja con la base de conocimiento: sin acceso a datos
+-- clínicos ni a cuentas, y sin permiso de eliminación.
+REVOKE ALL ON SCHEMA seguridad, clinico, asistencia FROM rol_app_indexador;
+GRANT USAGE ON SCHEMA conocimiento, configuracion, auditoria TO rol_app_indexador;
+GRANT SELECT ON ALL TABLES IN SCHEMA conocimiento TO rol_app_indexador;
+GRANT SELECT ON configuracion.parametro_sistema TO rol_app_indexador;
+GRANT INSERT, UPDATE ON conocimiento.fragmento, conocimiento.trabajo_indexacion TO rol_app_indexador;
+GRANT UPDATE (ruta_blob, hash_archivo, estado_indexacion, total_fragmentos)
+  ON conocimiento.documento_fuente TO rol_app_indexador;
+
+GRANT INSERT ON auditoria.evento_auditoria TO rol_app_clinica, rol_app_generacion, rol_app_admin, rol_app_indexador;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA seguridad, clinico, asistencia, conocimiento, configuracion, auditoria
   TO rol_app_clinica, rol_app_generacion, rol_app_admin;
+GRANT USAGE ON SEQUENCE auditoria.evento_auditoria_id_evento_seq TO rol_app_indexador;
 
 -- ============================================================================
 -- Datos iniciales de catálogos

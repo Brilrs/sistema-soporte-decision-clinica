@@ -6,6 +6,7 @@
 --   cdss_generacion -> rol_app_generacion (recuperación, solicitud mínima, verificación)
 --   cdss_admin      -> rol_app_admin      (usuarios, guías, parámetros)
 --   cdss_auditor    -> rol_auditor        (solo lectura de auditoría)
+--   cdss_indexador  -> rol_app_indexador  (pipeline de indexación de guías)
 -- Las contraseñas se reciben como variables de configuración de la sesión
 -- (cdss.pwd_*), que fijan db/init/03_usuarios_bd.sh (Docker) o db/aplicar_bd.sh (Azure).
 -- ============================================================================
@@ -24,7 +25,8 @@ BEGIN
       ('cdss_clinica',    'rol_app_clinica',    current_setting('cdss.pwd_clinica', true)),
       ('cdss_generacion', 'rol_app_generacion', current_setting('cdss.pwd_generacion', true)),
       ('cdss_admin',      'rol_app_admin',      current_setting('cdss.pwd_admin', true)),
-      ('cdss_auditor',    'rol_auditor',        current_setting('cdss.pwd_auditor', true))
+      ('cdss_auditor',    'rol_auditor',        current_setting('cdss.pwd_auditor', true)),
+      ('cdss_indexador',  'rol_app_indexador',  current_setting('cdss.pwd_indexador', true))
     ) AS t(usuario, rol, pwd)
   LOOP
     IF par.pwd IS NULL OR par.pwd = '' THEN
