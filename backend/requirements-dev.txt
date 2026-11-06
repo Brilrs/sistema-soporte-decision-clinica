@@ -1,2 +1,2 @@
--r requirements.txt
+-r requirements-jobs.txt
 pytest>=8.0

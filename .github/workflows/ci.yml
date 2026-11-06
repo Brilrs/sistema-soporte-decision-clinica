@@ -32,6 +32,7 @@ jobs:
       DATABASE_URL_CLINICA: postgresql+psycopg://cdss_clinica:clin_ci@localhost:5432/cdss
       DATABASE_URL_GENERACION: postgresql+psycopg://cdss_generacion:gen_ci@localhost:5432/cdss
       DATABASE_URL_ADMIN: postgresql+psycopg://cdss_admin:adm_ci@localhost:5432/cdss
+      DATABASE_URL_INDEXADOR: postgresql+psycopg://cdss_indexador:idx_ci@localhost:5432/cdss
       TEST_DATABASE_URL_SUPER: postgresql+psycopg://postgres:postgres@localhost:5432/cdss
       JWT_SECRETO: secreto-de-ci-con-al-menos-32-caracteres-xx
       CDSS_CLAVE_PII: clave-pii-de-ci-con-al-menos-32-caracteres

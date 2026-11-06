@@ -1,0 +1,32 @@
+# Fuentes iniciales de la base de conocimiento. Los PDF no se versionan: se
+# copian a data/guias (ver data/README.md). Cada documento reutiliza su fila ya
+# sembrada en conocimiento.documento_fuente (db/init/02_catalogos.sql).
+# recorte: zona del cuerpo en puntos PDF (sin sellos ni firmas de los márgenes).
+# rol: normal, modificado (texto sustituido según el mapa de modificaciones) o
+# modificatorio (se divide en sus modificaciones).
+documentos:
+  - clave: rm429
+    id_documento: 10000000-0000-0000-0000-000000000429
+    archivo: NTS_213_RM429_2024_modificatoria.pdf
+    recorte: {izquierda: 96, superior: 40, inferior: 800}
+    transcripciones: rm429
+    modificaciones: rm429_2024.yaml
+    rol: modificatorio
+    prefijo_imagen: rm429
+
+  - clave: rm251
+    id_documento: 10000000-0000-0000-0000-000000000213
+    archivo: NTS_213_RM251_2024.pdf
+    recorte: {izquierda: 108, superior: 105, inferior: 750}
+    transcripciones: rm251
+    modificaciones: rm429_2024.yaml
+    rol: modificado
+    prefijo_imagen: rm251
+
+  - clave: oms2024
+    id_documento: 10000000-0000-0000-0000-000000002024
+    archivo: OMS_2024_puntos_corte_hemoglobina.pdf
+
+  - clave: oms2016
+    id_documento: 10000000-0000-0000-0000-000000002016
+    archivo: OMS_2016_suplementacion_hierro.pdf

@@ -255,9 +255,11 @@ CREATE TABLE conocimiento.fragmento (
   fuente_texto VARCHAR(15) NOT NULL DEFAULT 'CAPA_TEXTO' CONSTRAINT ck_fragmento_fuente_texto CHECK (fuente_texto IN ('CAPA_TEXTO','OCR','TRANSCRIPCION')),
   verificado BOOLEAN NOT NULL DEFAULT false,
   fecha_verificacion TIMESTAMPTZ,
-  UNIQUE (id_documento, numero_orden),
+  version_indexacion SMALLINT NOT NULL DEFAULT 1,
+  CONSTRAINT uq_fragmento_documento_version_orden UNIQUE (id_documento, version_indexacion, numero_orden),
   CONSTRAINT ck_fragmento_motivo_exclusion CHECK (vigente OR motivo_exclusion IS NOT NULL),
-  CONSTRAINT ck_fragmento_verificacion CHECK (verificado = (fecha_verificacion IS NOT NULL))
+  CONSTRAINT ck_fragmento_verificacion CHECK (verificado = (fecha_verificacion IS NOT NULL)),
+  CONSTRAINT ck_fragmento_version_indexacion CHECK (version_indexacion >= 1)
 );
 COMMENT ON TABLE conocimiento.fragmento IS 'Fragmento de texto de un documento, generado por el pipeline de indexación. Su identificador es el mismo que el del vector en ChromaDB, lo que mantiene la correspondencia entre ambos almacenes. El texto se usa además para construir el índice léxico BM25.';
 COMMENT ON COLUMN conocimiento.fragmento.id_fragmento IS 'Identificador del fragmento; igual al identificador del vector en ChromaDB.';
@@ -279,6 +281,7 @@ COMMENT ON COLUMN conocimiento.fragmento.tipo_contenido IS 'TEXTO o TABLA; las t
 COMMENT ON COLUMN conocimiento.fragmento.fuente_texto IS 'Origen del texto: CAPA_TEXTO del PDF, OCR o TRANSCRIPCION manual.';
 COMMENT ON COLUMN conocimiento.fragmento.verificado IS 'Indica que el texto fue contrastado con la imagen del documento original.';
 COMMENT ON COLUMN conocimiento.fragmento.fecha_verificacion IS 'Fecha y hora de la verificación; obligatoria si verificado es verdadero.';
+COMMENT ON COLUMN conocimiento.fragmento.version_indexacion IS 'Número de la indexación del documento que generó el fragmento. Al reindexar, los fragmentos de las versiones anteriores pasan a no vigentes y solo los de la última versión están en ChromaDB.';
 CREATE INDEX ix_fragmento_id_documento ON conocimiento.fragmento (id_documento);
 CREATE INDEX ix_fragmento_id_documento_modificatorio ON conocimiento.fragmento (id_documento_modificatorio);
 

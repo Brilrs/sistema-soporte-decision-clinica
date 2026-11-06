@@ -12,7 +12,7 @@ from sqlalchemy.exc import DBAPIError, ProgrammingError
 from app.core.db import engines
 from app.services.clasificacion import clasificar
 
-MIGRACION = Path(__file__).resolve().parents[2] / "db" / "migraciones" / "001_sprint2.sql"
+MIGRACIONES = sorted((Path(__file__).resolve().parents[2] / "db" / "migraciones").glob("*.sql"))
 SISTEMA = "00000000-0000-0000-0000-000000000001"
 NTS_213 = "10000000-0000-0000-0000-000000000213"
 RM_429 = "10000000-0000-0000-0000-000000000429"
@@ -46,7 +46,8 @@ def _aplicar_migracion(super_engine) -> None:
     crudo = super_engine.raw_connection()
     try:
         with crudo.cursor() as cur:
-            cur.execute(MIGRACION.read_text(encoding="utf-8"))
+            for migracion in MIGRACIONES:
+                cur.execute(migracion.read_text(encoding="utf-8"))
         crudo.commit()
     finally:
         crudo.close()
@@ -87,6 +88,9 @@ def test_documentos_de_la_nts_213_y_su_modificatoria():
         "RESOLUCION", 1, 2024, date(2024, 6, 18), "VIGENTE")
     assert (rm.pagina_inicio_cuerpo, rm.pagina_fin_cuerpo, rm.idioma) == (4, 11, "es")
     assert {docs[d].idioma for d in docs if docs[d].entidad_emisora == "OMS"} == {"en"}
+    oms_2024, oms_2016 = docs["10000000-0000-0000-0000-000000002024"], docs["10000000-0000-0000-0000-000000002016"]
+    assert (oms_2024.pagina_inicio_cuerpo, oms_2024.pagina_fin_cuerpo) == (22, 55)
+    assert (oms_2016.pagina_inicio_cuerpo, oms_2016.pagina_fin_cuerpo) == (13, 28)
 
 
 def test_un_documento_indexado_exige_ruta_y_hash(super_engine):

@@ -1,0 +1,211 @@
+# Valores críticos de las normas MINSA. Cada regla es una expresión regular que
+# debe encontrarse en la transcripción indicada (pruebas de CI) y en los
+# fragmentos indexados de esa transcripción (pruebas lentas). El comando
+# verificar-valores arma con estas reglas la lista de comprobación contra la
+# imagen de cada página. Las barras | separan las celdas de las tablas.
+valores:
+  # RM 429-2024/MINSA, pág. 4
+  - id: adherencia_75_mensual
+    descripcion: "Adherencia adecuada: 75 % o más de la dosis indicada en un periodo mensual"
+    transcripcion: rm429/mod01_adherencia
+    regex: '75% a más de la dosis indicada del suplemento de hierro durante un periodo mensual'
+  - id: altitud_1_499
+    descripcion: "Ajuste por altitud 1 a 499 msnm: 0"
+    transcripcion: rm429/mod02_tabla01_ajuste_altitud
+    regex: '\| 1 - 499 \| 0 \|'
+  - id: altitud_500_999
+    descripcion: "Ajuste por altitud 500 a 999 msnm: 0.4"
+    transcripcion: rm429/mod02_tabla01_ajuste_altitud
+    regex: '\| 500 - 999 \| 0\.4 \|'
+  - id: altitud_1000_1499
+    descripcion: "Ajuste por altitud 1000 a 1499 msnm: 0.8"
+    transcripcion: rm429/mod02_tabla01_ajuste_altitud
+    regex: '\| 1000 - 1499 \| 0\.8 \|'
+  - id: altitud_1500_1999
+    descripcion: "Ajuste por altitud 1500 a 1999 msnm: 1.1"
+    transcripcion: rm429/mod02_tabla01_ajuste_altitud
+    regex: '\| 1500 - 1999 \| 1\.1 \|'
+  - id: altitud_2000_2499
+    descripcion: "Ajuste por altitud 2000 a 2499 msnm: 1.4"
+    transcripcion: rm429/mod02_tabla01_ajuste_altitud
+    regex: '\| 2000 - 2499 \| 1\.4 \|'
+  - id: altitud_2500_2999
+    descripcion: "Ajuste por altitud 2500 a 2999 msnm: 1.8"
+    transcripcion: rm429/mod02_tabla01_ajuste_altitud
+    regex: '\| 2500 - 2999 \| 1\.8 \|'
+  - id: altitud_3000_3499
+    descripcion: "Ajuste por altitud 3000 a 3499 msnm: 2.1"
+    transcripcion: rm429/mod02_tabla01_ajuste_altitud
+    regex: '\| 3000 - 3499 \| 2\.1 \|'
+  - id: altitud_3500_3999
+    descripcion: "Ajuste por altitud 3500 a 3999 msnm: 2.5"
+    transcripcion: rm429/mod02_tabla01_ajuste_altitud
+    regex: '\| 3500 - 3999 \| 2\.5 \|'
+  - id: altitud_4000_4499
+    descripcion: "Ajuste por altitud 4000 a 4499 msnm: 2.9"
+    transcripcion: rm429/mod02_tabla01_ajuste_altitud
+    regex: '\| 4000 - 4499 \| 2\.9 \|'
+  - id: altitud_4500_4999
+    descripcion: "Ajuste por altitud 4500 a 4999 msnm: 3.3"
+    transcripcion: rm429/mod02_tabla01_ajuste_altitud
+    regex: '\| 4500 - 4999 \| 3\.3 \|'
+  - id: altitud_5000_5500
+    descripcion: "Ajuste por altitud 5000 a 5500 msnm: 4.0"
+    transcripcion: rm429/mod02_tabla01_ajuste_altitud
+    regex: '\| 5000 - 5500 \| 4\.0 \|'
+  - id: altitud_formula
+    descripcion: "Fórmula del ajuste: coeficientes 0.0056384 y 0.0000003, dividido entre 10"
+    transcripcion: rm429/mod02_tabla01_ajuste_altitud
+    regex: '\(\(0\.0056384 x altitud\) \+ \(0\.0000003 x altitud x altitud\)\)/10'
+  # RM 429-2024/MINSA, pág. 5
+  - id: adherencia_menor_75
+    descripcion: "5.4.2: adherencia no adecuada, menos de 75 % de consumo en el mes"
+    transcripcion: rm429/mod03_suplementacion_5_4
+    regex: '<\s*75% de consumo del suplemento en el mes'
+  - id: reinicio_mayor_3_meses
+    descripcion: "5.4.4: reinicio si no se consumió por más de 3 meses, hasta completar 6 meses"
+    transcripcion: rm429/mod03_suplementacion_5_4
+    regex: 'por un periodo mayor a 3 meses.*hasta completar los 6 meses de suplementación'
+  # RM 429-2024/MINSA, págs. 5 y 6
+  - id: suspension_menor_3_meses
+    descripcion: "5.6.2: suspensión menor a 3 meses, se continúa la indicación"
+    transcripcion: rm429/mod04_suspension_5_6
+    regex: 'menor a 3 meses, se continúa la indicación'
+  - id: suspension_mayor_3_meses
+    descripcion: "5.6.3: suspensión mayor a 3 meses, reiniciar previa medición de hemoglobina"
+    transcripcion: rm429/mod04_suspension_5_6
+    regex: 'mayor a 3 meses, debe reiniciar un nuevo esquema, previa medición de hemoglobina'
+  # RM 429-2024/MINSA, pág. 6, Tabla 4
+  - id: mediciones_bajo_peso
+    descripcion: "Tabla 4: RN con bajo peso o prematuro, 2 mediciones"
+    transcripcion: rm429/mod05_tabla04_mediciones_hb
+    regex: '\| RN con bajo peso al nacer o prematuro \| 2 mediciones:'
+  - id: mediciones_6_11
+    descripcion: "Tabla 4: 6 a 11 meses, 3 mediciones"
+    transcripcion: rm429/mod05_tabla04_mediciones_hb
+    regex: '\| 6 a 11 meses de edad \| 3 mediciones:'
+  - id: mediciones_12_23
+    descripcion: "Tabla 4: 12 a 23 meses, 3 mediciones"
+    transcripcion: rm429/mod05_tabla04_mediciones_hb
+    regex: '\| 12 a 23 meses de edad \| 3 mediciones:'
+  - id: mediciones_24_59
+    descripcion: "Tabla 4: 24 a 35 y 36 a 59 meses, 2 mediciones al año"
+    transcripcion: rm429/mod05_tabla04_mediciones_hb
+    regex: '\| 24 a 35 meses de edad \| 2 mediciones al año:.*\| 36-59 meses de edad \| 2 mediciones al año:'
+  - id: mediciones_5_11_anios
+    descripcion: "Tabla 4: 5 a 11 años, 1 medición al año"
+    transcripcion: rm429/mod05_tabla04_mediciones_hb
+    regex: '\| 5 a 11 años de edad \| 1 medición al año \|'
+  # RM 429-2024/MINSA, pág. 7, Tablas 5 y 8
+  - id: tabla5_bajo_peso
+    descripcion: "Tabla 5: bajo peso o prematuro desde los 30 días, 2 mg/kg/día, hasta los 6 meses cumplidos"
+    transcripcion: rm429/mod06_tabla05_menores_6_meses
+    regex: 'bajo peso al nacer y/o prematuro/a \| A los 30 días de nacido \| 2mg/Kg/día \|[^\n]*\| Hasta los 6 meses cumplidos \|'
+  - id: tabla5_a_termino
+    descripcion: "Tabla 5: a término desde los 4 meses, 2 mg/kg/día, hasta los 6 meses cumplidos"
+    transcripcion: rm429/mod06_tabla05_menores_6_meses
+    regex: 'a término con adecuado peso al nacer \| A los 4 meses de edad \| 2mg/Kg/día \|[^\n]*\| Hasta los 6 meses cumplidos \|'
+  - id: tabla8_24_35_hierro
+    descripcion: "Tabla 8: 24 a 35 meses, 30 mg de hierro elemental diario, 6 meses continuos en el año"
+    transcripcion: rm429/mod07_tabla08_24_a_59_meses
+    regex: '\| 24 a 35 meses \| 30 mg Hierro elemental\* \|[^\n]*\| Diaria \| 6 meses continuos en el año \|'
+  - id: tabla8_24_35_micronutrientes
+    descripcion: "Tabla 8: 24 a 35 meses, 2 sobres de micronutrientes de 1 g"
+    transcripcion: rm429/mod07_tabla08_24_a_59_meses
+    regex: '\| 24 a 35 meses \| 2 sobres \| Micronutrientes en polvo de 1 g \|[^\n]*6 meses continuos en el año'
+  - id: tabla8_36_59_hierro
+    descripcion: "Tabla 8: 36 a 59 meses, 30 mg de hierro elemental diario, 3 meses continuos en el año"
+    transcripcion: rm429/mod07_tabla08_24_a_59_meses
+    regex: '\| 36 a 59 meses \| 30 mg Hierro elemental\* \|[^\n]*\| Diaria \| 3 meses continuos en el año \|'
+  - id: tabla8_36_59_micronutrientes
+    descripcion: "Tabla 8: 36 a 59 meses, 2 sobres de micronutrientes de 1 g"
+    transcripcion: rm429/mod07_tabla08_24_a_59_meses
+    regex: '\| 36 a 59 meses \| 2 sobres \| Micronutrientes en polvo de 1 g \|[^\n]*3 meses continuos en el año'
+  # RM 429-2024/MINSA, pág. 8
+  - id: visitas_24_35
+    descripcion: "6.1.1 C.5: 24 a 35 meses, 2 visitas, al primer y al tercer mes"
+    transcripcion: rm429/mod08_visitas_24_35_meses
+    regex: '24 a 35 meses de edad recibe 2 visitas o teleorientación: al primer mes y al tercer mes'
+  - id: residencia_4_meses
+    descripcion: "6.1.2 A: lugar de residencia habitual en los últimos 4 meses"
+    transcripcion: rm429/mod09a_residencia_4_meses
+    regex: 'residencia habitual en los últimos 4 meses'
+  - id: tabla12_hb_muy_baja
+    descripcion: "Tabla 12: síntomas cardiopulmonares cuando la hemoglobina es muy baja (<5 g/dL)"
+    transcripcion: rm429/mod09_tabla12_signos_y_examenes
+    regex: 'Síntomas cardiopulmonares \|[^\n]*muy bajo \(<5g/dL\)'
+  # RM 429-2024/MINSA, pág. 10
+  - id: tratamiento_adolescente_mef
+    descripcion: "6.1.2 B.4: adolescente y mujer en edad fértil, 120 mg de hierro elemental y 800 ug de ácido fólico diarios, 6 meses"
+    transcripcion: rm429/mod10_tratamiento_6_1_2_b
+    regex: '120 mg de hierro elemental y 800ug de ácido fólico \(2 tabletas\), en forma diaria, durante 6 meses continuos'
+  - id: ganzoni_hb_objetivo
+    descripcion: "6.1.2 B.6: fórmula de Ganzoni con Hb objetivo, x 2,4 + 500"
+    transcripcion: rm429/mod10_tratamiento_6_1_2_b
+    regex: 'Peso corporal \[Kg\]\* x \(Hb Objetivo \[g/dL\]\) - Hb actual \[g/dL\]\) x 2,4 \+ 500'
+  # RM 429-2024/MINSA, pág. 9, Tabla 13
+  - id: tabla13_6_23
+    descripcion: "Tabla 13: 6 a 23 meses, <7.0 / 7.0 a 9.4 / 9.5 a 10.4 / ≥10.5"
+    transcripcion: rm429/mod09b_tabla13_hemoglobina
+    regex: 'de 6 a 23 meses \| < 7,0 \| 7\.0 - 9\.4 \| 9\.5 - 10\.4 \| ≥ 10\.5 \|'
+  - id: tabla13_24_59
+    descripcion: "Tabla 13: 24 a 59 meses, <7.0 / 7.0 a 9.9 / 10.0 a 10.9 / ≥11.0"
+    transcripcion: rm429/mod09b_tabla13_hemoglobina
+    regex: 'de 24 a 59 meses \| <7\.0 \| 7\.0 - 9\.9 \| 10\.0 - 10\.9 \| ≥ 11\.0 \|'
+  - id: tabla13_hasta_500
+    descripcion: "Tabla 13: valores hasta 500 msnm"
+    transcripcion: rm429/mod09b_tabla13_hemoglobina
+    regex: 'Hasta 500 msnm'
+  # RM 251-2024/MINSA, pág. 12, Tabla 6
+  - id: inicio_6_11_hb
+    descripcion: "6.1.1 B.2: 6 a 11 meses inicia si Hb ≥ 10.5 g/dL, diaria, 6 meses"
+    transcripcion: rm251/b2_tabla06_6_a_11_meses
+    regex: 'si la Hb es ≥ 10\.5 g/dL, de forma diaria durante 6 meses continuos'
+  - id: tabla6_dosis
+    descripcion: "Tabla 6: 6 a 11 meses, 2 mg/kg, 6 meses consecutivos"
+    transcripcion: rm251/b2_tabla06_6_a_11_meses
+    regex: '\| 6 a 11 meses \| 2 mg/kg \|[^\n]*\| 6 meses consecutivos \|'
+  # RM 251-2024/MINSA, págs. 12 y 13, Tabla 7
+  - id: descanso_12_meses
+    descripcion: "6.1.1 B.3: a los 12 meses con Hb ≥ 10.5 g/dL, descanso de 3 meses"
+    transcripcion: rm251/b3_tabla07_12_a_23_meses
+    regex: 'si es ≥ 10\.5g/dL tiene un periodo de descanso de la suplementación por 3 meses'
+  - id: tabla7_dosis
+    descripcion: "Tabla 7: 12 a 23 meses, 2 mg/kg/día, 6 meses consecutivos"
+    transcripcion: rm251/b3_tabla07_12_a_23_meses
+    regex: '\| 12 a 23 meses \| 2 mg/kg/día \|[^\n]*\| 6 meses consecutivos \|'
+  # RM 251-2024/MINSA, pág. 13
+  - id: inicio_24_59_hb
+    descripcion: "6.1.1 B.4: 24 a 59 meses inicia con Hb ≥ 11 g/dL"
+    transcripcion: rm251/b4_inicio_24_a_59_meses
+    regex: 'cuando la Hb es ≥ 11 g/dL'
+  - id: inicio_5_11_anios_hb
+    descripcion: "6.1.1 B.5: 5 a 11 años inicia con Hb ≥ 11.5 g/dL"
+    transcripcion: rm251/b5_b6_tabla09_5_a_11_anios_y_adolescentes
+    regex: 'hemoglobina es ≥ 11\.5 g/dL durante 3 meses continuos'
+  # RM 251-2024/MINSA, pág. 18, Tabla 14
+  - id: ferritina_menor_23
+    descripcion: "Tabla 14: menores de 23 meses, ferritina < 12 (sanos) y < 30 (con infección)"
+    transcripcion: rm251/tabla14_ferritina
+    regex: '\| < 23 meses \| < 12 \| <30 \|'
+  - id: ferritina_24_59
+    descripcion: "Tabla 14: 24 a 59 meses, ferritina < 12 y < 30"
+    transcripcion: rm251/tabla14_ferritina
+    regex: '\| 24 a 59 meses \| < 12 \| <30 \|'
+  # RM 251-2024/MINSA, pág. 19, Tablas 16 y 17
+  - id: tabla16_dosis
+    descripcion: "Tabla 16: menor de 6 meses, 3 mg/kg/día (máximo 40 mg/d), 6 meses"
+    transcripcion: rm251/b2_tabla16_tratamiento_menor_6_meses
+    regex: '\| < 6 meses \| 3 mg/Kg/día \(máxima dosis 40 mg/d\) \|[^\n]*\| 6 meses consecutivos \|'
+  - id: tabla17_6_35
+    descripcion: "Tabla 17: 6 a 35 meses, 3 mg/kg/día, máximo 70 mg/día, 6 meses continuos"
+    transcripcion: rm251/b3_tabla17_tratamiento_6_meses_a_11_anios
+    regex: '\| 6 a 35 meses \| 3 mg/Kg/día \(Máximo dosis 70 mg/día\) \|[^\n]*\| 6 meses continuos \|'
+  - id: tabla17_36_59
+    descripcion: "Tabla 17: 36 a 59 meses, 3 mg/kg/día, máximo 90 mg/día, 6 meses continuos"
+    transcripcion: rm251/b3_tabla17_tratamiento_6_meses_a_11_anios
+    regex: '\| 36 a 59 meses \| 3 mg/Kg/día \(Máximo dosis 90 mg/día\) \|[^\n]*\| 6 meses continuos \|'
+  - id: tabla17_5_11_anios
+    descripcion: "Tabla 17: 5 a 11 años, 3 mg/kg/día, máximo 120 mg/día, 6 meses continuos"
+    transcripcion: rm251/b3_tabla17_tratamiento_6_meses_a_11_anios
+    regex: '\| 5 a 11 años \| 3 mg/Kg/día \(Máximo dosis 120 mg/día\) \|[^\n]*\| 6 meses continuos \|'

@@ -81,10 +81,10 @@ VALUES
    '00000000-0000-0000-0000-000000000001'),
   ('10000000-0000-0000-0000-000000002024',
    'Guideline on haemoglobin cutoffs to define anaemia in individuals and populations', 'OMS 2024',
-   'OMS', 'GUIA', 1, 2024, NULL, NULL, 'en', NULL, NULL, '00000000-0000-0000-0000-000000000001'),
+   'OMS', 'GUIA', 1, 2024, NULL, NULL, 'en', 22, 55, '00000000-0000-0000-0000-000000000001'),
   ('10000000-0000-0000-0000-000000002016',
    'Guideline: daily iron supplementation in infants and children', 'OMS 2016',
-   'OMS', 'GUIA', 1, 2016, NULL, NULL, 'en', NULL, NULL, '00000000-0000-0000-0000-000000000001');
+   'OMS', 'GUIA', 1, 2016, NULL, NULL, 'en', 13, 28, '00000000-0000-0000-0000-000000000001');
 
 -- ---------------------------------------------------------------------------
 -- Puntos de corte de hemoglobina (g/dL, a nivel del mar) [VERIFICAR]

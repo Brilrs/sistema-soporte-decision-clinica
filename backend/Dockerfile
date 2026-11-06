@@ -15,7 +15,11 @@ USER cdss
 # Procesos fuera de línea (indexador de guías y evaluación). Se ejecutan con
 # docker compose run --rm jobs python -m app.<módulo>
 FROM base AS jobs
-CMD ["python", "-c", "print('Indique el proceso: docker compose run --rm jobs python -m app.<módulo>')"]
+USER root
+COPY requirements-jobs.txt .
+RUN pip install --no-cache-dir -r requirements-jobs.txt
+USER cdss
+CMD ["python", "-m", "app.indexador", "--help"]
 
 # API (target por defecto)
 FROM base AS api
