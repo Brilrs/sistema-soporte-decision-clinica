@@ -1,0 +1,177 @@
+# Modificaciones de la RM 429-2024/MINSA (18/06/2024) a la NTS 213-MINSA/DGIESP-2024
+# aprobada por la RM 251-2024/MINSA (08/04/2024). Anexo de la RM 429, págs. 4 a 11.
+#
+# Por modificación: numeral afectado de la RM 251, tipo (modifica, incorpora,
+# sustituye), páginas de la RM 251 donde está el texto sustituido, tramos de ese
+# texto (anclas de inicio y fin como expresiones regulares, sin distinguir
+# mayúsculas, ^ y $ por línea) y ancla del texto nuevo en la RM 429.
+# Cada ancla debe aparecer exactamente una vez en sus páginas; el fin se busca
+# después del inicio. Si no, el documento queda en ERROR con el detalle.
+codigo: RM 429-2024/MINSA
+documento_modificatorio: rm429
+id_documento_modificatorio: 10000000-0000-0000-0000-000000000429
+documento_modificado: rm251
+
+modificaciones:
+  - numero: 1
+    numeral: "5.1 Adherencia al suplemento de hierro"
+    tipo: modifica
+    paginas: [6, 6]
+    texto_nuevo: {pagina: 4, ancla: '^1\.\s*Modificar'}
+    tramos:
+      - paginas: [6, 6]
+        inicio: '^\W*Adherencia al suplemento de hierro:'
+        fin: 'periodo semanal y mensual\.'
+
+  - numero: 2
+    numeral: "5.3.2 Tabla 1"
+    tipo: modifica
+    paginas: [7, 7]
+    texto_nuevo: {pagina: 4, ancla: '^2\.\s*Modificar'}
+    tramos:
+      - paginas: [7, 7]
+        inicio: '^Tabla N\W*1\s*$'
+        fin: '\(0,0056384 x elevación\) \+ \(0,0000003 x elevación\)'
+
+  - numero: 3
+    numeral: "5.4.1, 5.4.2, 5.4.4 y 5.4.5"
+    tipo: modifica
+    paginas: [8, 9]
+    texto_nuevo: {pagina: 5, ancla: '^3\.\s*Modificar'}
+    tramos:
+      - paginas: [8, 8]
+        inicio: '^5\.4\.1\. El/la médico cirujano'
+        fin: 'Complejo Polimaltosado Férrico\.(?=\s*5\.4\.3\.)'
+      - paginas: [8, 9]
+        inicio: '^5\.4\.4\. Se considera reinicio'
+        fin: 'debe ser registrada en la historia clínica\.(?=\s*5\.5\.)'
+
+  - numero: 4
+    numeral: "5.6.2 y 5.6.3"
+    tipo: modifica
+    paginas: [9, 9]
+    texto_nuevo: {pagina: 5, ancla: '^4\.\s*Modificar'}
+    tramos:
+      - paginas: [9, 9]
+        inicio: '^5\.6\.2\. Si la suspensión'
+        fin: 'nuevo esquema, previa medición de hemoglobina\.'
+
+  - numero: 5
+    numeral: "6.1.1 A Tabla 4"
+    tipo: modifica
+    paginas: [11, 11]
+    texto_nuevo: {pagina: 6, ancla: '^5\.\s*Modificar'}
+    tramos:
+      - paginas: [11, 11]
+        inicio: '^Tabla No 4'
+        fin: 'Mujer en edad fértil\W+1 medición al año'
+
+  - numero: 6
+    numeral: "6.1.1 B Tabla 5"
+    tipo: modifica
+    paginas: [12, 12]
+    texto_nuevo: {pagina: 6, ancla: '^\d{0,2}\.\s*Modificar la Tabla 5'}
+    tramos:
+      - paginas: [12, 12]
+        inicio: '^Tabla No 5'
+        fin: '\(\*\) Alternativa al sulfato ferroso\.'
+
+  - numero: 7
+    numeral: "6.1.1 B Tabla 8"
+    tipo: modifica
+    paginas: [13, 13]
+    texto_nuevo: {pagina: 7, ancla: '^7\.\s*Modificar'}
+    tramos:
+      - paginas: [13, 13]
+        inicio: '^Tabla N\W*8\s*$'
+        fin: '\(\*\) Alternativa al sulfato ferroso'
+
+  - numero: 8
+    numeral: "6.1.1 C, ítem 5"
+    tipo: modifica
+    paginas: [15, 15]
+    texto_nuevo: {pagina: 7, ancla: '^8\.\s*Modificar'}
+    tramos:
+      - paginas: [15, 15]
+        inicio: '^- El niño y la niña de 24 a 35 meses de edad reciben 2 visitas'
+        fin: 'A los 30 días y a los 90 días de iniciada la suplementación\.'
+      - paginas: [15, 15]
+        inicio: '^- La gestante recibe 2 visitas domiciliarias'
+        fin: 'último trimestre del\s+embarazo\.'
+
+  - numero: 9
+    numeral: "6.1.2 A (Tablas 12 y 13)"
+    tipo: modifica
+    paginas: [16, 17]
+    texto_nuevo: {pagina: 8, ancla: '^9\.\s*Modificar'}
+    tramos:
+      - paginas: [16, 16]
+        inicio: '^- Lugar de residencia habitual en los últimos 3 meses\.'
+        fin: 'adaptado de las referencias\s+bibliográficas\.'
+      - paginas: [17, 17]
+        inicio: '^En los establecimientos de salud que no cuenten con el servicio de laboratorio'
+        fin: 'definir la anemia en individuos y poblaciones\. 2024'
+
+  - numero: 10
+    numeral: "6.1.2 B"
+    tipo: modifica
+    paginas: [18, 22]
+    texto_nuevo: {pagina: 10, ancla: '^10\.\s*Modificar'}
+    tramos:
+      - paginas: [18, 18]
+        inicio: '^El/la médico cirujano, o médico especialista \(pediatra'
+        fin: 'según el peso y condición\s+del/de la paciente\.'
+      - paginas: [19, 19]
+        inicio: '^- La adolescente y mujer en edad fértil reciben el tratamiento'
+        fin: 'tabletas\), durante 6 meses continuos\.'
+      - paginas: [21, 21]
+        inicio: '^Déficit dé hierro en mg'
+        fin: 'x 2,4 \+ 500'
+      - paginas: [22, 22]
+        inicio: '^- En el establecimiento de salud que no se cuenta con profesional médico'
+        fin: 'mayor capacidad resolutiva de su jurisdicción\.'
+
+  - numero: 11
+    numeral: "6.1.3 E"
+    tipo: modifica
+    paginas: [23, 24]
+    texto_nuevo: {pagina: 10, ancla: '^11\.\s*Modificar'}
+    tramos:
+      - paginas: [23, 24]
+        inicio: '^E\. Realizar sesiones educativas y demostrativas'
+        fin: 'menestras, frutas y verduras\.'
+
+  - numero: 12
+    numeral: "6.2.1, ítem 2"
+    tipo: modifica
+    paginas: [25, 25]
+    texto_nuevo: {pagina: 11, ancla: '^12\.\s*Modificar'}
+    tramos:
+      - paginas: [25, 25]
+        inicio: '^2\. Acciones de recuperación:'
+        fin: 'Referencia y contrarreferencia para el diagnóstico especializado\.'
+
+# Textos de la RM 251 que la RM 429 no modifica pero que repiten o dependen de
+# un valor modificado. Con excluir: true el texto se guarda como fragmento no
+# vigente; con excluir: false solo se informa para revisión.
+conflictos_derivados:
+  - id: B1_termina_5_meses_29_dias
+    descripcion: "6.1.1 B.1 dice que la suplementación del bajo peso o prematuro termina a los 5 meses 29 días; la Tabla 5 modificada la extiende hasta los 6 meses cumplidos"
+    modificacion: 6
+    paginas: [12, 12]
+    ancla: 'y termina a los 5 meses\s*29 d[ií]as'
+    excluir: true
+
+  - id: ganzoni_ejemplo_hb_12
+    descripcion: "6.1.2 B.6, ejemplo de la fórmula de Ganzoni con Hb diana de 12 g/dL; la fórmula modificada usa Hb objetivo sin fijar el valor"
+    modificacion: 10
+    paginas: [21, 21]
+    ancla: '74 kg \(12\.0 - 8\.8\)'
+    excluir: false
+
+  - id: visitas_bajo_peso_hasta_quinto_mes
+    descripcion: "6.1.1 C.5, visitas al bajo peso o prematuro hasta el cuarto o quinto mes; con la Tabla 5 modificada la suplementación sigue hasta los 6 meses cumplidos"
+    modificacion: 6
+    paginas: [15, 15]
+    ancla: 'tercera visita o\s+teleorientación al cuarto o quinto mes'
+    excluir: false

@@ -114,7 +114,7 @@ services:
     mem_limit: 1g
 
   # Procesos fuera de línea (indexador de guías). No arranca con el stack:
-  #   docker compose run --rm jobs python -m app.<módulo>
+  #   docker compose run --rm jobs python -m app.indexador <comando>
   jobs:
     build:
       context: ./backend
@@ -125,12 +125,20 @@ services:
       DATABASE_URL_INDEXADOR: postgresql+psycopg://cdss_indexador:${CDSS_DB_PWD_INDEXADOR}@db:5432/cdss
       CHROMA_URL: http://chromadb:8000
       MODELOS_URL: http://modelos:8000
+      ANONYMIZED_TELEMETRY: "FALSE"
+      INDEXADOR_DIR_GUIAS: /datos/guias
+      INDEXADOR_DIR_MEDICIONES: /datos/mediciones
     volumes:
       - ./data/guias:/datos/guias:ro
+      - ./data/mediciones:/datos/mediciones
       - datos_guias_cargadas:/datos/guias_cargadas:ro
     mem_limit: 768m
     depends_on:
       db:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
+      modelos:
         condition: service_healthy
 
 volumes:

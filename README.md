@@ -63,6 +63,19 @@ Quedan en `./data/modelos` (carpeta del equipo, no un volumen de Docker), así q
 
 El servicio `jobs` (indexador de guías) no arranca con el resto: se ejecuta bajo demanda con `docker compose run --rm jobs python -m app.<módulo>`.
 
+### Indexador y carga de las guías
+
+Copie los 4 PDF a `./data/guias` (ver `data/README.md`) y, con el sistema levantado y los modelos descargados:
+
+```bash
+docker compose build jobs
+docker compose run --rm jobs python -m app.indexador cargar --manifiesto fuentes_iniciales.yaml --permitir-no-verificadas
+docker compose run --rm jobs python -m app.indexador comparar             # informe en data/mediciones/a2_extraccion.md
+docker compose run --rm jobs python -m app.indexador verificar-valores    # lista de comprobación de los valores críticos
+```
+
+`--permitir-no-verificadas` es solo para desarrollo: las normas MINSA (nivel 1) solo quedan listas para producción cuando todas sus transcripciones están verificadas, y sin esa opción el indexador las rechaza. Volver a cargar el mismo archivo no duplica nada; `--reindexar` crea una versión nueva. Los comandos, las transcripciones y el mapa de modificaciones de la RM 429-2024/MINSA se explican en [`jobs/README.md`](jobs/README.md).
+
 ### Memoria
 
 Cada servicio tiene un límite (`mem_limit` en `docker-compose.yml`): `modelos` 5,5 GB, `db` y `chromadb` 0,75 GB cada uno, `backend` 0,5 GB, `nginx` 64 MB y `jobs` 0,75 GB. En total, 8,31 GB con el indexador en marcha; Docker necesita al menos 8,5 GB asignados.
@@ -93,13 +106,16 @@ cp .env.test.example .env.test   # conexiones a la base de pruebas
 python -m app.scripts.seed_demo
 pytest -q
 
+# Pruebas lentas: PDF reales de data/guias y fragmentos indexados (no corren en CI)
+pytest -q -m lenta
+
 # Servicio de modelos, con el motor falso (sin PyTorch ni pesos descargados)
 cd modelos
 pip install -r requirements-dev.txt
 python -m pytest -q
 ```
 
-Las pruebas cubren: login correcto, mensaje genérico ante usuario o contraseña incorrectos, bloqueo tras 5 intentos fallidos, cuentas inactivas, permisos por rol, registro en la auditoría, separación de privilegios entre componentes, cifrado de la identidad del paciente, bitácora inmutable, unicidad de parámetros vigentes, cálculo de la edad en meses, idempotencia de las migraciones, permisos por columna de los componentes de generación e indexación, `generar_env.sh` y los endpoints del servicio de modelos. El flujo de GitHub Actions (`.github/workflows/ci.yml`) las ejecuta en cada push.
+Las pruebas cubren: login correcto, mensaje genérico ante usuario o contraseña incorrectos, bloqueo tras 5 intentos fallidos, cuentas inactivas, permisos por rol, registro en la auditoría, separación de privilegios entre componentes, cifrado de la identidad del paciente, bitácora inmutable, unicidad de parámetros vigentes, cálculo de la edad en meses, idempotencia de las migraciones, permisos por columna de los componentes de generación e indexación, `generar_env.sh` y los endpoints del servicio de modelos, y del indexador: limpieza de páginas, tokens sospechosos del OCR, fragmentación 500/800/80, anclas de las modificaciones de la RM 429, transcripciones y valores críticos, consistencia entre PostgreSQL y ChromaDB, idempotencia por SHA-256 y reindexación por versiones. El flujo de GitHub Actions (`.github/workflows/ci.yml`) las ejecuta en cada push.
 
 ## Estructura del repositorio
 
@@ -113,11 +129,12 @@ backend/        API FastAPI
 frontend/       React + Vite; Dockerfile con Nginx (único punto de entrada)
 db/
   init/           01 esquema (27 tablas), 02 catálogos, 03 usuarios de conexión, 04 migraciones
-  migraciones/    cambios idempotentes para bases existentes (001: Sprint 2)
+  migraciones/    cambios idempotentes para bases existentes (001 a 003: Sprint 2)
   sql/            usuarios de conexión con mínimo privilegio
   aplicar_bd.sh   aplica todo sobre una base nueva, o solo las migraciones (--solo-migraciones)
 modelos/        servicio interno de modelos locales (bge-m3 y bge-reranker-v2-m3)
-jobs/           indexador, evaluación OE3 y respaldo (Sprint 2)
+backend/app/indexador/  indexador de guías: extracción, transcripciones, mapa de modificaciones, fragmentación e indexación
+jobs/           documentación de los procesos fuera de línea (indexador, evaluación OE3 y respaldo)
 data/           guías en PDF, pesos de los modelos y mediciones (no se versiona, ver data/README.md)
 docs/           documentación del desarrollo
 ```
