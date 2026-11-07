@@ -13,8 +13,8 @@ from app.indexador.config import FuenteDocumento
 from app.indexador.extraccion import PaginaTexto
 from app.indexador.indexacion import Indexador, Opciones
 from app.indexador.repositorio import USUARIO_SISTEMA, Repositorio
-from app.indexador.servicios import EmbedderFalso, TokenizadorFalso
-from app.indexador.vectores import AlmacenMemoria
+from app.core.modelos import EmbedderFalso, TokenizadorFalso
+from app.core.vectores import AlmacenMemoria
 
 FRASE = "El establecimiento de salud brinda la suplementación preventiva con hierro según la edad y el peso."
 PAGINAS = [

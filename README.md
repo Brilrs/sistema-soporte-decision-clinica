@@ -59,6 +59,14 @@ docker compose run --rm descargar-modelos
 
 Quedan en `./data/modelos` (carpeta del equipo, no un volumen de Docker), así que `docker compose down -v` no los borra. En ejecución el servicio los lee en solo lectura y sin conexión a internet.
 
+El reranker corre en ONNX con pesos int8 (`MODELOS_RERANKER=onnx-int8`, valor por defecto). Después de la descarga se exporta y cuantiza una sola vez, desde la misma revisión fijada (unos 10 minutos; el servicio `exportar-onnx` tiene un límite de 6 GB porque carga el modelo fp32 completo):
+
+```bash
+docker compose run --rm exportar-onnx
+```
+
+El resultado queda en `./data/modelos/onnx/bge-reranker-v2-m3-int8` (0,54 GB) con un `manifiesto.json` que guarda la revisión de origen, las versiones de las librerías (fijadas en `modelos/requirements-ml.txt`) y el SHA-256 del modelo; el servicio no arranca si no coinciden. Con `MODELOS_RERANKER=fp32` usa el modelo original con PyTorch. Al iniciar, `modelos` hace una inferencia de calentamiento de cada modelo y solo entonces responde en `/salud` (y Docker lo marca healthy); `/salud` informa los tiempos de carga y de calentamiento.
+
 ### Procesos fuera de línea
 
 El servicio `jobs` (indexador de guías) no arranca con el resto: se ejecuta bajo demanda con `docker compose run --rm jobs python -m app.<módulo>`.
@@ -76,9 +84,24 @@ docker compose run --rm jobs python -m app.indexador verificar-valores    # list
 
 `--permitir-no-verificadas` es solo para desarrollo: las normas MINSA (nivel 1) solo quedan listas para producción cuando todas sus transcripciones están verificadas, y sin esa opción el indexador las rechaza. Volver a cargar el mismo archivo no duplica nada; `--reindexar` crea una versión nueva. Los comandos, las transcripciones y el mapa de modificaciones de la RM 429-2024/MINSA se explican en [`jobs/README.md`](jobs/README.md).
 
+### Procesamiento de la consulta y recuperación
+
+El código está en `backend/app/rag/` (secciones 4.2 y 4.3 de la guía OE2). Cada módulo recibe la sesión de base de datos como parámetro, para que el orquestador use la conexión que corresponde en cada nodo:
+
+| Módulo | Qué hace | Conexión |
+| --- | --- | --- |
+| `dominio.py` | Filtro de dominio (2.1): reglas contra intentos de cambiar las instrucciones y similitud con 40 consultas de referencia (`dominio_referencia.yaml`) usando `UMBRAL_DOMINIO`. Resultado `FUERA_DE_DOMINIO` si no corresponde. | ninguna |
+| `validacion.py` | Datos mínimos (edad, sexo, altitud, hemoglobina y fecha del tamizaje) y vigencia del tamizaje con `DIAS_VIGENCIA_TAMIZAJE` (30 días se acepta, 31 no, salvo confirmación). Si falta `resultado_clasificacion`, lo calcula con `app/services/clasificacion.py` y lo guarda. | `cdss_clinica` |
+| `normalizacion.py` | Abreviaturas, sinónimos, descriptores MeSH y DeCS y equivalentes en inglés desde `diccionario_normalizacion.yaml`, sin UMLS (CUI vacío). | ninguna |
+| `bm25.py` | Índice léxico con los fragmentos recuperables (vigentes, nivel 1, documento VIGENTE, última versión), sin tildes, sin palabras vacías y con raíces en español e inglés. Se reconstruye cuando cambia la huella de la base de conocimiento. | `cdss_generacion` |
+| `recuperacion.py` | BM25 y ChromaDB, fusión RRF, comprobación en PostgreSQL, reranker, selección con `UMBRAL_RELEVANCIA` y búsqueda ampliada si no se alcanza. | `cdss_generacion` |
+| `parametros.py` | Parámetros vigentes de `parametro_sistema`, incluidos `CANDIDATOS_RERANKER` y `MAX_LONGITUD_RERANKER` (migración 004). Los valores definitivos (8 candidatos, 256 tokens, `UMBRAL_RELEVANCIA` 0,15 y `UMBRAL_DOMINIO` 0,65) se aplican con la migración 005 como versiones nuevas. | la del nodo |
+
+Ningún módulo lee `asistencia.consulta.texto_consulta` ni `clinico.tamizaje.observaciones`: la recuperación usa `texto_filtrado` y datos estructurados. El alcance es el niño de 0 a 59 meses del CRED: las consultas sobre gestantes, puérperas, adolescentes y adultos quedan fuera del dominio. `consultas_validacion.yaml` es un conjunto de validación separado (15 consultas de recuperación y 30 del filtro de dominio) que no se usa para ajustar reglas ni umbrales. La configuración del reranker y las mediciones de latencia están en [`docs/mediciones_sprint2.md`](docs/mediciones_sprint2.md).
+
 ### Memoria
 
-Cada servicio tiene un límite (`mem_limit` en `docker-compose.yml`): `modelos` 5,5 GB, `db` y `chromadb` 0,75 GB cada uno, `backend` 0,5 GB, `nginx` 64 MB y `jobs` 0,75 GB. En total, 8,31 GB con el indexador en marcha; Docker necesita al menos 8,5 GB asignados.
+Cada servicio tiene un límite (`mem_limit` en `docker-compose.yml`): `modelos` 5,5 GB, `db` y `chromadb` 0,75 GB cada uno, `backend` 0,5 GB, `nginx` 64 MB y `jobs` 0,75 GB. En total, 8,31 GB con el indexador en marcha; Docker necesita al menos 8,5 GB asignados. La exportación única del reranker a ONNX (`exportar-onnx`, bajo demanda) tiene un límite propio de 6 GB.
 
 ## Desarrollo sin reconstruir contenedores
 
@@ -108,6 +131,7 @@ pytest -q
 
 # Pruebas lentas: PDF reales de data/guias y fragmentos indexados (no corren en CI)
 pytest -q -m lenta
+# Las de la recuperación necesitan los modelos reales y corren dentro de la red de Docker (ver jobs/README.md)
 
 # Servicio de modelos, con el motor falso (sin PyTorch ni pesos descargados)
 cd modelos
@@ -115,7 +139,7 @@ pip install -r requirements-dev.txt
 python -m pytest -q
 ```
 
-Las pruebas cubren: login correcto, mensaje genérico ante usuario o contraseña incorrectos, bloqueo tras 5 intentos fallidos, cuentas inactivas, permisos por rol, registro en la auditoría, separación de privilegios entre componentes, cifrado de la identidad del paciente, bitácora inmutable, unicidad de parámetros vigentes, cálculo de la edad en meses, idempotencia de las migraciones, permisos por columna de los componentes de generación e indexación, `generar_env.sh` y los endpoints del servicio de modelos, y del indexador: limpieza de páginas, tokens sospechosos del OCR, fragmentación 500/800/80, anclas de las modificaciones de la RM 429, transcripciones y valores críticos, consistencia entre PostgreSQL y ChromaDB, idempotencia por SHA-256 y reindexación por versiones. El flujo de GitHub Actions (`.github/workflows/ci.yml`) las ejecuta en cada push.
+Las pruebas cubren: login correcto, mensaje genérico ante usuario o contraseña incorrectos, bloqueo tras 5 intentos fallidos, cuentas inactivas, permisos por rol, registro en la auditoría, separación de privilegios entre componentes, cifrado de la identidad del paciente, bitácora inmutable, unicidad de parámetros vigentes, cálculo de la edad en meses, idempotencia de las migraciones, permisos por columna de los componentes de generación e indexación, `generar_env.sh` y los endpoints del servicio de modelos, y del indexador: limpieza de páginas, tokens sospechosos del OCR, fragmentación 500/800/80, anclas de las modificaciones de la RM 429, transcripciones y valores críticos, consistencia entre PostgreSQL y ChromaDB, idempotencia por SHA-256 y reindexación por versiones, y de la recuperación: filtro de dominio e intentos de saltarse las instrucciones, datos mínimos y vigencia de 30 días, normalización, BM25 por idioma, fusión RRF, exclusión de fragmentos no vigentes, recomprobación en PostgreSQL, búsqueda ampliada y que ningún módulo lea el texto libre sin filtrar. El flujo de GitHub Actions (`.github/workflows/ci.yml`) las ejecuta en cada push.
 
 ## Estructura del repositorio
 
@@ -124,15 +148,16 @@ backend/        API FastAPI
   app/core/       configuración, conexiones por rol, seguridad, auditoría
   app/api/        rutas (auth, salud, catálogos, pacientes, usuarios) y dependencias de permisos
   app/services/   reglas del negocio (pacientes, clasificación, usuarios)
-  app/scripts/    seed_demo (usuarios y pacientes ficticios)
+  app/rag/        filtro de dominio, validación, normalización y recuperación híbrida (Sprint 2)
+  app/scripts/    seed_demo (usuarios y pacientes ficticios) y mediciones de la recuperación
   tests/          pruebas automáticas
 frontend/       React + Vite; Dockerfile con Nginx (único punto de entrada)
 db/
   init/           01 esquema (27 tablas), 02 catálogos, 03 usuarios de conexión, 04 migraciones
-  migraciones/    cambios idempotentes para bases existentes (001 a 003: Sprint 2)
+  migraciones/    cambios idempotentes para bases existentes (001 a 004: Sprint 2)
   sql/            usuarios de conexión con mínimo privilegio
   aplicar_bd.sh   aplica todo sobre una base nueva, o solo las migraciones (--solo-migraciones)
-modelos/        servicio interno de modelos locales (bge-m3 y bge-reranker-v2-m3)
+modelos/        servicio interno de modelos locales (bge-m3 y bge-reranker-v2-m3); experimentos/ mide rerankers alternativos
 backend/app/indexador/  indexador de guías: extracción, transcripciones, mapa de modificaciones, fragmentación e indexación
 jobs/           documentación de los procesos fuera de línea (indexador, evaluación OE3 y respaldo)
 data/           guías en PDF, pesos de los modelos y mediciones (no se versiona, ver data/README.md)

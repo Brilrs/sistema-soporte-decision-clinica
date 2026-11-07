@@ -1,6 +1,7 @@
 """Interfaces del servicio de modelos locales (bge-m3 y bge-reranker-v2-m3) con
 dos versiones: la real, por HTTP al contenedor modelos, y una falsa determinista
-para las pruebas automáticas, que no necesitan los modelos."""
+para las pruebas automáticas, que no necesitan los modelos. Las usan el indexador
+y la recuperación (app.rag)."""
 import hashlib
 import math
 import re
@@ -24,7 +25,7 @@ class Tokenizador(Protocol):
 
 
 class Reranker(Protocol):
-    def puntuar(self, consulta: str, candidatos: list[str]) -> list[float]: ...
+    def puntuar(self, consulta: str, candidatos: list[str], max_longitud: int | None = None) -> list[float]: ...
 
 
 class ClienteModelos:
@@ -78,8 +79,11 @@ class RerankerHttp:
     def __init__(self, cliente: ClienteModelos):
         self._cliente = cliente
 
-    def puntuar(self, consulta: str, candidatos: list[str]) -> list[float]:
-        return self._cliente.post("/reranquear", {"consulta": consulta, "candidatos": candidatos})["puntajes"]
+    def puntuar(self, consulta: str, candidatos: list[str], max_longitud: int | None = None) -> list[float]:
+        cuerpo: dict = {"consulta": consulta, "candidatos": candidatos}
+        if max_longitud:
+            cuerpo["max_longitud"] = max_longitud
+        return self._cliente.post("/reranquear", cuerpo)["puntajes"]
 
 
 def _indice(termino: str) -> tuple[int, float]:
@@ -114,7 +118,7 @@ class TokenizadorFalso:
 class RerankerFalso:
     """Proporción de términos de la consulta presentes en cada candidato."""
 
-    def puntuar(self, consulta: str, candidatos: list[str]) -> list[float]:
+    def puntuar(self, consulta: str, candidatos: list[str], max_longitud: int | None = None) -> list[float]:
         terminos = set(_PALABRAS.findall(consulta.lower()))
         if not terminos:
             return [0.0] * len(candidatos)

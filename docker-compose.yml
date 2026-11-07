@@ -59,6 +59,8 @@ services:
       CDSS_CLAVE_HMAC: ${CDSS_CLAVE_HMAC}
       SEED_CONTRASENA: ${SEED_CONTRASENA}
       CHROMA_URL: http://chromadb:8000
+      MODELOS_URL: http://modelos:8000
+      ANONYMIZED_TELEMETRY: "FALSE"
       CORS_ORIGENES: '["http://localhost:8080","http://localhost:5173"]'
     mem_limit: 512m
     healthcheck:
@@ -91,6 +93,10 @@ services:
       TRANSFORMERS_OFFLINE: "1"
       MODELOS_MOTOR: real
       MODELOS_CONCURRENCIA: "1"
+      MODELOS_HILOS: ${MODELOS_HILOS:-}               # hilos de PyTorch; vacío usa el valor por defecto
+      MODELOS_MAX_LONGITUD_RERANKER: ${MODELOS_MAX_LONGITUD_RERANKER:-1024}
+      MODELOS_RERANKER: ${MODELOS_RERANKER:-onnx-int8}  # onnx-int8 (exportar-onnx) o fp32 (PyTorch)
+      MODELOS_DIR_ONNX: /modelos/onnx
     volumes:
       - ./data/modelos:/modelos:ro
     mem_limit: 5632m
@@ -112,6 +118,22 @@ services:
     volumes:
       - ./data/modelos:/modelos
     mem_limit: 1g
+
+  # Exportación única del reranker a ONNX int8 en ./data/modelos/onnx, después de
+  # descargar-modelos. Carga el modelo fp32 completo para exportarlo, por eso necesita
+  # más memoria que la descarga; no arranca con el stack.
+  exportar-onnx:
+    build: ./modelos
+    profiles: ["descarga"]
+    command: ["python", "-m", "app.exportar_onnx"]
+    environment:
+      HF_HOME: /modelos/hf
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      MODELOS_DIR_ONNX: /modelos/onnx
+    volumes:
+      - ./data/modelos:/modelos
+    mem_limit: 6g
 
   # Procesos fuera de línea (indexador de guías). No arranca con el stack:
   #   docker compose run --rm jobs python -m app.indexador <comando>

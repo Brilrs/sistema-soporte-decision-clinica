@@ -1,5 +1,7 @@
 """Almacén de vectores: ChromaDB por HTTP (colección guias_clinicas, distancia
-coseno) y una versión en memoria para las pruebas."""
+coseno) y una versión en memoria para las pruebas. El indexador escribe y la
+recuperación (app.rag) consulta."""
+import math
 from dataclasses import dataclass, field
 from typing import Protocol
 from urllib.parse import urlparse
@@ -22,6 +24,26 @@ class AlmacenVectorial(Protocol):
 
     def ids_de_documento(self, id_documento: str) -> list[str]: ...
 
+    def consultar(self, vector: list[float], n: int, filtro: dict | None = None) -> list[tuple[str, float]]: ...
+
+
+def _cumple(metadatos: dict, filtro: dict | None) -> bool:
+    return not filtro or all(metadatos.get(k) == v for k, v in filtro.items())
+
+
+def _distancia_coseno(a: list[float], b: list[float]) -> float:
+    producto = sum(x * y for x, y in zip(a, b))
+    normas = math.sqrt(sum(x * x for x in a)) * math.sqrt(sum(y * y for y in b))
+    return 1.0 - (producto / normas if normas else 0.0)
+
+
+def filtro_chroma(filtro: dict | None) -> dict | None:
+    """Filtro de igualdad por metadatos con la sintaxis de ChromaDB ($and para varias condiciones)."""
+    if not filtro:
+        return None
+    condiciones = [{k: {"$eq": v}} for k, v in filtro.items()]
+    return condiciones[0] if len(condiciones) == 1 else {"$and": condiciones}
+
 
 class AlmacenMemoria:
     def __init__(self):
@@ -37,6 +59,12 @@ class AlmacenMemoria:
 
     def ids_de_documento(self, id_documento: str) -> list[str]:
         return [r.id for r in self.registros.values() if r.metadatos.get("id_documento") == id_documento]
+
+    def consultar(self, vector: list[float], n: int, filtro: dict | None = None) -> list[tuple[str, float]]:
+        """Los n registros más cercanos que cumplen el filtro, con su distancia coseno."""
+        distancias = [(r.id, _distancia_coseno(vector, r.vector))
+                      for r in self.registros.values() if _cumple(r.metadatos, filtro)]
+        return sorted(distancias, key=lambda d: (d[1], d[0]))[:n]
 
 
 class AlmacenChroma:
@@ -67,3 +95,8 @@ class AlmacenChroma:
 
     def ids_de_documento(self, id_documento: str) -> list[str]:
         return self._coleccion.get(where={"id_documento": id_documento}, include=[])["ids"]
+
+    def consultar(self, vector: list[float], n: int, filtro: dict | None = None) -> list[tuple[str, float]]:
+        r = self._coleccion.query(query_embeddings=[vector], n_results=n, where=filtro_chroma(filtro),
+                                  include=["distances"])
+        return list(zip(r["ids"][0], r["distances"][0]))

@@ -157,10 +157,35 @@ FROM (VALUES
   ('PRECIO_ENTRADA_USD_MTOK',    '2.00','DECIMAL', 0,    1000, 'Precio en dólares por millón de tokens de entrada del modelo de lenguaje'),
   ('PRECIO_SALIDA_USD_MTOK',     '10.00','DECIMAL',0,    1000, 'Precio en dólares por millón de tokens de salida del modelo de lenguaje'),
   ('MODELO_RESPALDO',            '',    'TEXTO',   NULL, NULL, 'Modelo de lenguaje de respaldo ante un rechazo; vacío significa desactivado'),
-  ('IDIOMA_RESPUESTA_DEFECTO',   'es',  'TEXTO',   NULL, NULL, 'Idioma de la recomendación cuando la consulta no indica otro (es o en)')
+  ('IDIOMA_RESPUESTA_DEFECTO',   'es',  'TEXTO',   NULL, NULL, 'Idioma de la recomendación cuando la consulta no indica otro (es o en)'),
+  ('CANDIDATOS_RERANKER',        '20',  'ENTERO',  1,    100,  'Candidatos de la fusión RRF que evalúa el reranker'),
+  ('MAX_LONGITUD_RERANKER',      '1024','ENTERO',  64,   1024, 'Tokens máximos de cada par consulta y fragmento en el reranker')
 ) AS v(clave, valor, tipo, vmin, vmax, descr);
 
 -- El modelo vigente no admite el parámetro de temperatura: el valor se cierra
 -- y se conserva en el historial.
 UPDATE configuracion.parametro_sistema SET vigente_hasta = now()
  WHERE clave = 'TEMPERATURA_LLM' AND vigente_hasta IS NULL;
+
+-- Parámetros definitivos de la recuperación (migración 005): versiones nuevas de
+-- CANDIDATOS_RERANKER, MAX_LONGITUD_RERANKER, UMBRAL_RELEVANCIA y UMBRAL_DOMINIO;
+-- los valores iniciales quedan cerrados en el historial.
+WITH nuevos (clave, valor_inicial, valor, descripcion) AS (VALUES
+  ('CANDIDATOS_RERANKER',   '20',   '8',    'Candidatos de la fusión RRF que evalúa el reranker (bge-reranker-v2-m3 ONNX int8)'),
+  ('MAX_LONGITUD_RERANKER', '1024', '256',  'Tokens máximos de cada par consulta y fragmento en el reranker'),
+  ('UMBRAL_RELEVANCIA',     '0.60', '0.15', 'Puntaje mínimo del reranker para considerar suficiente la evidencia (calibrado con el motor ONNX int8)'),
+  ('UMBRAL_DOMINIO',        '0.50', '0.65', 'Similitud mínima con las consultas de referencia del dominio (calibrada con las consultas de referencia)')
+),
+cerrados AS (
+  UPDATE configuracion.parametro_sistema p
+     SET vigente_hasta = now()
+    FROM nuevos n
+   WHERE p.clave = n.clave AND p.vigente_hasta IS NULL AND p.valor = n.valor_inicial
+  RETURNING p.clave, p.tipo_dato, p.valor_minimo, p.valor_maximo
+)
+INSERT INTO configuracion.parametro_sistema
+  (clave, valor, tipo_dato, valor_minimo, valor_maximo, descripcion, vigente_desde, modificado_por)
+SELECT c.clave, n.valor, c.tipo_dato, c.valor_minimo, c.valor_maximo, n.descripcion, now(),
+       '00000000-0000-0000-0000-000000000001'
+FROM cerrados c
+JOIN nuevos n USING (clave);
