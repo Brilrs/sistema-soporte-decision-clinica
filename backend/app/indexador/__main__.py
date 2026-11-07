@@ -23,7 +23,7 @@ log = logging.getLogger("indexador")
 
 
 def _servicios(config: ConfigIndexador, falsos: bool):
-    from app.indexador.servicios import (ClienteModelos, EmbedderFalso, EmbedderHttp, TokenizadorFalso,
+    from app.core.modelos import (ClienteModelos, EmbedderFalso, EmbedderHttp, TokenizadorFalso,
                                          TokenizadorHttp)
     if falsos:
         return EmbedderFalso(), TokenizadorFalso()
@@ -33,7 +33,7 @@ def _servicios(config: ConfigIndexador, falsos: bool):
 
 def _indexador(config: ConfigIndexador, falsos: bool) -> Indexador:
     from app.indexador.repositorio import Repositorio
-    from app.indexador.vectores import AlmacenChroma
+    from app.core.vectores import AlmacenChroma
     if not config.database_url:
         sys.exit("Falta DATABASE_URL_INDEXADOR (conexión con el usuario cdss_indexador)")
     embedder, tokenizador = _servicios(config, falsos)
@@ -109,7 +109,7 @@ def cmd_comparar(args, config: ConfigIndexador) -> int:
     repo = Repositorio.desde_url(config.database_url) if config.database_url else None
     almacen = None
     if repo and not args.sin_chroma:
-        from app.indexador.vectores import AlmacenChroma
+        from app.core.vectores import AlmacenChroma
         almacen = AlmacenChroma(config.chroma_url)
     secciones = []
     for fuente in cargar_manifiesto(args.manifiesto):

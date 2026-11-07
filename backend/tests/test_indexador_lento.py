@@ -12,7 +12,7 @@ from app.indexador.extraccion import extraer_pdf
 from app.indexador.indexacion import preparar
 from app.indexador.informes import buscar_valor, cargar_valores, informe_extraccion, seccion_documento
 from app.indexador.modificaciones import cargar_mapa
-from app.indexador.servicios import TokenizadorFalso
+from app.core.modelos import TokenizadorFalso
 
 pytestmark = pytest.mark.lenta
 

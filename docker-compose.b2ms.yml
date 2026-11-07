@@ -1,0 +1,26 @@
+# Perfil de medición que imita una VM Azure B2ms (2 vCPU, 8 GiB). Se superpone a
+# docker-compose.yml solo para las mediciones de rendimiento; no cambia los límites
+# del entorno normal:
+#   docker compose -f docker-compose.yml -f docker-compose.b2ms.yml up -d
+# Todos los servicios comparten los CPU 0 y 1. Límites de memoria (7,06 GiB en
+# total, por debajo de 7,5 GiB): modelos 4,5 GiB, db 768 MiB, chromadb 512 MiB,
+# backend 512 MiB, nginx 64 MiB y jobs 768 MiB.
+services:
+  db:
+    cpuset: "0,1"
+    mem_limit: 768m
+  chromadb:
+    cpuset: "0,1"
+    mem_limit: 512m
+  backend:
+    cpuset: "0,1"
+    mem_limit: 512m
+  nginx:
+    cpuset: "0,1"
+    mem_limit: 64m
+  modelos:
+    cpuset: "0,1"
+    mem_limit: 4608m
+  jobs:
+    cpuset: "0,1"
+    mem_limit: 768m

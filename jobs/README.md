@@ -92,3 +92,18 @@ pytest -q -m lenta     # PDF reales de data/guias y, con DATABASE_URL_INDEXADOR,
 
 Los textos de `backend/tests/datos` permiten probar las anclas en CI sin los PDF; se regeneran
 si cambia la extracción.
+
+Las pruebas lentas de la recuperación (`tests/test_rag_lento.py`: tasa de acierto de las 20
+consultas de referencia y una consulta en español que recupera un fragmento en inglés de la
+OMS) usan los modelos reales, que no tienen puerto publicado, así que se ejecutan dentro de la
+red de Docker con el código montado (Git Bash, desde la raíz del repositorio):
+
+```bash
+PWD_GEN=$(grep '^CDSS_DB_PWD_GENERACION=' .env | cut -d= -f2-)
+MSYS_NO_PATHCONV=1 docker compose run --rm -T \
+  -e DATABASE_URL_GENERACION="postgresql+psycopg://cdss_generacion:${PWD_GEN}@db:5432/cdss" \
+  -v "$(pwd -W)/backend:/app" -w /app jobs \
+  sh -c "pip install -q --user pytest && python -m pytest -q -p no:cacheprovider -m lenta tests/test_rag_lento.py"
+```
+
+Las mediciones de rendimiento de la recuperación se describen en `docs/mediciones_sprint2.md`.

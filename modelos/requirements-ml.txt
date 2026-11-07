@@ -2,3 +2,8 @@
 # solo CPU, desde https://download.pytorch.org/whl/cpu (ver Dockerfile).
 sentence-transformers==3.4.1
 transformers==4.48.3
+# Reranker en ONNX int8: onnxruntime para la inferencia; optimum y onnx solo para
+# exportarlo una vez con app.exportar_onnx.
+onnxruntime==1.20.1
+optimum==1.24.0
+onnx==1.23.2

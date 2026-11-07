@@ -37,7 +37,7 @@ class MotorFalso:
             vectores.append([x / norma for x in v])
         return vectores
 
-    def reranquear(self, consulta: str, candidatos: list[str]) -> list[float]:
+    def reranquear(self, consulta: str, candidatos: list[str], max_longitud: int | None = None) -> list[float]:
         terminos = set(_palabras(consulta))
         if not terminos:
             return [0.0] * len(candidatos)

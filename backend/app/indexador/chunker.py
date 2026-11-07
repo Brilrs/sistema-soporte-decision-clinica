@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from app.indexador.segmentacion import Segmento, TextoDocumento
-from app.indexador.servicios import Tokenizador
+from app.core.modelos import Tokenizador
 
 _ROMANO = re.compile(r"^[\"“']?((?:I|II|III|IV|V|VI|VII|VIII|IX|X)\.\s+[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ ,:]{3,90})$")
 _NUMERAL = re.compile(r"^[\"“']?(\d{1,2}(?:\.\d{1,2}){1,3})\.?\s+([A-ZÁÉÍÓÚÑ¿][^\n]{2,200})")

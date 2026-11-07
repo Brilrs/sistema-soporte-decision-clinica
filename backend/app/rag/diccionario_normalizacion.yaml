@@ -1,0 +1,398 @@
+# Diccionario de normalización de consultas (2.4), sin UMLS.
+#
+# abreviaturas: se expanden en la consulta antes de buscar (clave sin tildes y en
+#   minúsculas; se reconoce como palabra completa).
+# conceptos: término preferido en español, sinónimos (incluidas las expresiones del
+#   español peruano usadas en los establecimientos), descriptor MeSH, descriptor DeCS
+#   y equivalentes en inglés para consultar las guías OMS. El CUI de UMLS queda vacío
+#   porque no se cuenta con licencia.
+#
+# Todos los identificadores MeSH y DeCS llevan verificar: true. Se tomaron de memoria
+# y deben contrastarse con https://meshb.nlm.nih.gov y https://decs.bvsalud.org antes
+# de darlos por válidos. Un id vacío indica que no se encontró un descriptor exacto.
+#
+# dominio: true marca los conceptos propios de la anemia infantil; el filtro de
+# dominio acepta la consulta que menciona alguno (por ejemplo «chispitas» o
+# «sangrecita»). Los conceptos generales (niño, seguimiento, derivación) no cuentan.
+
+abreviaturas:
+  hb: hemoglobina
+  hgb: hemoglobina
+  sf: sulfato ferroso
+  mmn: multimicronutrientes
+  cred: control de crecimiento y desarrollo
+  rn: recien nacido
+  bpn: bajo peso al nacer
+  lme: lactancia materna exclusiva
+  msnm: metros sobre el nivel del mar
+  m.s.n.m: metros sobre el nivel del mar
+  pcr: proteina c reactiva
+  eess: establecimiento de salud
+  ipress: institucion prestadora de servicios de salud
+  vo: via oral
+  oms: organizacion mundial de la salud
+  who: organizacion mundial de la salud
+  minsa: ministerio de salud
+  nts: norma tecnica de salud
+
+conceptos:
+  - clave: anemia
+    preferido: anemia
+    sinonimos: [anemia infantil, sangre baja, hemoglobina baja]
+    mesh: {id: D000740, termino: Anemia}
+    decs: {termino: Anemia}
+    ingles: [anaemia, anemia]
+    dominio: true
+    verificar: true
+
+  - clave: anemia_ferropenica
+    preferido: anemia por deficiencia de hierro
+    sinonimos: [anemia ferropenica, anemia ferropriva, anemia por falta de hierro]
+    mesh: {id: D018798, termino: "Anemia, Iron-Deficiency"}
+    decs: {termino: Anemia Ferropénica}
+    ingles: [iron deficiency anaemia]
+    dominio: true
+    verificar: true
+
+  - clave: deficiencia_hierro
+    preferido: deficiencia de hierro
+    sinonimos: [ferropenia, deficit de hierro, carencia de hierro, falta de hierro]
+    mesh: {id: D000090463, termino: Iron Deficiencies}
+    decs: {termino: Deficiencias de Hierro}
+    ingles: [iron deficiency]
+    dominio: true
+    verificar: true
+
+  - clave: anemia_leve
+    preferido: anemia leve
+    sinonimos: []
+    mesh: {id: "", termino: ""}
+    decs: {termino: ""}
+    ingles: [mild anaemia]
+    dominio: true
+    verificar: true
+
+  - clave: anemia_moderada
+    preferido: anemia moderada
+    sinonimos: []
+    mesh: {id: "", termino: ""}
+    decs: {termino: ""}
+    ingles: [moderate anaemia]
+    dominio: true
+    verificar: true
+
+  - clave: anemia_severa
+    preferido: anemia severa
+    sinonimos: [anemia grave]
+    mesh: {id: "", termino: ""}
+    decs: {termino: ""}
+    ingles: [severe anaemia]
+    dominio: true
+    verificar: true
+
+  - clave: clasificacion_severidad
+    preferido: clasificacion de la anemia segun severidad
+    sinonimos: [severidad de la anemia, gravedad de la anemia, grado de anemia, grado de la anemia, niveles de anemia,
+                clasificacion de la anemia, tipos de anemia segun hemoglobina]
+    mesh: {id: D012720, termino: Severity of Illness Index}
+    decs: {termino: Índice de Severidad de la Enfermedad}
+    ingles: [anaemia severity, severity of anaemia, mild moderate severe anaemia]
+    dominio: true
+    verificar: true
+
+  - clave: hemoglobina
+    preferido: hemoglobina
+    sinonimos: [nivel de hemoglobina, valor de hemoglobina, dosaje de hemoglobina, concentracion de hemoglobina]
+    mesh: {id: D006454, termino: Hemoglobins}
+    decs: {termino: Hemoglobinas}
+    ingles: [haemoglobin, haemoglobin concentration]
+    dominio: true
+    verificar: true
+
+  - clave: punto_corte
+    preferido: punto de corte
+    sinonimos: [valor de corte, umbral de hemoglobina, valores normales de hemoglobina, rango normal]
+    mesh: {id: D012016, termino: Reference Values}
+    decs: {termino: Valores de Referencia}
+    ingles: [haemoglobin cutoffs, cutoff, threshold]
+    dominio: true
+    verificar: true
+
+  - clave: hierro
+    preferido: hierro
+    sinonimos: [fierro]
+    mesh: {id: D007501, termino: Iron}
+    decs: {termino: Hierro}
+    ingles: [iron]
+    dominio: true
+    verificar: true
+
+  - clave: sulfato_ferroso
+    preferido: sulfato ferroso
+    sinonimos: [jarabe de sulfato ferroso, gotas de sulfato ferroso]
+    mesh: {id: "", termino: ferrous sulfate}
+    decs: {termino: ""}
+    ingles: [ferrous sulfate, iron drops, iron syrup]
+    dominio: true
+    verificar: true
+
+  - clave: hierro_polimaltosado
+    preferido: hierro polimaltosado
+    sinonimos: [complejo polimaltosado ferrico]
+    mesh: {id: "", termino: ""}
+    decs: {termino: ""}
+    ingles: [iron polymaltose]
+    dominio: true
+    verificar: true
+
+  - clave: micronutrientes
+    preferido: multimicronutrientes
+    sinonimos: [micronutrientes, micronutrientes en polvo, chispitas, sobres de micronutrientes]
+    mesh: {id: D055549, termino: Micronutrients}
+    decs: {termino: Micronutrientes}
+    ingles: [micronutrient powders, multiple micronutrient powders, micronutrients]
+    dominio: true
+    verificar: true
+
+  - clave: suplementacion
+    preferido: suplementacion con hierro
+    sinonimos: [suplementacion, suplementacion preventiva, suplemento de hierro, profilaxis con hierro, gotitas, gotitas de hierro, darle hierro]
+    mesh: {id: D019587, termino: Dietary Supplements}
+    decs: {termino: Suplementos Dietéticos}
+    ingles: [iron supplementation, daily iron supplementation, supplementation]
+    dominio: true
+    verificar: true
+
+  - clave: tratamiento
+    preferido: tratamiento
+    sinonimos: [terapia, manejo, tratamiento de la anemia, suplementacion terapeutica]
+    mesh: {id: D013812, termino: Therapeutics}
+    decs: {termino: Terapéutica}
+    ingles: [treatment, management]
+    dominio: false
+    verificar: true
+
+  - clave: dosis
+    preferido: dosis
+    sinonimos: [cantidad de hierro, cuanto hierro, miligramos por kilogramo, mg por kg]
+    mesh: {id: "", termino: ""}
+    decs: {termino: ""}
+    ingles: [dose, dosage, mg per kg]
+    dominio: false
+    verificar: true
+
+  - clave: adherencia
+    preferido: adherencia
+    sinonimos: [cumplimiento del tratamiento, consumo del suplemento, no toma el hierro, rechazo al suplemento]
+    mesh: {id: D055118, termino: Medication Adherence}
+    decs: {termino: Cumplimiento de la Medicación}
+    ingles: [adherence]
+    dominio: false
+    verificar: true
+
+  - clave: suspension
+    preferido: suspension de la suplementacion
+    sinonimos: [suspender, suspension, dejar el hierro, retirar el suplemento, efectos adversos del hierro, estrenimiento, heces oscuras]
+    mesh: {id: "", termino: ""}
+    decs: {termino: ""}
+    ingles: [adverse effects, side effects]
+    dominio: false
+    verificar: true
+
+  - clave: lactante
+    preferido: lactante
+    sinonimos: [bebe, bebito, wawa, nino menor de un ano, menor de 12 meses]
+    mesh: {id: D007223, termino: Infant}
+    decs: {termino: Lactante}
+    ingles: [infants, infant]
+    dominio: false
+    verificar: true
+
+  - clave: preescolar
+    preferido: preescolar
+    sinonimos: [nino de 2 a 5 anos, nino de 24 a 59 meses]
+    mesh: {id: D002675, termino: "Child, Preschool"}
+    decs: {termino: Preescolar}
+    ingles: [preschool children, preschool-age children]
+    dominio: false
+    verificar: true
+
+  - clave: nino
+    preferido: nino
+    sinonimos: [nina, infante]
+    mesh: {id: D002648, termino: Child}
+    decs: {termino: Niño}
+    ingles: [children, child]
+    dominio: false
+    verificar: true
+
+  - clave: recien_nacido
+    preferido: recien nacido
+    sinonimos: [neonato]
+    mesh: {id: D007231, termino: "Infant, Newborn"}
+    decs: {termino: Recién Nacido}
+    ingles: [newborn]
+    dominio: false
+    verificar: true
+
+  - clave: bajo_peso_nacer
+    preferido: bajo peso al nacer
+    sinonimos: [peso bajo al nacer, nacio con bajo peso]
+    mesh: {id: D007230, termino: "Infant, Low Birth Weight"}
+    decs: {termino: Recién Nacido de Bajo Peso}
+    ingles: [low birth weight]
+    dominio: false
+    verificar: true
+
+  - clave: prematuro
+    preferido: prematuro
+    sinonimos: [pretermino, prematurez, nacio prematuro]
+    mesh: {id: D007234, termino: "Infant, Premature"}
+    decs: {termino: Recien Nacido Prematuro}
+    ingles: [preterm, premature]
+    dominio: false
+    verificar: true
+
+  - clave: altitud
+    preferido: altitud
+    sinonimos: [altura, metros sobre el nivel del mar, zona altoandina, sierra, puno, cusco, juliaca, huancavelica]
+    mesh: {id: D000531, termino: Altitude}
+    decs: {termino: Altitud}
+    ingles: [altitude, elevation, above sea level]
+    dominio: false
+    verificar: true
+
+  - clave: ajuste_altitud
+    preferido: ajuste de hemoglobina por altitud
+    sinonimos: [ajuste por altitud, correccion por altura, hemoglobina ajustada]
+    mesh: {id: "", termino: ""}
+    decs: {termino: ""}
+    ingles: [haemoglobin adjustment for elevation, adjustments in haemoglobin]
+    dominio: true
+    verificar: true
+
+  - clave: ferritina
+    preferido: ferritina
+    sinonimos: [ferritina serica]
+    mesh: {id: D005293, termino: Ferritins}
+    decs: {termino: Ferritinas}
+    ingles: [ferritin, serum ferritin]
+    dominio: true
+    verificar: true
+
+  - clave: inflamacion
+    preferido: inflamacion
+    sinonimos: [infeccion, proteina c reactiva]
+    mesh: {id: D007249, termino: Inflammation}
+    decs: {termino: Inflamación}
+    ingles: [inflammation, infection]
+    dominio: false
+    verificar: true
+
+  - clave: parasitosis
+    preferido: parasitosis intestinal
+    sinonimos: [parasitosis, parasitos, lombrices]
+    mesh: {id: D007411, termino: "Intestinal Diseases, Parasitic"}
+    decs: {termino: Enfermedades Parasitarias Intestinales}
+    ingles: [intestinal parasites, helminth infection]
+    dominio: false
+    verificar: true
+
+  - clave: desparasitacion
+    preferido: desparasitacion
+    sinonimos: [antiparasitario, desparasitar]
+    mesh: {id: D000871, termino: Anthelmintics}
+    decs: {termino: Antihelmínticos}
+    ingles: [deworming]
+    dominio: false
+    verificar: true
+
+  - clave: lactancia_materna
+    preferido: lactancia materna
+    sinonimos: [leche materna, lactancia materna exclusiva]
+    mesh: {id: D001942, termino: Breast Feeding}
+    decs: {termino: Lactancia Materna}
+    ingles: [breastfeeding]
+    dominio: false
+    verificar: true
+
+  - clave: pinzamiento_cordon
+    preferido: pinzamiento tardio del cordon umbilical
+    sinonimos: [pinzamiento tardio, clampaje tardio del cordon, corte tardio del cordon]
+    mesh: {id: "", termino: Umbilical Cord Clamping}
+    decs: {termino: ""}
+    ingles: [delayed cord clamping]
+    dominio: true
+    verificar: true
+
+  - clave: alimentacion
+    preferido: alimentos ricos en hierro
+    sinonimos: [alimentacion complementaria, sangrecita, higado, bazo, visceras, carnes rojas, alimentos de origen animal]
+    mesh: {id: D000097062, termino: "Diet, Healthy"}
+    decs: {termino: ""}
+    ingles: [iron-rich foods, complementary feeding, diet]
+    dominio: true
+    verificar: true
+
+  - clave: palidez
+    preferido: palidez
+    sinonimos: [palido, piel palida]
+    mesh: {id: D010167, termino: Pallor}
+    decs: {termino: Palidez}
+    ingles: [pallor]
+    dominio: true
+    verificar: true
+
+  - clave: hiporexia
+    preferido: hiporexia
+    sinonimos: [falta de apetito, inapetencia, no quiere comer, poco apetito]
+    mesh: {id: D000855, termino: Anorexia}
+    decs: {termino: Anorexia}
+    ingles: [loss of appetite]
+    dominio: false
+    verificar: true
+
+  - clave: tamizaje
+    preferido: tamizaje de anemia
+    sinonimos: [tamizaje, dosaje, despistaje de anemia, descarte de anemia, medicion de hemoglobina]
+    mesh: {id: D008403, termino: Mass Screening}
+    decs: {termino: Tamizaje Masivo}
+    ingles: [screening, haemoglobin measurement]
+    dominio: true
+    verificar: true
+
+  - clave: control_cred
+    preferido: control de crecimiento y desarrollo
+    sinonimos: [control del nino sano, control de nino]
+    mesh: {id: D002657, termino: Child Development}
+    decs: {termino: Desarrollo Infantil}
+    ingles: [growth monitoring, well-child visit]
+    dominio: false
+    verificar: true
+
+  - clave: seguimiento
+    preferido: seguimiento
+    sinonimos: [monitoreo, visita domiciliaria, control de hemoglobina]
+    mesh: {id: "", termino: ""}
+    decs: {termino: ""}
+    ingles: [follow-up, monitoring]
+    dominio: false
+    verificar: true
+
+  - clave: derivacion
+    preferido: referencia a un establecimiento de mayor complejidad
+    sinonimos: [derivacion, referir, transferencia]
+    mesh: {id: D012017, termino: Referral and Consultation}
+    decs: {termino: Derivación y Consulta}
+    ingles: [referral]
+    dominio: false
+    verificar: true
+
+  - clave: tabaquismo
+    preferido: tabaquismo
+    sinonimos: [fumador, cigarrillos, tabaco]
+    mesh: {id: D000073865, termino: Tobacco Smoking}
+    decs: {termino: Fumar Tabaco}
+    ingles: [smoking, cigarettes]
+    dominio: false
+    verificar: true

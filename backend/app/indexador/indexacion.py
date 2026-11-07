@@ -19,9 +19,9 @@ from app.indexador.extraccion import PaginaTexto, contar_sospechosos, extraer_pd
 from app.indexador.modificaciones import cargar_mapa
 from app.indexador.repositorio import Documento, Repositorio
 from app.indexador.segmentacion import ResultadoSegmentacion, TextoDocumento, segmentar
-from app.indexador.servicios import Embedder, Tokenizador
+from app.core.modelos import Embedder, Tokenizador
 from app.indexador.transcripciones import cargar_transcripciones
-from app.indexador.vectores import AlmacenVectorial, RegistroVector
+from app.core.vectores import AlmacenVectorial, RegistroVector
 
 log = logging.getLogger("indexador")
 ESPACIO_IDS = uuid.UUID("6f1c2b0e-5d1a-4c4e-9a57-2b8f0c3d7e21")

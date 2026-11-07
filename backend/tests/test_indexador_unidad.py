@@ -13,7 +13,7 @@ from app.indexador.informes import buscar_valor, cargar_valores, informe_valores
 from app.indexador.modificaciones import (ConflictoDerivado, MapaModificaciones, Modificacion, TramoSustituido,
                                           cargar_mapa)
 from app.indexador.segmentacion import Segmento, TextoDocumento, segmentar
-from app.indexador.servicios import DIMENSION, EmbedderFalso, RerankerFalso, TokenizadorFalso
+from app.core.modelos import DIMENSION, EmbedderFalso, RerankerFalso, TokenizadorFalso
 from app.indexador.transcripciones import DIR_TRANSCRIPCIONES, cargar_transcripciones, leer_transcripcion
 from tests.indexador_util import fuente, paginas_de_prueba
 

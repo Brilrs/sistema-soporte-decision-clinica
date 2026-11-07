@@ -30,6 +30,8 @@ class Settings(BaseSettings):
 
     # Servicios
     chroma_url: str = Field("http://chromadb:8000", alias="CHROMA_URL")
+    modelos_url: str = Field("http://modelos:8000", alias="MODELOS_URL")
+    modelos_timeout_s: float = Field(120.0, alias="MODELOS_TIMEOUT_S", gt=0)
     cors_origenes: list[str] = Field(default_factory=lambda: ["http://localhost:5173"], alias="CORS_ORIGENES")
 
 

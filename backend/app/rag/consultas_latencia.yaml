@@ -1,0 +1,37 @@
+# Consultas sintéticas para medir la latencia de la recuperación (30). Imitan la
+# consulta que llegará a la recuperación en un caso clínico: el contexto
+# estructurado del tamizaje (edad, sexo, hemoglobina observada y ajustada, altitud,
+# clasificación y antecedentes) seguido de la pregunta filtrada del profesional, de
+# 40 a 90 palabras. No corresponden a pacientes reales.
+
+consultas:
+  - Niño de 8 meses, sexo masculino, hemoglobina observada 10,4 g/dL, ajustada 9,0 g/dL por residir a 3820 metros, anemia leve, recibe lactancia materna y no recibe suplemento de hierro. ¿Qué dosis de sulfato ferroso corresponde y por cuánto tiempo?
+  - Niña de 14 meses, hemoglobina 9,1 g/dL a nivel del mar, anemia moderada, peso 9,2 kg, sin antecedente de parasitosis. ¿Cuál es el esquema de tratamiento y cuándo se repite el dosaje de hemoglobina?
+  - Lactante de 5 meses nacido a término con buen peso, hemoglobina 10,9 g/dL, vive en Lima a 150 metros. ¿Debe iniciar suplementación preventiva antes de los 6 meses?
+  - Niño de 2 años con hemoglobina ajustada de 6,8 g/dL, palidez marcada e hiporexia, vive en Juliaca. ¿Corresponde referirlo a un establecimiento de mayor complejidad?
+  - Niña de 10 meses que recibe gotas de sulfato ferroso desde hace un mes, presenta estreñimiento y heces oscuras. ¿Se suspende el suplemento o se cambia por hierro polimaltosado?
+  - Niño de 3 años, hemoglobina ajustada 11,6 g/dL, sin anemia, vive en Cusco a 3400 metros. ¿Qué suplementación preventiva le corresponde según su edad?
+  - Recién nacido prematuro de 34 semanas con 1900 gramos al nacer, ahora tiene 1 mes de edad. ¿Desde cuándo y con qué dosis se inicia el hierro?
+  - Niña de 18 meses con anemia leve tratada durante 3 meses, hemoglobina actual 11,2 g/dL. ¿Cuándo se considera el alta del tratamiento y qué seguimiento necesita?
+  - Niño de 7 meses con hemoglobina 9,8 g/dL, madre refiere que no le da las gotitas porque vomita. ¿Cómo se mejora la adherencia a la suplementación?
+  - Niña de 12 meses, hemoglobina observada 11,8 g/dL, vive a 4000 metros en Puno. ¿Cuánto se resta a la hemoglobina por altitud y cómo se clasifica?
+  - Niño de 26 meses que recibe micronutrientes, la familia vive lejos del establecimiento. ¿Cuántas visitas domiciliarias le corresponden y qué se evalúa en cada una?
+  - Niña de 9 meses con hemoglobina 8,9 g/dL que no mejora tras un mes de tratamiento con buena adherencia. ¿Qué exámenes de apoyo al diagnóstico se solicitan?
+  - Niño de 4 años con anemia leve, peso 15 kg, hemoglobina ajustada 10,6 g/dL. ¿Qué dosis de hierro en mg por kg al día corresponde para el tratamiento?
+  - Lactante de 6 meses que inicia alimentación complementaria, hemoglobina 11,1 g/dL. ¿Qué alimentos ricos en hierro se recomiendan a la familia?
+  - Niña de 15 meses con anemia moderada y parasitosis intestinal reciente. ¿Se desparasita antes o durante el tratamiento con hierro?
+  - Niño de 11 meses con hemoglobina 10,2 g/dL medida con hemoglobinómetro portátil. ¿Es necesario confirmar con laboratorio antes de iniciar el tratamiento?
+  - Niña de 20 meses con anemia y ferritina sérica de 10 microgramos por litro. ¿Ese valor confirma deficiencia de hierro en su grupo de edad?
+  - Niño de 6 meses con antecedente de bajo peso al nacer que ya recibió hierro desde el primer mes. ¿Cómo continúa la suplementación después de los 6 meses?
+  - Niña de 30 meses sin anemia que recibe hierro preventivo y tuvo diarrea aguda esta semana. ¿Se suspende la suplementación mientras dure el episodio?
+  - Niño de 16 meses con hemoglobina 7,4 g/dL, anemia moderada en el límite. ¿Cada cuánto se controla la hemoglobina durante los 6 meses de tratamiento?
+  - Niña de 4 meses nacida a término con hemoglobina 9,6 g/dL. ¿Cuál es el tratamiento de la anemia en menores de 6 meses?
+  - Niño de 13 meses que vive a 2500 metros en Huancavelica, hemoglobina observada 11,3 g/dL. ¿Tiene anemia después del ajuste por altitud?
+  - Niña de 22 meses con anemia severa, hemoglobina ajustada 6,5 g/dL, irritable y somnolienta. ¿Qué signos de alarma requieren atención inmediata?
+  - Niño de 9 meses, hemoglobina 10,8 g/dL, madre fumadora en el hogar. ¿Se ajusta la hemoglobina por exposición al humo de tabaco?
+  - Niña de 3 años y 6 meses que recibe sulfato ferroso preventivo. ¿Cuántos meses dura la suplementación preventiva y cuándo se mide la hemoglobina?
+  - Niño de 10 meses con anemia leve cuya familia participa en sesiones demostrativas. ¿Qué contenidos deben incluir las sesiones de preparación de alimentos?
+  - Niña de 8 meses, hemoglobina 9,9 g/dL, recibe lactancia materna exclusiva prolongada y poca alimentación complementaria. ¿Cuál es el tratamiento y la consejería nutricional?
+  - Niño de 5 años con hemoglobina ajustada 10,9 g/dL. ¿Qué punto de corte se aplica a los 59 meses y qué tratamiento corresponde?
+  - Niña de 12 meses que nunca tuvo dosaje de hemoglobina. ¿A qué edades corresponde medir la hemoglobina en el control de crecimiento y desarrollo?
+  - Niño de 19 meses con anemia leve y suspensión del suplemento por más de tres meses. ¿Se reinicia la suplementación desde el principio o se continúa?

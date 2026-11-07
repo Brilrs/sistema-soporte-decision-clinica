@@ -1,0 +1,142 @@
+# Consultas de referencia de la recuperación (20). Cada una indica las secciones de
+# las guías indexadas que deberían aparecer entre los 5 fragmentos seleccionados.
+# Una consulta acierta si algún fragmento del top 5 cumple alguna de las
+# alternativas de «esperado»:
+#   documento:        código del documento (codigo_documento)
+#   seccion_contiene: texto que aparece en la sección del fragmento, o
+#   texto_contiene:   texto que aparece en el fragmento, o
+#   paginas:          [inicio, fin] que se superponen con las del fragmento.
+# Las secciones esperadas son una propuesta hecha a partir de los fragmentos
+# indexados (versión 3) y llevan revisar: true hasta que el equipo clínico las
+# confirme. Todas las consultas son sintéticas.
+
+consultas:
+  - id: R01
+    consulta: ¿Qué dosis de hierro preventivo le corresponde a un lactante de 8 meses?
+    esperado:
+      - {documento: NTS 213-MINSA/DGIESP-2024, seccion_contiene: "2. En el niño y la niña de 6 a 11"}
+    revisar: true
+
+  - id: R02
+    consulta: ¿Cuál es el punto de corte de hemoglobina para diagnosticar anemia en un niño de 14 meses?
+    esperado:
+      - {documento: RM 429-2024/MINSA, texto_contiene: "Tabla N° 13"}
+    revisar: true
+
+  - id: R03
+    consulta: ¿Cómo se ajusta la hemoglobina por altitud en un niño que vive en Puno, a 3800 metros?
+    esperado:
+      - {documento: RM 429-2024/MINSA, seccion_contiene: "5.3.2 Tabla 1"}
+      - {documento: OMS 2024, texto_contiene: "Table 4. Adjustments to haemoglobin concentration"}
+    revisar: true
+
+  - id: R04
+    consulta: ¿Cuál es el tratamiento de la anemia moderada en un niño de 2 años?
+    esperado:
+      - {documento: NTS 213-MINSA/DGIESP-2024, seccion_contiene: "3. Tratamiento en el niño y la niña de 6 meses a 11"}
+      - {documento: RM 429-2024/MINSA, seccion_contiene: "6.1.2 B"}
+    revisar: true
+
+  - id: R05
+    consulta: ¿Cuándo se debe suspender la suplementación con hierro?
+    esperado:
+      - {documento: NTS 213-MINSA/DGIESP-2024, texto_contiene: "5.6. Suspensión de los suplementos de hierro"}
+      - {documento: RM 429-2024/MINSA, seccion_contiene: "5.6.2 y 5.6.3"}
+    revisar: true
+
+  - id: R06
+    consulta: ¿Cómo es la suplementación preventiva con hierro en un niño menor de 6 meses nacido a término?
+    esperado:
+      - {documento: RM 429-2024/MINSA, seccion_contiene: "Tabla 5"}
+    revisar: true
+
+  - id: R07
+    consulta: ¿Qué suplemento preventivo y en qué dosis recibe un niño de 18 meses?
+    esperado:
+      - {documento: NTS 213-MINSA/DGIESP-2024, seccion_contiene: "3. En el niño y la niña de 12 mese"}
+    revisar: true
+
+  - id: R08
+    consulta: ¿Cómo se realiza la suplementación preventiva en un niño de 3 años?
+    esperado:
+      - {documento: RM 429-2024/MINSA, seccion_contiene: "Tabla 8"}
+      - {documento: NTS 213-MINSA/DGIESP-2024, seccion_contiene: "4. En el niño y la niña de 24 a 59"}
+    revisar: true
+
+  - id: R09
+    consulta: ¿A qué edades se debe medir la hemoglobina en el niño para descartar anemia?
+    esperado:
+      - {documento: RM 429-2024/MINSA, seccion_contiene: "Tabla 4"}
+    revisar: true
+
+  - id: R10
+    consulta: ¿Cómo se trata la anemia en un lactante de 4 meses nacido a término y con buen peso?
+    esperado:
+      - {documento: NTS 213-MINSA/DGIESP-2024, seccion_contiene: "2. Tratamiento en el niño y la niña menor de 6"}
+    revisar: true
+
+  - id: R11
+    consulta: ¿Cómo se trata la anemia en un recién nacido prematuro con bajo peso al nacer?
+    esperado:
+      - {documento: NTS 213-MINSA/DGIESP-2024, texto_contiene: "1. Tratamiento en el/la recién nacido/a prematuro"}
+    revisar: true
+
+  - id: R12
+    consulta: ¿Cada cuánto tiempo se controla la hemoglobina durante el tratamiento de la anemia en el niño?
+    esperado:
+      - {documento: NTS 213-MINSA/DGIESP-2024, texto_contiene: "Tabla N°20"}
+    revisar: true
+
+  - id: R13
+    consulta: ¿Qué valores de ferritina definen la deficiencia de hierro en niños?
+    esperado:
+      - {documento: NTS 213-MINSA/DGIESP-2024, texto_contiene: "Tabla N° 14"}
+    revisar: true
+
+  - id: R14
+    consulta: ¿Qué hacer si el niño presenta estreñimiento u otros efectos adversos con el sulfato ferroso?
+    esperado:
+      - {documento: NTS 213-MINSA/DGIESP-2024, texto_contiene: "5.4.3. De presentarse efectos adversos"}
+      - {documento: NTS 213-MINSA/DGIESP-2024, texto_contiene: "5.5. Vigilancia de reacciones adversas"}
+      - {documento: RM 429-2024/MINSA, seccion_contiene: "5.4.1, 5.4.2"}
+    revisar: true
+
+  - id: R15
+    consulta: ¿Cuándo se da de alta del tratamiento de anemia a un niño?
+    esperado:
+      - {documento: NTS 213-MINSA/DGIESP-2024, texto_contiene: "Criterios de alta"}
+    revisar: true
+
+  - id: R16
+    consulta: ¿Cómo se evalúa la adherencia al suplemento de hierro?
+    esperado:
+      - {documento: RM 429-2024/MINSA, seccion_contiene: "5.1 Adherencia"}
+    revisar: true
+
+  - id: R17
+    consulta: ¿Cuántas visitas domiciliarias debe recibir un niño de 24 a 35 meses que recibe suplementación?
+    esperado:
+      - {documento: RM 429-2024/MINSA, seccion_contiene: "6.1.1 C, ítem 5"}
+      - {documento: NTS 213-MINSA/DGIESP-2024, seccion_contiene: "5. Visita domici"}
+    revisar: true
+
+  - id: R18
+    idioma_fuente: en
+    consulta: ¿Qué puntos de corte de hemoglobina propone la OMS para definir anemia en niños de 6 a 59 meses?
+    esperado:
+      - {documento: OMS 2024, texto_contiene: "Table 2. Haemoglobin cutoffs to define anaemia"}
+    revisar: true
+
+  - id: R19
+    idioma_fuente: en
+    consulta: ¿Cómo clasifica la OMS la severidad de la anemia en niños pequeños?
+    esperado:
+      - {documento: OMS 2024, texto_contiene: "Table 3. Haemoglobin cutoffs to define anaemia severity"}
+    revisar: true
+
+  - id: R20
+    idioma_fuente: en
+    consulta: ¿La OMS recomienda la suplementación diaria con hierro en niños de 6 a 23 meses donde la anemia es frecuente?
+    esperado:
+      - {documento: OMS 2016, paginas: [15, 17]}
+    revisar: true
