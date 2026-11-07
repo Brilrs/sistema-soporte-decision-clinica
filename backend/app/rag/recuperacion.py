@@ -91,14 +91,15 @@ class Servicios:
     cache_bm25: CacheBM25
 
 
-def fusion_rrf(listas: list[list[str]], k: int) -> list[tuple[str, float]]:
-    """Reciprocal Rank Fusion: suma de 1 / (k + posición) con posiciones desde 1. Los
-    empates se ordenan por la mejor posición en cualquier lista y luego por id."""
+def fusion_rrf(listas: list[list[str]], k: int, pesos: list[float] | None = None) -> list[tuple[str, float]]:
+    """Reciprocal Rank Fusion: suma de peso / (k + posición) con posiciones desde 1 y
+    peso 1 por lista si no se indica otro. Los empates se ordenan por la mejor
+    posición en cualquier lista y luego por id."""
     puntajes: dict[str, float] = {}
     mejor: dict[str, int] = {}
-    for lista in listas:
+    for lista, peso in zip(listas, pesos or [1.0] * len(listas)):
         for posicion, id_ in enumerate(lista, start=1):
-            puntajes[id_] = puntajes.get(id_, 0.0) + 1.0 / (k + posicion)
+            puntajes[id_] = puntajes.get(id_, 0.0) + peso / (k + posicion)
             mejor[id_] = min(mejor.get(id_, posicion), posicion)
     return sorted(puntajes.items(), key=lambda p: (-p[1], mejor[p[0]], p[0]))
 

@@ -135,6 +135,17 @@ def _unir_alrededor_de_conflictos(segmentos: list[Segmento]) -> list[Segmento]:
     return resultado
 
 
+def _recortar(doc: TextoDocumento, a: int, b: int) -> tuple[str, int, int]:
+    """Texto entre a y b sin los espacios y saltos de línea de los extremos, con su
+    posición real en el documento. El fragmentador ubica la sección de cada frase
+    por su posición: si inicio apuntara a un salto de línea quitado, una frase que
+    empieza en un título quedaría con la sección anterior."""
+    texto = doc.texto[a:b]
+    inicio = a + len(texto) - len(texto.lstrip())
+    fin = b - (len(texto) - len(texto.rstrip()))
+    return texto.strip(), inicio, max(inicio, fin)
+
+
 def segmentar(doc: TextoDocumento, transcripciones: list[Transcripcion], mapa: MapaModificaciones | None = None,
               rol: str = "normal") -> ResultadoSegmentacion:
     """rol: 'normal', 'modificado' (la RM 251, con texto sustituido por el mapa)
@@ -200,10 +211,10 @@ def segmentar(doc: TextoDocumento, transcripciones: list[Transcripcion], mapa: M
     def agregar_texto(inicio: int, fin: int) -> None:
         limites = [inicio] + [c for c, _ in cortes if inicio < c < fin] + [fin]
         for a, b in zip(limites, limites[1:]):
-            texto = doc.texto[a:b].strip()
+            texto, ini, fin = _recortar(doc, a, b)
             if not texto or (cortes and modificacion_en(a) is None):
                 continue
-            segmentos.append(Segmento(texto, a, b, doc.pagina_en(a), doc.pagina_en(max(a, b - 1)),
+            segmentos.append(Segmento(texto, ini, fin, doc.pagina_en(ini), doc.pagina_en(max(ini, fin - 1)),
                                       modificacion=modificacion_en(a)))
 
     pos = 0
@@ -217,10 +228,10 @@ def segmentar(doc: TextoDocumento, transcripciones: list[Transcripcion], mapa: M
                 transcripcion=tr.clave, tabla=tr.tabla, modificacion=modificacion_en(t.inicio),
             ))
         else:
+            texto, ini, fin = _recortar(doc, t.inicio, t.fin)
             segmentos.append(Segmento(
-                doc.texto[t.inicio:t.fin].strip(), t.inicio, t.fin, doc.pagina_en(t.inicio),
-                doc.pagina_en(max(t.inicio, t.fin - 1)), vigente=False, motivo_exclusion=t.motivo,
-                id_documento_modificatorio=id_modificatorio,
+                texto, ini, fin, doc.pagina_en(ini), doc.pagina_en(max(ini, fin - 1)), vigente=False,
+                motivo_exclusion=t.motivo, id_documento_modificatorio=id_modificatorio,
             ))
         pos = t.fin
     agregar_texto(pos, len(doc.texto))

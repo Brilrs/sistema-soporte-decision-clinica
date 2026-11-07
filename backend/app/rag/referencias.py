@@ -1,13 +1,17 @@
-"""Consultas de referencia (calidad de la recuperación), de latencia y del conjunto de
-validación, y criterio de acierto: una consulta acierta si algún fragmento del top 5
+"""Consultas de referencia (calidad de la recuperación), de latencia, del conjunto de
+validación y del conjunto de prueba final, y criterio de acierto: una consulta acierta si algún fragmento del top 5
 cumple alguna de sus secciones esperadas."""
 from dataclasses import dataclass
+from decimal import Decimal
 from pathlib import Path
 
 import yaml
 
+from app.rag.consulta_estructurada import ContextoClinico, construir_consulta
+
 DIR = Path(__file__).parent
 VALIDACION = DIR / "consultas_validacion.yaml"
+PRUEBA = DIR / "consultas_prueba.yaml"
 
 
 @dataclass(frozen=True)
@@ -16,6 +20,7 @@ class Esperado:
     seccion_contiene: str | None = None
     texto_contiene: str | None = None
     paginas: tuple[int, int] | None = None
+    agregada_tras_resultado: bool = False
 
     def cumple(self, codigo_documento: str | None, seccion: str | None, texto: str,
                pagina_inicio: int | None, pagina_fin: int | None) -> bool:
@@ -37,23 +42,50 @@ class ConsultaReferencia:
     esperado: tuple[Esperado, ...]
     idioma_fuente: str = "es"
 
-    def acierta(self, fragmento) -> bool:
+    def acierta(self, fragmento, original: bool = False) -> bool:
+        """original: solo las secciones esperadas escritas antes de ver los resultados."""
         return any(e.cumple(fragmento.codigo_documento, fragmento.seccion, fragmento.texto, fragmento.pagina_inicio,
-                            fragmento.pagina_fin) for e in self.esperado)
+                            fragmento.pagina_fin)
+                   for e in self.esperado if not (original and e.agregada_tras_resultado))
+
+    @property
+    def corregida_tras_resultado(self) -> bool:
+        return any(e.agregada_tras_resultado for e in self.esperado)
+
+
+def _esperados(c: dict) -> tuple[Esperado, ...]:
+    return tuple(Esperado(documento=e["documento"], seccion_contiene=e.get("seccion_contiene"),
+                          texto_contiene=e.get("texto_contiene"),
+                          paginas=tuple(e["paginas"]) if e.get("paginas") else None,
+                          agregada_tras_resultado=bool(e.get("agregada_tras_resultado", False)))
+                 for e in c["esperado"])
+
+
+def _consulta(c: dict, texto: str) -> ConsultaReferencia:
+    return ConsultaReferencia(id=c["id"], consulta=texto, idioma_fuente=c.get("idioma_fuente", "es"),
+                              esperado=_esperados(c))
 
 
 def cargar_consultas_referencia(ruta: Path = DIR / "consultas_referencia.yaml") -> list[ConsultaReferencia]:
     datos = yaml.safe_load(ruta.read_text(encoding="utf-8"))
-    return [
-        ConsultaReferencia(
-            id=c["id"], consulta=c["consulta"], idioma_fuente=c.get("idioma_fuente", "es"),
-            esperado=tuple(Esperado(documento=e["documento"], seccion_contiene=e.get("seccion_contiene"),
-                                    texto_contiene=e.get("texto_contiene"),
-                                    paginas=tuple(e["paginas"]) if e.get("paginas") else None)
-                           for e in c["esperado"]),
-        )
-        for c in datos["consultas"]
-    ]
+    return [_consulta(c, c["consulta"]) for c in datos["consultas"]]
+
+
+def contexto_desde_yaml(datos: dict) -> ContextoClinico:
+    valores = dict(datos)
+    for campo in ("hb_ajustada_g_dl", "ajuste_hb_g_dl"):
+        if valores.get(campo) is not None:
+            valores[campo] = Decimal(str(valores[campo]))
+    valores["sintomas"] = tuple(valores.get("sintomas") or ())
+    return ContextoClinico(**valores)
+
+
+def cargar_conjunto_prueba(ruta: Path = PRUEBA) -> list[ConsultaReferencia]:
+    """Conjunto de prueba final: los casos clínicos con la consulta que arma
+    construir_consulta y las preguntas libres. Solo para la medición final."""
+    datos = yaml.safe_load(ruta.read_text(encoding="utf-8"))
+    casos = [_consulta(c, construir_consulta(contexto_desde_yaml(c["contexto"]))) for c in datos["casos"]]
+    return casos + [_consulta(c, c["consulta"]) for c in datos["libres"]]
 
 
 def cargar_consultas_latencia(ruta: Path = DIR / "consultas_latencia.yaml") -> list[str]:

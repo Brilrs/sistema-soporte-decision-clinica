@@ -222,6 +222,75 @@ def test_conflicto_excluido_solo_quita_la_oracion():
     assert excluido.motivo_exclusion.startswith("Conflicto derivado con RM 429-2024/MINSA, modificación N.° 6")
 
 
+# ---------------------------------------------------------------------------
+# Etiqueta de sección e ítems (B2)
+# ---------------------------------------------------------------------------
+FRASE = "El profesional de salud indica el suplemento de hierro y registra la entrega en la historia clínica."
+
+
+def test_segmento_recortado_conserva_su_posicion_en_el_documento():
+    r = segmentar(_doc_anclas(), [], _mapa(r"^5\.4\.4\.", r"menor a 3 meses\."), "modificado")
+    doc = _doc_anclas()
+    for s in r.segmentos:
+        assert doc.texto[s.inicio:s.fin] == s.texto
+
+
+def test_fragmento_que_empieza_en_un_titulo_lleva_ese_titulo():
+    # El tramo sustituido deja el siguiente segmento empezando en «5.4.5.» tras un salto
+    # de línea: antes recibía la sección del título anterior (5.4.3).
+    doc = _doc_anclas()
+    r = segmentar(doc, [], _mapa(r"^5\.4\.4\.", r"menor a 3 meses\."), "modificado")
+    fragmentos = [f for f in fragmentar(r.segmentos, doc, TOK) if f.vigente]
+    siguiente = next(f for f in fragmentos if f.texto.startswith("5.4.5."))
+    assert siguiente.seccion.startswith("5.4.5. Excepcionalmente")
+
+
+def test_con_varios_titulos_seguidos_vale_el_ultimo():
+    doc = TextoDocumento.desde_paginas([PaginaTexto(1, ["V. DISPOSICIONES GENERALES", "5.1. Definiciones Operativas",
+                                                        *[FRASE] * 5])])
+    f = fragmentar(segmentar(doc, []).segmentos, doc, TOK)[0]
+    assert f.texto.startswith("V. DISPOSICIONES GENERALES") and f.seccion == "5.1. Definiciones Operativas"
+
+
+def _doc_items() -> TextoDocumento:
+    lineas = ["6.1.2. Acciones de recuperación", "B. Tratamiento de la anemia",
+              "6. Tratamiento con hierro intravenoso en gestantes", *[FRASE.replace("hierro", "hierro intravenoso")] * 30,
+              "7. Tratamiento de anemia severa", "- Se refiere a un establecimiento de mayor capacidad resolutiva.",
+              "8. Atención nutricional", "- El nutricionista realiza la evaluación nutricional del paciente.",
+              "9. Criterios de alta al tratamiento", *[FRASE] * 3,
+              "10. Referencia a establecimiento de mayor capacidad resolutiva", *[FRASE] * 6]
+    return TextoDocumento.desde_paginas([PaginaTexto(1, lineas)])
+
+
+def test_item_corto_no_queda_dentro_del_contenido_de_otro_item():
+    doc = _doc_items()
+    fragmentos = fragmentar(segmentar(doc, []).segmentos, doc, TOK, objetivo=500, maximo=800, solapamiento=80)
+    con_severa = next(f for f in fragmentos if "7. Tratamiento de anemia severa" in f.texto)
+    assert con_severa.texto.startswith("7. Tratamiento de anemia severa")
+    assert "intravenoso" not in con_severa.texto
+    # el ítem 8 queda con sus hermanos y la sección lo nombra
+    assert "8. Atención nutricional" in con_severa.texto and "8. Atención nutricional" in con_severa.seccion
+    for f in fragmentos:
+        assert f.seccion.split("; ")[0].split(" > ")[-1][:3] == f.texto[:3] or not re.match(r"\d+\. ", f.texto)
+
+
+def test_item_que_cabe_en_el_maximo_no_se_parte():
+    # Un ítem de unos 560 tokens supera el objetivo (500) pero cabe en el máximo (800).
+    doc = TextoDocumento.desde_paginas([PaginaTexto(1, ["3. Control", *[FRASE] * 30, "4. Financiamiento", FRASE])])
+    fragmentos = fragmentar(segmentar(doc, []).segmentos, doc, TOK, objetivo=500, maximo=800, solapamiento=80)
+    control = [f for f in fragmentos if f.seccion.startswith("3. Control")]
+    assert len(control) == 1 and 500 < control[0].numero_tokens <= 800
+    assert any(f.texto.startswith("4. Financiamiento") and f.seccion == "4. Financiamiento" for f in fragmentos)
+
+
+def test_seccion_con_titulos_contenidos_no_supera_el_largo_de_la_columna():
+    from app.indexador.chunker import LARGO_SECCION, _con_contenidos
+    largo = "6.1.1. Acciones de prevención > B. Suplementación preventiva > 1. " + "En el niño menor de 6 meses " * 3
+    texto = _con_contenidos(largo, ["2. " + "x" * 80, "3. Atención nutricional", "4. Consejería nutricional"])
+    assert len(texto) <= LARGO_SECCION and "3. Atención nutricional" in texto
+    assert _con_contenidos("5.2. Atención", ["5.2.3. Material educativo"]) == "5.2. Atención; 5.2.3. Material educativo"
+
+
 def test_mapa_rm429_tiene_las_12_modificaciones():
     mapa = cargar_mapa("rm429_2024.yaml")
     assert [m.numero for m in mapa.modificaciones] == list(range(1, 13))

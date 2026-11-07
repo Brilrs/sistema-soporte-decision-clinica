@@ -3,7 +3,8 @@
 1. Manipulación: frases que intentan cambiar las instrucciones del sistema (en español
    o inglés) dejan la consulta fuera del dominio.
 2. Población fuera del alcance: gestantes, puérperas, adolescentes, mujeres en edad
-   fértil y adultos. El sistema atiende a niños del servicio CRED (0 a 59 meses).
+   fértil, adultos y niños de 5 años o más (o de más de 59 meses). El sistema atiende
+   a niños del servicio CRED de 0 a 59 meses.
 3. Términos del dominio: anemia, hemoglobina, hierro, ferritina, suplementación o
    micronutrientes, o un concepto del diccionario de normalización marcado con
    dominio: true (por ejemplo «chispitas» o «sangrecita»), dejan la consulta dentro.
@@ -44,6 +45,17 @@ _POBLACION_FUERA = re.compile(
     r"\b(?:gestantes?|embarazad[ao]s?|embarazo|puerperas?|puerperio|adolescentes?|adult[oa]s?(?:\s+mayor(?:es)?)?"
     r"|ancian[oa]s?|mujer(?:es)?\s+en\s+edad\s+fertil|(?:varon|mujer|hombre|paciente)\s+de\s+(?:1[2-9]|[2-9]\d)\s+anos)\b"
 )
+# Edad del paciente fuera del alcance: 5 años o más, o más de 59 meses. No cuentan
+# los límites de un rango o de una población («menores de 5 años», «de 0 a 5 años»,
+# «hasta los 5 años»), que describen el alcance en lugar de la edad del niño.
+_NUMEROS = {"cinco": 5, "seis": 6, "siete": 7, "ocho": 8, "nueve": 9, "diez": 10, "once": 11, "doce": 12}
+_EDAD = re.compile(
+    r"(?<![\w,.])(?P<previo>(?:\w+\s+){0,2})(?P<n>\d{1,3}|" + "|".join(_NUMEROS) + r")\s+(?P<unidad>anos?|meses)\b"
+)
+_LIMITE_DE_RANGO = re.compile(
+    r"(?:\bmenor(?:es)?\s+de|\bmenos\s+de|\bhasta(?:\s+los)?|\bantes\s+de(?:\s+los)?|\ba(?:\s+los)?|\by(?:\s+los)?"
+    r"|\bpor\s+(?:mas\s+de|encima\s+de)|\bdurante(?:\s+los)?|\bcada|\bdentro\s+de(?:\s+los)?)\s*$"
+)
 _TERMINOS_DOMINIO = frozenset(terminos("anemia anemias hemoglobina hierro ferritina ferroso ferropenia suplementacion "
                                        "suplemento micronutrientes multimicronutrientes polimaltosado"))
 
@@ -78,8 +90,18 @@ def es_manipulacion(texto: str) -> bool:
     return bool(_MANIPULACION.search(sin_tildes(texto)))
 
 
+def edad_fuera_del_alcance(texto: str) -> bool:
+    """Una edad de 5 años o más, o de más de 59 meses, que no sea el límite de un rango."""
+    for m in _EDAD.finditer(sin_tildes(texto)):
+        n = int(m["n"]) if m["n"].isdigit() else _NUMEROS[m["n"]]
+        fuera = n >= 5 if m["unidad"].startswith("ano") else n > 59
+        if fuera and not _LIMITE_DE_RANGO.search(m["previo"]):
+            return True
+    return False
+
+
 def es_poblacion_fuera_del_alcance(texto: str) -> bool:
-    return bool(_POBLACION_FUERA.search(sin_tildes(texto)))
+    return bool(_POBLACION_FUERA.search(sin_tildes(texto))) or edad_fuera_del_alcance(texto)
 
 
 def terminos_del_dominio(texto: str) -> tuple[str, ...]:

@@ -7,7 +7,12 @@ componente de generación solo lee el resultado ya guardado.
 
 Datos mínimos (guía OE2, capa 2.2 y pantalla M06): edad, sexo, altitud de
 residencia, hemoglobina y fecha del tamizaje. Del tamizaje se leen solo columnas
-estructuradas; nunca observaciones."""
+estructuradas; nunca observaciones.
+
+Alcance: niños de 0 a 59 meses del servicio CRED. Un tamizaje con otra edad queda
+FUERA_DE_ALCANCE y no se clasifica ni pasa a la recuperación. La base de datos ya
+lo impide con la restricción de clinico.tamizaje.edad_meses; esta comprobación
+protege el flujo si los datos llegan por otra vía."""
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
@@ -22,6 +27,9 @@ from app.services.clasificacion import clasificar, guardar_resultado
 VALIDA = "VALIDA"
 DATOS_FALTANTES = "DATOS_FALTANTES"
 TAMIZAJE_NO_VIGENTE = "TAMIZAJE_NO_VIGENTE"
+FUERA_DE_ALCANCE = "FUERA_DE_ALCANCE"
+EDAD_MIN_ALCANCE_MESES = 0
+EDAD_MAX_ALCANCE_MESES = 59
 
 # Campo, etiqueta para M06 y para qué se necesita.
 DATOS_MINIMOS = (
@@ -89,6 +97,10 @@ def leer_clasificacion(sesion: Session | Connection, id_tamizaje: str) -> Resume
                                 fila.altitud_msnm, fila.requiere_derivacion, calculada_ahora=False)
 
 
+def edad_en_alcance(edad_meses: int) -> bool:
+    return EDAD_MIN_ALCANCE_MESES <= edad_meses <= EDAD_MAX_ALCANCE_MESES
+
+
 def dias_desde(fecha_tamizaje: date, referencia: date) -> int:
     return (referencia - fecha_tamizaje).days
 
@@ -109,6 +121,9 @@ def validar_tamizaje(sesion: Session | Connection, id_tamizaje: str, confirma_ta
             resultado.faltantes.append(DatoFaltante(campo, etiqueta, mensaje))
     if resultado.faltantes:
         resultado.estado = DATOS_FALTANTES
+        return resultado
+    if not edad_en_alcance(datos.edad_meses):
+        resultado.estado = FUERA_DE_ALCANCE
         return resultado
 
     vigencia = leer_parametros(sesion, ["DIAS_VIGENCIA_TAMIZAJE"])["DIAS_VIGENCIA_TAMIZAJE"]

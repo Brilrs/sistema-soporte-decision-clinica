@@ -2,7 +2,13 @@
 solapamiento de 80 (parámetros del sistema), con cortes en numerales y títulos,
 nunca a mitad de frase. Cada tabla queda entera en un solo fragmento, salvo la que
 supera el máximo del servicio de modelos: esa se parte por grupos de filas y cada
-parte repite el título y el encabezado de columnas."""
+parte repite el título y el encabezado de columnas.
+
+Un fragmento que empieza en un título lleva la sección de ese título. Los literales
+e ítems cortan el fragmento cuando este ya tiene un cuarto del objetivo, para que un
+ítem corto no quede al final del contenido de otro; y al llegar al objetivo el
+fragmento no se cierra a mitad de un apartado si lo que falta hasta el siguiente
+título cabe en el máximo."""
 import re
 from dataclasses import dataclass, field
 from datetime import date
@@ -21,6 +27,14 @@ _FRASE = re.compile(r"(?<=[.;:!?])\s+(?=[A-ZÁÉÍÓÚÑ¿¡\"“(•\-\d])")
 MAX_LINEAS_TABLA = 70
 NIVEL_CORTE = 3
 MIN_TOKENS_CORTE = 40
+# Los títulos de nivel más profundo que NIVEL_CORTE cortan cuando el fragmento ya
+# tiene esta fracción del objetivo.
+FRACCION_CORTE_PROFUNDO = 4
+# Títulos contenidos en un fragmento que se agregan a su sección, después del inicial.
+MAX_TITULOS_CONTENIDOS = 3
+LARGO_TITULO_CONTENIDO = 65
+# Largo de conocimiento.fragmento.seccion (VARCHAR(200)).
+LARGO_SECCION = 200
 # Máximo de tokens por texto del servicio modelos (MODELOS_MAX_LONGITUD_EMBEDDING): una tabla
 # más larga se parte por grupos de filas para que el embedding cubra todo su contenido.
 LIMITE_TABLA = 1024
@@ -88,6 +102,7 @@ class MapaSecciones:
 
     def __init__(self, doc: TextoDocumento):
         self._marcas: list[tuple[int, str]] = []
+        self._lineas: list[str] = []
         pila: dict[int, str] = {}
         pos = 0
         for linea in doc.texto.split("\n"):
@@ -98,6 +113,7 @@ class MapaSecciones:
                 pila[nivel] = titulo
                 ruta = [pila[k] for k in sorted(pila) if k > 1] or [pila[k] for k in sorted(pila)]
                 self._marcas.append((pos, " > ".join(ruta[-3:])))
+                self._lineas.append(" ".join(linea.split()))
             pos += len(linea) + 1
 
     def en(self, posicion: int) -> str | None:
@@ -107,6 +123,52 @@ class MapaSecciones:
                 break
             actual = ruta
         return actual
+
+    def al_inicio(self, texto: str, posicion: int) -> str | None:
+        """Ruta del título con el que empieza el texto de un fragmento, o None. Si el
+        texto empieza con varios títulos seguidos («V. ...» y luego «5.1. ...»), vale
+        el último. Entre títulos iguales gana el más cercano a la posición."""
+        elegida = None
+        for linea in [" ".join(l.split()) for l in texto.split("\n") if l.strip()][:4]:
+            candidatas = [(abs(pos - posicion), ruta, propia) for (pos, ruta), propia in zip(self._marcas, self._lineas)
+                          if linea.startswith(propia)]
+            if not candidatas:
+                break
+            _, elegida, propia = min(candidatas)
+            if linea != propia:
+                break
+        return elegida
+
+    def contenidos(self, texto: str, posicion: int) -> list[str]:
+        """Títulos que empiezan dentro del texto de un fragmento, después de su primera
+        línea (el último nivel de cada ruta), en orden de aparición."""
+        titulos: list[str] = []
+        for linea in [" ".join(l.split()) for l in texto.split("\n") if l.strip()][1:]:
+            candidatas = [(abs(pos - posicion), ruta) for (pos, ruta), propia in zip(self._marcas, self._lineas)
+                          if linea.startswith(propia)]
+            if candidatas:
+                titulo = min(candidatas)[1].split(" > ")[-1]
+                if titulo not in titulos:
+                    titulos.append(titulo)
+        return titulos
+
+
+def _con_contenidos(seccion: str | None, otros: list[str]) -> str:
+    """Sección con los títulos contenidos, dentro de LARGO_SECCION: cada título se
+    acorta a LARGO_TITULO_CONTENIDO; si no cabe, la ruta inicial queda solo con su
+    último nivel (y después acortado) y luego se quitan títulos desde el final."""
+    def corto(t: str) -> str:
+        return t if len(t) <= LARGO_TITULO_CONTENIDO else t[:LARGO_TITULO_CONTENIDO].rsplit(" ", 1)[0] + "..."
+
+    cortos = [corto(t) for t in otros]
+    ultimo = (seccion or "").split(" > ")[-1]
+    bases = [b for b in (seccion, ultimo, corto(ultimo)) if b] or [""]
+    for n in range(len(cortos), 0, -1):
+        for base in bases:
+            texto = "; ".join([base, *cortos[:n]]).lstrip("; ")
+            if len(texto) <= LARGO_SECCION:
+                return texto
+    return seccion or ""
 
 
 def _unidades(segmento: Segmento) -> list[_Unidad]:
@@ -278,6 +340,14 @@ def fragmentar(segmentos: list[Segmento], doc: TextoDocumento, tokenizador: Toke
             inicio = grupo[0][0].inicio
             fin = grupo[-1][0].inicio
             seccion = seg.seccion or secciones.en(inicio)
+            if not seg.seccion and grupo[0][0].corte_antes:
+                seccion = secciones.al_inicio(texto, inicio) or seccion
+            if not seg.seccion and not es_tabla:
+                # Los títulos que empiezan dentro del fragmento también se nombran en su sección.
+                otros = [t for t in secciones.contenidos(texto, inicio)[:MAX_TITULOS_CONTENIDOS]
+                         if t not in (seccion or "")]
+                if otros:
+                    seccion = _con_contenidos(seccion, otros)
             if es_tabla and grupo[0][0].titulo_tabla:
                 seccion = " | ".join(x for x in (seccion, grupo[0][0].titulo_tabla) if x)
             datos = dict(base)
@@ -308,7 +378,15 @@ def fragmentar(segmentos: list[Segmento], doc: TextoDocumento, tokenizador: Toke
                     suma += n
             actual, solo_solape = cola, bool(cola)
 
-        for u, n in expandidas:
+        # Tokens desde cada unidad hasta el siguiente título o tabla (sin incluirlos).
+        hasta_titulo = [0] * (len(expandidas) + 1)
+        for i in range(len(expandidas) - 1, -1, -1):
+            u, n = expandidas[i]
+            siguiente = expandidas[i + 1][0] if i + 1 < len(expandidas) else None
+            corta = siguiente is None or siguiente.es_tabla or bool(siguiente.corte_antes)
+            hasta_titulo[i] = n + (0 if corta else hasta_titulo[i + 1])
+
+        for i, (u, n) in enumerate(expandidas):
             if u.es_tabla:
                 cerrar(False)
                 if maximo < n <= limite_tabla:
@@ -321,16 +399,21 @@ def fragmentar(segmentos: list[Segmento], doc: TextoDocumento, tokenizador: Toke
                 continue
             total = sum(m for _, m in actual)
             # Apartados y numerales de primer nivel siempre cortan; los niveles más
-            # profundos, solo si el fragmento ya tiene la mitad del objetivo.
+            # profundos, si el fragmento ya tiene un cuarto del objetivo o si es la
+            # continuación de un apartado anterior (no empezó en un título).
+            continuacion = bool(actual) and not actual[0][0].corte_antes
             if (u.corte_antes and not seg.encabezado and total >= MIN_TOKENS_CORTE
-                    and (u.corte_antes <= NIVEL_CORTE or total >= objetivo_seg // 2)):
+                    and (u.corte_antes <= NIVEL_CORTE or continuacion
+                         or total >= objetivo_seg // FRACCION_CORTE_PROFUNDO)):
                 cerrar(False)
                 total = sum(m for _, m in actual)
             if actual and total + n > maximo:
                 cerrar(True)
             actual.append((u, n))
             solo_solape = False
-            if sum(m for _, m in actual) >= objetivo_seg:
+            total = sum(m for _, m in actual)
+            resto = hasta_titulo[i] - n
+            if total >= objetivo_seg and not (0 < resto and total + resto <= maximo):
                 cerrar(True)
         cerrar(False)
 
@@ -341,6 +424,6 @@ def fragmentar(segmentos: list[Segmento], doc: TextoDocumento, tokenizador: Toke
             avisos.mensajes.append(f"Fragmento de {n} tokens (pág. {f.pagina_inicio}): {f.seccion or ''}")
     for i, f in enumerate(fragmentos, 1):
         f.orden = i
-        if f.seccion and len(f.seccion) > 200:
-            f.seccion = f.seccion[:197] + "..."
+        if f.seccion and len(f.seccion) > LARGO_SECCION:
+            f.seccion = f.seccion[:LARGO_SECCION - 3] + "..."
     return fragmentos
