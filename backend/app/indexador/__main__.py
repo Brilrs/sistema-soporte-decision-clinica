@@ -2,11 +2,12 @@
 
     python -m app.indexador cargar --manifiesto fuentes_iniciales.yaml
     python -m app.indexador procesar --documento rm251 [--reindexar]
-    python -m app.indexador comparar
+    python -m app.indexador comparar [--parametros 250,400,40 --fragmentos-json archivo.json]
     python -m app.indexador verificar-valores
     python -m app.indexador trabajador
 """
 import argparse
+import json
 import logging
 import sys
 import time
@@ -112,6 +113,7 @@ def cmd_comparar(args, config: ConfigIndexador) -> int:
         from app.core.vectores import AlmacenChroma
         almacen = AlmacenChroma(config.chroma_url)
     secciones = []
+    exportados = []
     for fuente in cargar_manifiesto(args.manifiesto):
         ruta = config.dir_guias / fuente.archivo
         if not ruta.is_file():
@@ -120,8 +122,14 @@ def cmd_comparar(args, config: ConfigIndexador) -> int:
         documento = repo.documento(fuente.id_documento) if repo else None
         inicio, fin, titulo = (documento.pagina_inicio_cuerpo, documento.pagina_fin_cuerpo, documento.titulo) \
             if documento else (None, None, fuente.clave)
-        parametros = repo.parametros_fragmentacion() if repo else (500, 800, 80)
+        parametros = args.parametros or (repo.parametros_fragmentacion() if repo else (500, 800, 80))
         prep = preparar(fuente, extraer_pdf(ruta, inicio, fin, fuente.recorte), tokenizador, parametros)
+        if args.fragmentos_json:
+            exportados += [{"id_documento": fuente.id_documento, "codigo_documento": documento.codigo_documento
+                            if documento else fuente.clave, "idioma": documento.idioma if documento else "es",
+                            "orden": f.orden, "seccion": f.seccion, "pagina_inicio": f.pagina_inicio,
+                            "pagina_fin": f.pagina_fin, "texto": f.texto, "numero_tokens": f.numero_tokens,
+                            "tipo_contenido": f.tipo_contenido, "vigente": f.vigente} for f in prep.fragmentos]
         conteo = None
         if repo and almacen and documento and documento.estado_indexacion == "COMPLETADA":
             version = repo.version_actual(fuente.id_documento)
@@ -129,6 +137,12 @@ def cmd_comparar(args, config: ConfigIndexador) -> int:
                       len(almacen.ids_de_documento(fuente.id_documento)))
         secciones.append(seccion_documento(fuente, titulo, prep, parametros[1], conteo))
         print(f"{fuente.clave}: {len(prep.fragmentos)} fragmentos", flush=True)
+    if args.fragmentos_json:
+        destino = Path(args.fragmentos_json)
+        destino.parent.mkdir(parents=True, exist_ok=True)
+        destino.write_text(json.dumps({"parametros": parametros, "fragmentos": exportados}, ensure_ascii=False),
+                           encoding="utf-8")
+        print(f"Fragmentos: {destino}")
     salida = Path(args.salida) if args.salida else config.dir_mediciones / "a2_extraccion.md"
     salida.parent.mkdir(parents=True, exist_ok=True)
     salida.write_text(informe_extraccion(secciones, "falso" if args.falsos else "bge-m3"), encoding="utf-8")
@@ -198,6 +212,9 @@ def main(argv: list[str] | None = None) -> int:
     comunes(p, indexa=False)
     p.add_argument("--salida")
     p.add_argument("--sin-chroma", action="store_true", help="no consulta ChromaDB para comparar conteos")
+    p.add_argument("--parametros", type=lambda t: tuple(int(x) for x in t.split(",")),
+                   help="objetivo, máximo y solapamiento en tokens (por defecto, los del sistema)")
+    p.add_argument("--fragmentos-json", help="exporta los fragmentos preparados a este JSON (experimentos)")
     p.set_defaults(func=cmd_comparar)
 
     p = sub.add_parser("verificar-valores", help="lista de comprobación de los valores críticos")

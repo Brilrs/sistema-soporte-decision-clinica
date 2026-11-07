@@ -23,7 +23,7 @@ docker compose run --rm jobs python -m app.indexador <comando> [opciones]
 | --- | --- |
 | `cargar --manifiesto fuentes_iniciales.yaml` | Calcula el SHA-256 de los PDF del manifiesto, actualiza la ruta y el hash de las filas ya sembradas de `documento_fuente` (sin crear duplicados) e indexa cada documento. `--solo rm251 rm429` limita a esas claves. |
 | `procesar --documento <clave o id>` | Indexa un documento. `--archivo` indica otro PDF. |
-| `comparar` | Informe de extracción en `data/mediciones/a2_extraccion.md`: páginas, tokens sospechosos del OCR, fragmentos, transcripciones, anclas, texto sustituido, tamaños y conflictos derivados. No escribe en la base. |
+| `comparar` | Informe de extracción en `data/mediciones/a2_extraccion.md`: páginas, tokens sospechosos del OCR, fragmentos, transcripciones, anclas, texto sustituido, tamaños y conflictos derivados. No escribe en la base. Para experimentos, `--parametros 250,400,40` usa otros tamaños y `--fragmentos-json` exporta los fragmentos (los usa `medir_recuperacion rankings --fragmentos`). |
 | `verificar-valores` | Lista de comprobación en `data/mediciones/verificacion_valores_criticos.md` (cada valor crítico, su transcripción, la página y la imagen) y página local `data/mediciones/verificacion.html`: imagen y texto de cada transcripción lado a lado, valores críticos resaltados, casilla y notas guardadas en el navegador y botón «Copiar resumen». |
 | `trabajador` | Toma los trabajos `PENDIENTE` de `conocimiento.trabajo_indexacion` (`FOR UPDATE SKIP LOCKED`) cada 5 s. Lo usará la pantalla M11. `--una-vez` termina cuando no quedan pendientes. |
 
@@ -53,9 +53,13 @@ Opciones comunes:
    una vez, el documento queda en ERROR con el detalle.
 4. **Fragmentación**: objetivo 500 tokens, máximo 800 y solapamiento 80 (parámetros del
    sistema), contados con `/tokens` del servicio `modelos`. Corta en apartados y numerales y
-   nunca a mitad de frase. Cada tabla queda entera en un solo fragmento; la que supera los 1024
-   tokens que admite el servicio `modelos` se parte por grupos de filas y cada parte repite el
-   título y el encabezado de columnas.
+   nunca a mitad de frase. Los literales e ítems cortan cuando el fragmento tiene un cuarto del
+   objetivo o es la continuación de otro apartado, y un apartado que cabe en el máximo no se
+   parte al llegar al objetivo. Un fragmento que empieza en un título lleva la sección de ese
+   título, y la sección nombra hasta 3 títulos que empiezan dentro del fragmento. Cada tabla
+   queda entera en un solo fragmento; la que supera los 1024 tokens que admite el servicio
+   `modelos` se parte por grupos de filas y cada parte repite el título y el encabezado de
+   columnas.
 5. **Indexación**: embeddings bge-m3, y luego una sola transacción en PostgreSQL. Los vectores
    se agregan a ChromaDB (colección `guias_clinicas`, distancia coseno) antes del commit. Si
    ChromaDB falla, no queda nada; si falla después, se borran esos vectores. El avance se

@@ -21,6 +21,7 @@ from app.rag.normalizacion import normalizar
 from app.rag.parametros import ErrorParametro, leer_parametros, parametros_recuperacion
 from app.rag.recuperacion import (AMPLIADA, INICIAL, Servicios, buscar_candidatos, leer_texto_filtrado, recuperar,
                                   recuperar_con_ampliacion, seleccionar)
+from app.rag.consulta_estructurada import construir_consulta, leer_contexto
 from app.rag.validacion import DATOS_FALTANTES, TAMIZAJE_NO_VIGENTE, VALIDA, validar_tamizaje
 
 SISTEMA = "00000000-0000-0000-0000-000000000001"
@@ -214,6 +215,37 @@ def crear_tamizaje(super_engine, pacientes_creados):
             c.execute(text("DELETE FROM asistencia.consulta WHERE id_consulta::text = ANY(:ids)"), {"ids": consultas})
 
 
+def test_la_base_rechaza_un_tamizaje_de_mas_de_59_meses(super_engine, crear_tamizaje):
+    from sqlalchemy.exc import IntegrityError
+    with pytest.raises(IntegrityError):
+        crear_tamizaje(date(2026, 10, 1), edad_meses=60)
+
+
+def test_consulta_estructurada_desde_el_tamizaje_con_cdss_generacion(engine_clinica, engine_generacion,
+                                                                    super_engine, crear_tamizaje):
+    fecha = date(2026, 10, 1)
+    id_tamizaje = crear_tamizaje(fecha, hemoglobina=9.8, edad_meses=14)
+    with super_engine.begin() as c:
+        c.execute(text("""UPDATE clinico.tamizaje SET recibe_suplementacion_hierro = false, parasitosis_reciente = true
+                           WHERE id_tamizaje = :t"""), {"t": id_tamizaje})
+        c.execute(text("""INSERT INTO clinico.tamizaje_sintoma (id_tamizaje, id_sintoma)
+                          SELECT :t, id_sintoma FROM clinico.sintoma WHERE nombre IN ('Palidez', 'Otro')"""),
+                  {"t": id_tamizaje})
+    with engine_generacion.connect() as c:
+        sin_clasificar = leer_contexto(c, id_tamizaje)
+    assert sin_clasificar.categoria is None and sin_clasificar.edad_meses == 14
+    with engine_clinica.begin() as c:
+        validar_tamizaje(c, id_tamizaje, fecha_referencia=fecha)
+    with engine_generacion.connect() as c:
+        contexto = leer_contexto(c, id_tamizaje)
+    assert contexto.categoria == "ANEMIA_LEVE" and contexto.nivel_riesgo == "MODERADO"
+    assert contexto.recibe_suplementacion_hierro is False and contexto.parasitosis_reciente is True
+    assert contexto.sintomas == ("Otro", "Palidez") and contexto.prematuro is None
+    consulta = construir_consulta(contexto)
+    assert consulta.startswith("Niño de 14 meses, con anemia leve (hemoglobina 9,8 g/dL)")
+    assert "con palidez" in consulta and "antiparasitario" in consulta
+
+
 def test_lista_los_datos_faltantes_para_m06(engine_clinica, crear_tamizaje):
     id_tamizaje = crear_tamizaje(date(2026, 10, 1), hemoglobina=None)
     with engine_clinica.begin() as c:
@@ -390,6 +422,8 @@ def test_ningun_modulo_de_b_consulta_texto_consulta_ni_observaciones(engine_clin
     with engine_generacion.connect() as c:
         texto_filtrado = leer_texto_filtrado(c, id_consulta)
         recuperar_con_ampliacion(c, normalizar(texto_filtrado), _servicios(guia), _parametros(c))
+        estructurada = construir_consulta(leer_contexto(c, id_tamizaje))
+        recuperar_con_ampliacion(c, normalizar(estructurada), _servicios(guia), _parametros(c))
 
     assert texto_filtrado == CONSULTA
     assert sentencias, "no se capturaron sentencias"

@@ -11,6 +11,11 @@
 #   revisar: true hasta que el equipo clínico las confirme.
 # dominio: consultas dentro y fuera del dominio (niños de 0 a 59 meses del CRED).
 # Todas son sintéticas.
+#
+# Cambios después de ver resultados (06/11/2026): V11 recibió una sección aceptable
+# más (agregada_tras_resultado) y la consulta fuera del dominio «Niña de 8 años con
+# anemia leve», que llevó a la regla de edades de 5 años o más, pasó a las pruebas de
+# ajuste y se reemplazó por una consulta nueva sobre un niño mayor.
 
 consultas:
   - id: V01
@@ -80,6 +85,10 @@ consultas:
     consulta: ¿Cómo se organizan las sesiones demostrativas de preparación de alimentos ricos en hierro?
     esperado:
       - {documento: NTS 213-MINSA/DGIESP-2024, seccion_contiene: "E. Realizar sesiones educativas y demostrativas"}
+      # Agregada el 06/11/2026 después de ver el resultado: la modificación 6.1.3 E de la
+      # RM 429 reemplaza el literal E de la NTS y no figuraba como sección aceptable.
+      # Antes de la corrección el conjunto acertaba 7 de 15; después, 8 de 15.
+      - {documento: RM 429-2024/MINSA, seccion_contiene: "6.1.3 E", agregada_tras_resultado: true}
     revisar: true
 
   - id: V12
@@ -136,7 +145,7 @@ dominio:
     - Mi hijo tiene tos y mocos desde hace tres días, ¿le doy jarabe?
     - Mujer de 30 años con anemia, ¿qué hierro le receto?
     - ¿Puedo tomar sulfato ferroso durante el embarazo?
-    - Niña de 8 años con anemia leve, ¿qué dosis de hierro le doy?
+    - Mi hijo ya cumplió 6 años y sigue con la hemoglobina baja, ¿le continúo dando las chispitas?
     - Recomiéndame una película para el fin de semana.
     - Traduce al inglés el siguiente texto sobre fútbol.
     - ¿Cuánto cuesta un hemoglobinómetro portátil?

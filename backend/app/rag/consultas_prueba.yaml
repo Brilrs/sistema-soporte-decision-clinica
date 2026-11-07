@@ -1,0 +1,210 @@
+# Conjunto de prueba final de la recuperación (Sprint 2 B2). Se escribió el
+# 06/11/2026 antes de probar cualquier mejora de la primera etapa y se mide una sola
+# vez, al final. No se usa para ajustar reglas, diccionario, umbrales ni parámetros:
+# si un resultado lleva a cambiar algo, estas consultas pasan a ser de desarrollo y
+# se escribe un conjunto de prueba nuevo.
+#
+# casos: datos estructurados de un tamizaje (los campos de ContextoClinico). La
+#   consulta es la que arma app.rag.consulta_estructurada.construir_consulta, la
+#   misma que usará el grafo en la parte D. plan indica el caso de la prueba de punta
+#   a punta del plan del Sprint 2. Los casos 7 (falta la hemoglobina), 8 (fuera del
+#   dominio) y 9 (nombre y DNI en la consulta) del plan no llegan a la recuperación
+#   con una consulta estructurada propia y se reemplazan por los casos P08 a P10.
+# libres: preguntas en lenguaje natural, nuevas, sobre temas no cubiertos por las
+#   consultas de referencia ni de validación.
+#
+# Criterio de acierto: el mismo que consultas_referencia.yaml (algún fragmento del
+# top 5 cumple alguna sección esperada). Las secciones esperadas se tomaron del texto
+# de las guías indexadas (versión 3), no de los resultados de la recuperación: son
+# las que responden la pregunta principal del caso y, si el caso tiene una condición
+# propia (altitud, parasitosis, nacimiento prematuro o con bajo peso), también las
+# que tratan esa condición. Todas llevan revisar: true hasta que el equipo clínico
+# las confirme. Todos los datos son sintéticos.
+#
+# Corrección antes de la medición (06/11/2026): el diagnóstico del conjunto de
+# desarrollo mostró que en 29 de los 77 fragmentos de la NTS con sección, la sección
+# asignada era la del título anterior. Las secciones esperadas de la NTS se cambiaron
+# de seccion_contiene a texto_contiene con el título, antes de medir este conjunto.
+# Con el fragmentador corregido y la reindexación en la versión 4 (07/11/2026), la
+# sección corresponde al contenido y esas comprobaciones volvieron a seccion_contiene.
+#
+# Estado (07/11/2026): este conjunto ya se midió y se usó para decidir (P08 recibió una
+# sección aceptable después de ver el resultado). Ya no es independiente: se informa
+# solo como referencia y los cambios se evalúan con el conjunto de desarrollo.
+
+casos:
+  - id: P01
+    plan: 1
+    descripcion: Sin anemia a los 8 meses, recibe suplementación preventiva.
+    contexto: {edad_meses: 8, categoria: SIN_ANEMIA, nivel_riesgo: BAJO, hb_ajustada_g_dl: "11.2", altitud_msnm: 160,
+               ajuste_hb_g_dl: "0.0", recibe_suplementacion_hierro: true, lactancia_materna_actual: true}
+    esperado:
+      - {documento: NTS 213-MINSA/DGIESP-2024, seccion_contiene: "2. En el niño y la niña de 6 a 11"}
+      - {documento: NTS 213-MINSA/DGIESP-2024, seccion_contiene: "A. Medición de hemoglobina"}
+      - {documento: RM 429-2024/MINSA, seccion_contiene: "6.1.1 A Tabla 4"}
+    revisar: true
+
+  - id: P02
+    plan: 2
+    descripcion: Anemia leve a los 14 meses, sin suplementación.
+    contexto: {edad_meses: 14, categoria: ANEMIA_LEVE, nivel_riesgo: MODERADO, hb_ajustada_g_dl: "9.8", altitud_msnm: 160,
+               ajuste_hb_g_dl: "0.0", recibe_suplementacion_hierro: false, sintomas: [Palidez]}
+    esperado:
+      - {documento: NTS 213-MINSA/DGIESP-2024, seccion_contiene: "3. Tratamiento en el niño y la niña de 6 meses a 11"}
+      - {documento: RM 429-2024/MINSA, seccion_contiene: "6.1.2 B"}
+      - {documento: NTS 213-MINSA/DGIESP-2024, seccion_contiene: "11. Seguimiento de casos de anemia"}
+    revisar: true
+
+  - id: P03
+    plan: 3
+    descripcion: Anemia moderada a los 20 meses, con hiporexia e irritabilidad.
+    contexto: {edad_meses: 20, categoria: ANEMIA_MODERADA, nivel_riesgo: ALTO, hb_ajustada_g_dl: "8.6", altitud_msnm: 190,
+               ajuste_hb_g_dl: "0.0", recibe_suplementacion_hierro: true, sintomas: [Hiporexia, Irritabilidad]}
+    esperado:
+      - {documento: NTS 213-MINSA/DGIESP-2024, seccion_contiene: "3. Tratamiento en el niño y la niña de 6 meses a 11"}
+      - {documento: RM 429-2024/MINSA, seccion_contiene: "6.1.2 B"}
+      - {documento: NTS 213-MINSA/DGIESP-2024, seccion_contiene: "11. Seguimiento de casos de anemia"}
+    revisar: true
+
+  - id: P04
+    plan: 4
+    descripcion: Anemia severa a los 30 meses, requiere derivación.
+    contexto: {edad_meses: 30, categoria: ANEMIA_SEVERA, nivel_riesgo: MUY_ALTO, hb_ajustada_g_dl: "6.4", altitud_msnm: 160,
+               ajuste_hb_g_dl: "0.0", requiere_derivacion: true, sintomas: [Palidez, Fatiga o somnolencia]}
+    esperado:
+      - {documento: NTS 213-MINSA/DGIESP-2024, texto_contiene: "7. Tratamiento de anemia severa"}
+      - {documento: NTS 213-MINSA/DGIESP-2024, seccion_contiene: "10. Referencia a establecimiento"}
+    revisar: true
+
+  - id: P05
+    plan: 5
+    descripcion: Puno, 3827 msnm, anemia leve a los 18 meses después del ajuste por altitud.
+    contexto: {edad_meses: 18, categoria: ANEMIA_LEVE, nivel_riesgo: MODERADO, hb_ajustada_g_dl: "9.9", altitud_msnm: 3827,
+               ajuste_hb_g_dl: "2.5", recibe_suplementacion_hierro: false}
+    esperado:
+      - {documento: RM 429-2024/MINSA, seccion_contiene: "5.3.2 Tabla 1"}
+      - {documento: NTS 213-MINSA/DGIESP-2024, seccion_contiene: "5.3.2. El/la profesional de salud realiza el ajuste"}
+      - {documento: OMS 2024, texto_contiene: "Table 4. Adjustments to haemoglobin concentration"}
+      - {documento: NTS 213-MINSA/DGIESP-2024, seccion_contiene: "3. Tratamiento en el niño y la niña de 6 meses a 11"}
+      - {documento: RM 429-2024/MINSA, seccion_contiene: "6.1.2 B"}
+    revisar: true
+
+  - id: P06
+    plan: 6
+    descripcion: Tamizaje no vigente que el profesional confirma; anemia leve a los 26 meses en tratamiento.
+    contexto: {edad_meses: 26, categoria: ANEMIA_LEVE, nivel_riesgo: MODERADO, hb_ajustada_g_dl: "10.4", altitud_msnm: 190,
+               ajuste_hb_g_dl: "0.0", recibe_suplementacion_hierro: true}
+    esperado:
+      - {documento: NTS 213-MINSA/DGIESP-2024, seccion_contiene: "3. Tratamiento en el niño y la niña de 6 meses a 11"}
+      - {documento: RM 429-2024/MINSA, seccion_contiene: "6.1.2 B"}
+      - {documento: NTS 213-MINSA/DGIESP-2024, seccion_contiene: "11. Seguimiento de casos de anemia"}
+    revisar: true
+
+  - id: P07
+    plan: 10
+    descripcion: Anemia leve a los 36 meses con parasitosis reciente (antiparasitario más hierro).
+    contexto: {edad_meses: 36, categoria: ANEMIA_LEVE, nivel_riesgo: MODERADO, hb_ajustada_g_dl: "10.2", altitud_msnm: 240,
+               ajuste_hb_g_dl: "0.0", recibe_suplementacion_hierro: false, parasitosis_reciente: true}
+    esperado:
+      - {documento: NTS 213-MINSA/DGIESP-2024, texto_contiene: "Examen parasitológico seriado en heces"}
+      - {documento: NTS 213-MINSA/DGIESP-2024, seccion_contiene: "3. Tratamiento en el niño y la niña de 6 meses a 11"}
+      - {documento: RM 429-2024/MINSA, seccion_contiene: "6.1.2 B"}
+    revisar: true
+
+  - id: P08
+    descripcion: Lactante de 3 meses prematuro y con bajo peso al nacer, sin clasificación (menor de 6 meses).
+    contexto: {edad_meses: 3, bajo_peso_nacer: true, prematuro: true, lactancia_materna_actual: true}
+    esperado:
+      - {documento: RM 429-2024/MINSA, seccion_contiene: "6.1.1 B Tabla 5"}
+      # Agregada el 07/11/2026 después de ver el resultado: el texto vigente de la NTS
+      # sobre la suplementación de menores de 6 meses también responde el caso.
+      # Antes de la corrección el conjunto acertaba 14 de 20.
+      - {documento: NTS 213-MINSA/DGIESP-2024, seccion_contiene: "1. En el niño y en la niña menor de 6 meses", agregada_tras_resultado: true}
+    revisar: true
+
+  - id: P09
+    descripcion: Anemia moderada a los 52 meses en Ayacucho (2761 msnm), sin suplementación.
+    contexto: {edad_meses: 52, categoria: ANEMIA_MODERADA, nivel_riesgo: ALTO, hb_ajustada_g_dl: "9.0", altitud_msnm: 2761,
+               ajuste_hb_g_dl: "1.8", recibe_suplementacion_hierro: false, sintomas: [Palidez]}
+    esperado:
+      - {documento: NTS 213-MINSA/DGIESP-2024, seccion_contiene: "3. Tratamiento en el niño y la niña de 6 meses a 11"}
+      - {documento: RM 429-2024/MINSA, seccion_contiene: "6.1.2 B"}
+      - {documento: NTS 213-MINSA/DGIESP-2024, seccion_contiene: "11. Seguimiento de casos de anemia"}
+      - {documento: RM 429-2024/MINSA, seccion_contiene: "5.3.2 Tabla 1"}
+      - {documento: NTS 213-MINSA/DGIESP-2024, seccion_contiene: "5.3.2. El/la profesional de salud realiza el ajuste"}
+      - {documento: OMS 2024, texto_contiene: "Table 4. Adjustments to haemoglobin concentration"}
+    revisar: true
+
+  - id: P10
+    descripcion: Sin anemia a los 48 meses.
+    contexto: {edad_meses: 48, categoria: SIN_ANEMIA, nivel_riesgo: BAJO, hb_ajustada_g_dl: "11.8", altitud_msnm: 240,
+               ajuste_hb_g_dl: "0.0", recibe_suplementacion_hierro: false}
+    esperado:
+      - {documento: NTS 213-MINSA/DGIESP-2024, seccion_contiene: "4. En el niño y la niña de 24 a 59"}
+      - {documento: RM 429-2024/MINSA, seccion_contiene: "6.1.1 B Tabla 8"}
+    revisar: true
+
+libres:
+  - id: P11
+    consulta: ¿Qué profesionales de salud pueden entregar el suplemento de hierro para prevenir la anemia?
+    esperado:
+      - {documento: RM 429-2024/MINSA, seccion_contiene: "5.4.1, 5.4.2, 5.4.4 y 5.4.5"}
+      - {documento: NTS 213-MINSA/DGIESP-2024, seccion_contiene: "5.8.4. Recurso humano"}
+    revisar: true
+
+  - id: P12
+    idioma_fuente: en
+    consulta: Según la OMS, ¿la hemoglobina medida en sangre capilar del dedo o del talón es comparable con la de sangre venosa?
+    esperado:
+      - {documento: OMS 2024, texto_contiene: "capillary and venous blood samples"}
+    revisar: true
+
+  - id: P13
+    consulta: ¿Qué responsabilidades tienen las redes y los establecimientos de salud del nivel local en la aplicación de la norma?
+    esperado:
+      - {documento: NTS 213-MINSA/DGIESP-2024, seccion_contiene: "7.3. Nivel local"}
+    revisar: true
+
+  - id: P14
+    consulta: ¿Qué exámenes de laboratorio se piden cuando un niño sale con la hemoglobina baja?
+    esperado:
+      - {documento: NTS 213-MINSA/DGIESP-2024, texto_contiene: "Exámenes de apoyo al diagnóstico"}
+    revisar: true
+
+  - id: P15
+    consulta: ¿Quién hace la evaluación nutricional del niño que recibe suplementación preventiva y con qué frecuencia?
+    esperado:
+      - {documento: NTS 213-MINSA/DGIESP-2024, seccion_contiene: "3. Atención nutricional"}
+    revisar: true
+
+  - id: P16
+    idioma_fuente: en
+    consulta: ¿Cuántos miligramos de hierro elemental al día y por cuántos meses recomienda la OMS en lactantes de 6 a 23 meses?
+    esperado:
+      - {documento: OMS 2016, texto_contiene: "SUPPLEMENT COMPOSITION 10"}
+    revisar: true
+
+  - id: P17
+    consulta: ¿Cómo se diferencia la anemia ferropénica de la talasemia con las pruebas de laboratorio?
+    esperado:
+      - {documento: NTS 213-MINSA/DGIESP-2024, texto_contiene: "Tabla N° 15"}
+    revisar: true
+
+  - id: P18
+    consulta: ¿Qué se le indica al niño cuando termina los seis meses de tratamiento con hierro?
+    esperado:
+      - {documento: NTS 213-MINSA/DGIESP-2024, texto_contiene: "9. Criterios de alta"}
+      - {documento: NTS 213-MINSA/DGIESP-2024, seccion_contiene: "3. Tratamiento en el niño y la niña de 6 meses a 11"}
+    revisar: true
+
+  - id: P19
+    consulta: ¿Qué prácticas durante la atención del parto ayudan a prevenir la anemia del recién nacido?
+    esperado:
+      - {documento: NTS 213-MINSA/DGIESP-2024, texto_contiene: "A. Asegurar las prácticas institucionales durante la atención del parto"}
+    revisar: true
+
+  - id: P20
+    consulta: ¿Qué código de procedimiento se usa en el HIS para registrar la entrega del suplemento de hierro?
+    esperado:
+      - {documento: NTS 213-MINSA/DGIESP-2024, texto_contiene: "Tabla No 24"}
+    revisar: true

@@ -14,6 +14,13 @@ lista, de modo que la calidad de cada combinación se calcula sin repetir llamad
 latencia: recuperación completa por configuración (candidatos x longitud), con
 calentamiento previo y el tiempo de cada paso.
 dominio: puntajes del filtro de dominio para calibrar UMBRAL_DOMINIO.
+rankings: ranking completo de BM25 y de la búsqueda vectorial, fragmentos esperados y
+puntajes del reranker (256 tokens) de todo lo que alguna variante de
+app.scripts.variantes_recuperacion lleva al reranker. --grupo desarrollo mide las
+consultas de ajuste y de validación; --grupo prueba, el conjunto de prueba final.
+Con --fragmentos (JSON de indexador comparar --fragmentos-json) y --coleccion mide
+otra fragmentación sin tocar la de producción: BM25 en memoria y los vectores en una
+colección aparte de ChromaDB, que se llena la primera vez.
 Con --grupo validacion (calidad) y --conjunto validacion (dominio) se miden las
 consultas de consultas_validacion.yaml, que no se usan para ajustar nada.
 El informe en Markdown se arma con app.scripts.informe_recuperacion."""
@@ -24,18 +31,19 @@ import sys
 import time
 from dataclasses import replace
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 
 from app.core.config import get_settings
 from app.core.modelos import ClienteModelos, EmbedderHttp, RerankerHttp
 from app.core.vectores import AlmacenChroma
-from app.rag.bm25 import CacheBM25
+from app.rag.bm25 import CONDICION_RECUPERABLE, CacheBM25, terminos_consulta
 from app.rag.dominio import FiltroDominio
 from app.rag.normalizacion import normalizar
 from app.rag.parametros import parametros_recuperacion
-from app.rag.recuperacion import Servicios, buscar_candidatos, seleccionar
-from app.rag.referencias import (VALIDACION, cargar_consultas_latencia, cargar_consultas_referencia,
-                                 cargar_validacion_dominio)
+from app.rag.recuperacion import FILTRO_VECTORIAL, Servicios, buscar_candidatos, seleccionar
+from app.rag.referencias import (PRUEBA, VALIDACION, cargar_conjunto_prueba, cargar_consultas_latencia,
+                                 cargar_consultas_referencia, cargar_validacion_dominio)
+from app.scripts.variantes_recuperacion import ACTUAL, evaluados, rejilla
 
 LONGITUDES = (1024, 512, 384, 256)
 
@@ -104,6 +112,101 @@ def cmd_calidad(args, motor, cliente) -> dict:
             "longitudes": args.longitudes, "consultas": resultados}
 
 
+_RECUPERABLES = f"""
+    SELECT f.id_fragmento::text AS id_fragmento, d.codigo_documento, d.idioma, f.seccion, f.pagina_inicio,
+           f.pagina_fin, f.texto
+      FROM conocimiento.fragmento f JOIN conocimiento.documento_fuente d ON d.id_documento = f.id_documento
+     WHERE {CONDICION_RECUPERABLE}
+"""
+LONGITUD_RANKINGS = 256
+LOTE_RERANKER = 32
+
+
+def _fragmentos_experimento(ruta: str, servicios: Servicios, coleccion: str):
+    """Fragmentos vigentes de un JSON exportado, su índice BM25 en memoria y la
+    colección de ChromaDB del experimento (se llena si está vacía)."""
+    import uuid
+    from types import SimpleNamespace
+
+    from app.core.vectores import AlmacenChroma, RegistroVector
+    from app.rag.bm25 import Huella, IndiceBM25
+    datos = json.loads(open(ruta, encoding="utf-8").read())
+    filas = [SimpleNamespace(id_fragmento=str(uuid.uuid5(uuid.NAMESPACE_URL, f"{coleccion}:{f['id_documento']}:{f['orden']}")),
+                             **{k: f[k] for k in ("id_documento", "codigo_documento", "idioma", "seccion",
+                                                  "pagina_inicio", "pagina_fin", "texto")})
+             for f in datos["fragmentos"] if f["vigente"]]
+    almacen = AlmacenChroma(get_settings().chroma_url, coleccion)
+    if len(almacen._coleccion.get(include=[])["ids"]) != len(filas):
+        for i in range(0, len(filas), 16):
+            lote = filas[i:i + 16]
+            vectores = servicios.embedder.embeber([f.texto for f in lote])
+            almacen.agregar([RegistroVector(f.id_fragmento, v, f.texto, {
+                "id_documento": f.id_documento, "nivel": 1, "estado_documento": "VIGENTE", "vigente": True})
+                for f, v in zip(lote, vectores)])
+            _avance(f"Colección {coleccion}: {i + len(lote)} de {len(filas)} vectores")
+    return {f.id_fragmento: f for f in filas}, IndiceBM25(filas, Huella(len(filas), coleccion)), almacen, datos
+
+
+def cmd_rankings(args, motor, cliente) -> dict:
+    servicios = _servicios(cliente)
+    if args.grupo == "prueba":
+        import yaml
+        tipos = {c["id"]: tipo for tipo, clave in (("caso", "casos"), ("libre", "libres"))
+                 for c in yaml.safe_load(PRUEBA.read_text(encoding="utf-8"))[clave]}
+        referencias = cargar_conjunto_prueba()
+    else:
+        tipos = {}
+        referencias = cargar_consultas_referencia() + cargar_consultas_referencia(VALIDACION)
+    variantes = rejilla()
+    salida = {"tipo": "rankings", **_entorno(cliente, args.entorno), "grupo": args.grupo,
+              "longitud": LONGITUD_RANKINGS, "consultas": []}
+    with motor.connect() as c:
+        if args.fragmentos:
+            fragmentos, indice, almacen, datos = _fragmentos_experimento(args.fragmentos, servicios, args.coleccion)
+            servicios = replace(servicios, almacen=almacen)
+            salida["fragmentacion"] = {"archivo": args.fragmentos, "coleccion": args.coleccion,
+                                       "parametros": datos.get("parametros")}
+        else:
+            fragmentos = {f.id_fragmento: f for f in c.execute(text(_RECUPERABLES)).all()}
+            indice = servicios.cache_bm25.obtener(c)
+        for k, ref in enumerate(referencias, start=1):
+            cn = normalizar(ref.consulta)
+            vector = servicios.embedder.embeber([cn.texto_normalizado])[0]
+            terminos = terminos_consulta(cn.texto_normalizado, cn.equivalentes_ingles)
+            q = {"id": ref.id, "tipo": tipos.get(ref.id), "consulta": ref.consulta,
+                 "consulta_normalizada": cn.texto_normalizado, "terminos": terminos,
+                 "conceptos": [t.clave for t in cn.terminos],
+                 "bm25": [i for i, _ in indice.buscar(terminos, len(fragmentos))],
+                 "bm25_expandida": [i for i, _ in indice.buscar(
+                     terminos_consulta(" ".join([cn.texto_normalizado, *cn.expansion]), cn.equivalentes_ingles),
+                     len(fragmentos))],
+                 "vectorial": [i for i, _ in servicios.almacen.consultar(vector, len(fragmentos), FILTRO_VECTORIAL)],
+                 "esperados": [i for i, f in fragmentos.items() if ref.acierta(f)],
+                 "esperados_originales": [i for i, f in fragmentos.items() if ref.acierta(f, original=True)]}
+            a_puntuar = set(q["esperados"])
+            for v in [ACTUAL, *variantes]:
+                a_puntuar.update(evaluados(q, v))
+            ids = sorted(a_puntuar)
+            inicio = time.perf_counter()
+            puntajes = []
+            for i in range(0, len(ids), LOTE_RERANKER):
+                puntajes += servicios.reranker.puntuar(cn.texto_normalizado,
+                                                       [fragmentos[j].texto for j in ids[i:i + LOTE_RERANKER]],
+                                                       LONGITUD_RANKINGS)
+            q["puntajes"] = dict(zip(ids, puntajes))
+            # Tiempo del reranker con los candidatos de la configuración vigente (8 x 256).
+            actuales = evaluados(q, ACTUAL)
+            inicio = time.perf_counter()
+            servicios.reranker.puntuar(cn.texto_normalizado, [fragmentos[j].texto for j in actuales], LONGITUD_RANKINGS)
+            q["reranker_actual_ms"] = round((time.perf_counter() - inicio) * 1000, 1)
+            salida["consultas"].append(q)
+            _avance(f"[{k}/{len(referencias)}] {ref.id}: {len(ids)} pares en "
+                    f"{time.perf_counter() - inicio:.1f} s")
+    salida["fragmentos"] = {i: {"codigo_documento": f.codigo_documento, "idioma": f.idioma, "seccion": f.seccion,
+                                "pagina_inicio": f.pagina_inicio, "texto": f.texto} for i, f in fragmentos.items()}
+    return salida
+
+
 def _configuraciones(texto: str) -> list[tuple[int, int]]:
     return [tuple(int(x) for x in parte.split("x")) for parte in texto.split(",")]
 
@@ -113,9 +216,14 @@ def cmd_latencia(args, motor, cliente) -> dict:
     consultas = cargar_consultas_latencia()[:args.consultas]
     calentamiento = cargar_consultas_latencia()[-args.calentamiento:] if args.calentamiento else []
     configuraciones = _configuraciones(args.configuraciones)
-    salida = {"tipo": "latencia", **_entorno(cliente, args.entorno), "configuraciones": []}
+    salida = {"tipo": "latencia", **_entorno(cliente, args.entorno), "candidatos_busqueda": args.candidatos_busqueda,
+              "rrf_k": args.rrf_k, "configuraciones": []}
     with motor.connect() as c:
         base = replace(parametros_recuperacion(c), umbral_relevancia=0.0)
+        if args.candidatos_busqueda:
+            base = replace(base, candidatos_busqueda=args.candidatos_busqueda)
+        if args.rrf_k:
+            base = replace(base, rrf_k=args.rrf_k)
         if args.frio:
             # Primera consulta con la primera configuración pedida
             frio = replace(base, candidatos_reranker=configuraciones[0][0], max_longitud_reranker=configuraciones[0][1])
@@ -183,17 +291,24 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--consultas", type=int, default=30)
     p.add_argument("--calentamiento", type=int, default=2)
     p.add_argument("--frio", action="store_true", help="mide primero una consulta sin calentamiento")
+    p.add_argument("--candidatos-busqueda", type=int, help="candidatos por método (por defecto, el vigente)")
+    p.add_argument("--rrf-k", type=int, help="k de RRF (por defecto, el vigente)")
+    p = sub.add_parser("rankings")
+    p.add_argument("--grupo", choices=["desarrollo", "prueba"], default="desarrollo",
+                   help="consultas de ajuste y de validación, o el conjunto de prueba final")
+    p.add_argument("--fragmentos", help="JSON de fragmentos de un experimento (indexador comparar --fragmentos-json)")
+    p.add_argument("--coleccion", default="experimento_fragmentos", help="colección de ChromaDB del experimento")
     p = sub.add_parser("dominio")
     p.add_argument("--conjunto", choices=["ajuste", "validacion"], default="ajuste",
                    help="consultas usadas para calibrar o el conjunto de validación")
-    for nombre in ("calidad", "latencia", "dominio"):
+    for nombre in ("calidad", "latencia", "dominio", "rankings"):
         sub.choices[nombre].add_argument("--entorno", default="normal")
     args = parser.parse_args(argv)
 
     s = get_settings()
     motor = create_engine(s.database_url_generacion)
     cliente = ClienteModelos(s.modelos_url, timeout_s=1800)
-    comandos = {"calidad": cmd_calidad, "latencia": cmd_latencia, "dominio": cmd_dominio}
+    comandos = {"calidad": cmd_calidad, "latencia": cmd_latencia, "dominio": cmd_dominio, "rankings": cmd_rankings}
     json.dump(comandos[args.comando](args, motor, cliente), sys.stdout, ensure_ascii=False, indent=1)
     return 0
 

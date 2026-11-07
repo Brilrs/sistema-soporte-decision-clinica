@@ -1,21 +1,28 @@
-"""Procesamiento de la consulta y recuperación (parte B) sin base de datos ni modelos:
-texto, normalización, filtro de dominio, BM25, RRF y la regla de que ningún módulo
-de app.rag lee el texto libre sin filtrar."""
+"""Procesamiento de la consulta y recuperación (partes B y B2) sin base de datos ni
+modelos: texto, normalización, filtro de dominio (con la regla de edades), BM25,
+RRF, consulta estructurada, conjuntos de prueba, variantes de la primera etapa y la
+regla de que ningún módulo de app.rag lee el texto libre sin filtrar."""
 import ast
 from collections import namedtuple
+from datetime import date
+from decimal import Decimal
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import yaml
 
 from app.core.modelos import EmbedderFalso
+from app.rag import validacion
 from app.rag.bm25 import Huella, IndiceBM25, terminos_consulta
-from app.rag.dominio import DENTRO, FUERA, FiltroDominio, cargar_referencias, es_manipulacion
+from app.rag.consulta_estructurada import ContextoClinico, construir_consulta
+from app.rag.dominio import DENTRO, FUERA, FiltroDominio, cargar_referencias, edad_fuera_del_alcance, es_manipulacion
 from app.rag.normalizacion import cargar_diccionario, expandir_abreviaturas, normalizar
 from app.rag.recuperacion import fusion_rrf
-from app.rag.referencias import (VALIDACION, cargar_consultas_latencia, cargar_consultas_referencia,
-                                 cargar_validacion_dominio)
+from app.rag.referencias import (PRUEBA, VALIDACION, cargar_conjunto_prueba, cargar_consultas_latencia,
+                                 cargar_consultas_referencia, cargar_validacion_dominio)
 from app.rag.texto import palabras, sin_tildes, terminos
+from app.scripts import variantes_recuperacion as variantes
 
 DIR_RAG = Path(__file__).resolve().parents[1] / "app" / "rag"
 Fila = namedtuple("Fila", "id_fragmento id_documento texto idioma")
@@ -257,3 +264,191 @@ def test_ningun_modulo_de_b_lee_el_texto_libre_sin_filtrar(ruta):
     for yml in DIR_RAG.glob("*.yaml"):
         datos = yaml.safe_load(yml.read_text(encoding="utf-8"))
         assert "texto_consulta" not in str(datos) and "observaciones" not in str(datos)
+
+
+# ---------------------------------------------------------------------------
+# B2: edades fuera del alcance (5 años o más, o más de 59 meses)
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("consulta", [
+    "Niña de 8 años con anemia leve, ¿qué dosis de hierro le doy?",
+    "Escolar de seis años con la hemoglobina baja",
+    "Niño de 72 meses con anemia moderada",
+    "¿Y si el niño ya tiene 5 años y 2 meses?",
+    "Suplementación con hierro en mayores de 5 años",
+])
+def test_edad_de_5_anos_o_mas_queda_fuera_del_alcance(filtro, consulta):
+    resultado = filtro.evaluar(consulta, 0.0)
+    assert edad_fuera_del_alcance(consulta)
+    assert resultado.estado == FUERA and resultado.motivo == "POBLACION_FUERA_DEL_ALCANCE"
+
+
+@pytest.mark.parametrize("consulta", [
+    "¿Cómo se clasifica la anemia en menores de 5 años?",
+    "Niño de 4 años y 11 meses con anemia leve",
+    "Suplementación preventiva de 6 a 59 meses",
+    "Tratamiento con hierro durante 6 meses",
+    "Control de crecimiento hasta los 5 años",
+    "¿Qué punto de corte se aplica a los 59 meses?",
+    "Niños de 0 a 5 años",
+])
+def test_limites_de_rango_y_edades_del_alcance_no_cuentan(consulta):
+    assert not edad_fuera_del_alcance(consulta)
+
+
+def test_regla_de_edades_no_saca_ninguna_consulta_de_ajuste_ni_de_validacion_del_dominio():
+    dentro = [*cargar_referencias().dentro, *(r.consulta for r in cargar_consultas_referencia()),
+              *cargar_consultas_latencia(), *cargar_validacion_dominio()[0],
+              *(r.consulta for r in cargar_consultas_referencia(VALIDACION)),
+              *(r.consulta for r in cargar_conjunto_prueba())]
+    assert [t for t in dentro if edad_fuera_del_alcance(t)] == []
+
+
+def test_validacion_rechaza_un_tamizaje_fuera_de_0_a_59_meses(monkeypatch):
+    datos = SimpleNamespace(id_tamizaje="t", fecha_tamizaje=date(2026, 10, 1), edad_meses=60,
+                            hemoglobina_g_dl=Decimal("10.0"), sexo="F", altitud_msnm=160)
+    monkeypatch.setattr(validacion, "_datos_tamizaje", lambda sesion, id_tamizaje: datos)
+    r = validacion.validar_tamizaje(None, "t", fecha_referencia=date(2026, 10, 1))
+    assert r.estado == validacion.FUERA_DE_ALCANCE and r.clasificacion is None
+    assert [validacion.edad_en_alcance(e) for e in (-1, 0, 59, 60)] == [False, True, True, False]
+
+
+# ---------------------------------------------------------------------------
+# B2: consulta construida con datos estructurados
+# ---------------------------------------------------------------------------
+def test_consulta_de_anemia_leve_sin_suplementacion():
+    consulta = construir_consulta(ContextoClinico(
+        edad_meses=14, categoria="ANEMIA_LEVE", nivel_riesgo="MODERADO", hb_ajustada_g_dl=Decimal("9.8"),
+        altitud_msnm=160, ajuste_hb_g_dl=Decimal("0.0"), recibe_suplementacion_hierro=False,
+        sintomas=("Palidez", "Hiporexia", "Otro")))
+    assert consulta.startswith("Niño de 14 meses, con anemia leve (hemoglobina 9,8 g/dL), riesgo moderado, "
+                               "sin suplementación con hierro, con palidez y hiporexia.")
+    assert "tratamiento con hierro" in consulta and "otro" not in consulta.lower()
+    assert "altitud" not in consulta and "refiere" not in consulta
+
+
+def test_consulta_de_anemia_severa_en_altura_con_parasitosis():
+    consulta = construir_consulta(ContextoClinico(
+        edad_meses=30, categoria="ANEMIA_SEVERA", nivel_riesgo="MUY_ALTO", hb_ajustada_g_dl=Decimal("6.5"),
+        altitud_msnm=3827, ajuste_hb_g_dl=Decimal("2.5"), requiere_derivacion=True, parasitosis_reciente=True))
+    assert "hemoglobina ajustada 6,5 g/dL" in consulta and "3827 msnm con ajuste de hemoglobina por altitud" in consulta
+    assert "mayor capacidad resolutiva" in consulta and "antiparasitario" in consulta
+
+
+def test_consulta_preventiva_de_un_lactante_sin_clasificacion():
+    consulta = construir_consulta(ContextoClinico(edad_meses=3, prematuro=True, bajo_peso_nacer=True,
+                                                  lactancia_materna_actual=True))
+    assert consulta.startswith("Lactante de 3 meses, nacido prematuro y con bajo peso al nacer, "
+                               "con lactancia materna exclusiva.")
+    assert "suplementación preventiva" in consulta and "anemia" not in consulta
+
+
+def test_consulta_sin_anemia_no_pregunta_por_tratamiento():
+    consulta = construir_consulta(ContextoClinico(edad_meses=48, categoria="SIN_ANEMIA", nivel_riesgo="BAJO",
+                                                  hb_ajustada_g_dl=Decimal("11.8")))
+    assert consulta.startswith("Niño de 48 meses, sin anemia (hemoglobina 11,8 g/dL), riesgo bajo.")
+    assert "tratamiento" not in consulta and "suplementación preventiva" in consulta
+
+
+def test_contexto_clinico_solo_admite_datos_estructurados():
+    campos = set(ContextoClinico.__dataclass_fields__)
+    assert not campos & {"texto_consulta", "observaciones", "texto_filtrado", "nombre", "dni", "sexo", "peso_kg"}
+
+
+# ---------------------------------------------------------------------------
+# B2: conjunto de prueba final y corrección de V11
+# ---------------------------------------------------------------------------
+def test_conjunto_de_prueba_separado_de_desarrollo():
+    prueba = cargar_conjunto_prueba()
+    datos = yaml.safe_load(PRUEBA.read_text(encoding="utf-8"))
+    assert len(datos["casos"]) == 10 and len(datos["libres"]) == 10 and len(prueba) == 20
+    assert all(c["revisar"] for c in [*datos["casos"], *datos["libres"]])
+    assert {c["plan"] for c in datos["casos"] if "plan" in c} == {1, 2, 3, 4, 5, 6, 10}
+    desarrollo = [*cargar_consultas_referencia(), *cargar_consultas_referencia(VALIDACION)]
+    assert not {r.id for r in desarrollo} & {p.id for p in prueba}
+    vistas = {sin_tildes(t) for t in [*(r.consulta for r in desarrollo), *cargar_consultas_latencia(),
+                                      *cargar_referencias().dentro, *cargar_referencias().fuera,
+                                      *cargar_validacion_dominio()[0], *cargar_validacion_dominio()[1]]}
+    assert not vistas & {sin_tildes(p.consulta) for p in prueba}
+
+
+def test_v11_corregida_tras_el_resultado_y_ambas_cifras_disponibles():
+    v11 = next(v for v in cargar_consultas_referencia(VALIDACION) if v.id == "V11")
+    rm = SimpleNamespace(codigo_documento="RM 429-2024/MINSA", seccion="6.1.3 E (mod. RM 429-2024/MINSA)",
+                         texto="", pagina_inicio=10, pagina_fin=10)
+    assert v11.corregida_tras_resultado
+    assert v11.acierta(rm) and not v11.acierta(rm, original=True)
+    otras = [v for v in cargar_consultas_referencia(VALIDACION) if v.id != "V11"]
+    assert not any(v.corregida_tras_resultado for v in otras)
+    _, fuera = cargar_validacion_dominio()
+    assert not any("8 años" in t for t in fuera)
+
+
+def test_p08_corregida_tras_el_resultado_y_conjunto_de_prueba_ya_no_independiente():
+    p08 = next(p for p in cargar_conjunto_prueba() if p.id == "P08")
+    nts = SimpleNamespace(codigo_documento="NTS 213-MINSA/DGIESP-2024", texto="", pagina_inicio=12, pagina_fin=12,
+                          seccion="6.1.1. Acciones de prevención > B. Suplementación preventiva > "
+                                  "1. En el niño y en la niña menor de 6 meses (Tabla N°5)")
+    assert p08.corregida_tras_resultado and p08.acierta(nts) and not p08.acierta(nts, original=True)
+    assert [p.id for p in cargar_conjunto_prueba() if p.corregida_tras_resultado] == ["P08"]
+    assert "Ya no es independiente" in PRUEBA.read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# B2: variantes de la primera etapa
+# ---------------------------------------------------------------------------
+def test_rrf_con_pesos():
+    fusion = dict(fusion_rrf([["a", "b"], ["b", "c"]], k=10, pesos=[1.0, 2.0]))
+    assert fusion["a"] == pytest.approx(1 / 11) and fusion["b"] == pytest.approx(1 / 12 + 2 / 11)
+    assert fusion_rrf([["a", "b"], ["b", "a"]], 60) == fusion_rrf([["a", "b"], ["b", "a"]], 60, [1.0, 1.0])
+
+
+def _consulta_variantes():
+    return {"id": "R99", "consulta": "q", "terminos": ["hierr"],
+            "bm25": ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"],
+            "vectorial": ["j", "i", "h", "g", "f", "e", "d", "c", "b", "a"],
+            "esperados": ["j"], "esperados_originales": [],
+            "puntajes": {x: 0.1 for x in "abcdefghij"} | {"j": 0.9}}
+
+
+def test_variante_actual_reproduce_la_recuperacion():
+    q = _consulta_variantes()
+    assert variantes.ACTUAL == variantes.Variante(20, 60, 1.0, 1.0, 8)
+    assert variantes.fusionar(q, variantes.ACTUAL) == [i for i, _ in fusion_rrf([q["bm25"], q["vectorial"]], 60)]
+    final = variantes.orden_final(q, variantes.ACTUAL)
+    assert final[0] == "j" and len(final) == 8
+    assert variantes.acierta(q, variantes.ACTUAL) and not variantes.acierta(q, variantes.ACTUAL, original=True)
+
+
+def test_menos_candidatos_al_reranker_dejan_fuera_al_esperado():
+    q = _consulta_variantes()
+    q["bm25"] = [x for x in q["bm25"] if x != "j"]
+    q["vectorial"] = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"]
+    corta = variantes.Variante(candidatos_reranker=8)
+    larga = variantes.Variante(candidatos_reranker=10)
+    assert not variantes.acierta(q, corta) and variantes.acierta(q, larga)
+    fila = variantes.diagnostico({"consultas": [q], "fragmentos": {"j": {"texto": "hierro", "idioma": "es"}}}, corta)[0]
+    assert fila["bm25"] is None and fila["vectorial"] == 10 and fila["rrf"] == 10 and fila["reranker"] is None
+    assert fila["posicion_si_se_evaluara"] == 1 and fila["solapamiento"] == 1.0
+
+
+def test_nombre_de_variante_y_rejilla():
+    v = variantes.Variante.desde_nombre("30x10x1:2x12")
+    assert v == variantes.Variante(30, 10, 1.0, 2.0, 12) and v.nombre == "30x10x1:2x12"
+    e = variantes.Variante.desde_nombre("20x60x1:1x8+e")
+    assert e == variantes.Variante(expansion=True) and e.nombre == "20x60x1:1x8+e"
+    assert len(variantes.rejilla()) == 162 and len(variantes.rejilla(expansion=False)) == 81
+    assert variantes.ACTUAL in variantes.rejilla()
+
+
+def test_variante_con_expansion_usa_el_bm25_expandido():
+    q = _consulta_variantes()
+    q["bm25"], q["bm25_expandida"], q["vectorial"] = ["b"], ["j"], ["a"]
+    assert variantes.fusionar(q, variantes.Variante(expansion=True)) == ["a", "j"]
+    assert variantes.fusionar(q, variantes.ACTUAL) == ["a", "b"]
+
+
+def test_intervalo_de_wilson():
+    bajo, alto = variantes.wilson(7, 15)
+    assert (round(bajo, 2), round(alto, 2)) == (0.25, 0.70)
+    bajo, alto = variantes.wilson(19, 20)
+    assert (round(bajo, 2), round(alto, 2)) == (0.76, 0.99)
