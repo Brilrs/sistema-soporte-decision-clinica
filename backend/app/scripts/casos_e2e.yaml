@@ -1,0 +1,107 @@
+# Casos de la prueba de punta a punta (parte C). Todos usan pacientes ficticios de
+# seed_demo, identificados por su DNI ficticio y la fecha del tamizaje. Las fechas se
+# evalúan contra fecha_referencia para que la vigencia de 30 días no dependa del día en
+# que se ejecuta la prueba.
+#
+# falso: modos del cliente falso por intento (app/rag/cliente_llm.py); el último se
+# repite. preferir_ingles hace que el cliente falso cite un fragmento en inglés si hay.
+fecha_referencia: 2026-10-20
+casos:
+  - id: a
+    descripcion: Sin anemia, 9 meses (Valentina; seed_demo no tiene un niño de 8 meses)
+    dni: "81345678"
+    fecha_tamizaje: 2026-10-19
+    consulta: ¿Qué suplementación preventiva con hierro le corresponde y cuándo se vuelve a medir la hemoglobina?
+    esperado: VERIFICADA
+    falso: {modos: [aprobada]}
+
+  - id: b
+    descripcion: Anemia leve, 14 meses, sin suplementación
+    dni: "81234567"
+    fecha_tamizaje: 2026-09-26
+    consulta: Tiene anemia leve y no recibe suplementación con hierro. ¿Qué tratamiento le corresponde y en qué dosis?
+    esperado: VERIFICADA
+    falso: {modos: [aprobada]}
+
+  - id: c
+    descripcion: Anemia moderada, 20 meses
+    dni: "81456789"
+    fecha_tamizaje: 2026-10-18
+    consulta: ¿Cuál es el tratamiento de la anemia moderada y cómo es el seguimiento con control de hemoglobina?
+    esperado: VERIFICADA
+    falso: {modos: [aprobada]}
+
+  - id: d
+    descripcion: Anemia severa, requiere derivación
+    dni: "81901234"
+    fecha_tamizaje: 2026-10-16
+    consulta: ¿Cuál es el manejo de la anemia severa y cuándo se refiere a un establecimiento de mayor capacidad resolutiva?
+    esperado: VERIFICADA
+    falso: {modos: [aprobada]}
+
+  - id: e
+    descripcion: Puno, 3827 msnm, hemoglobina ajustada por altitud
+    dni: "81789012"
+    fecha_tamizaje: 2026-10-10
+    consulta: ¿Cómo se ajusta la hemoglobina por la altitud de residencia y qué tratamiento le corresponde?
+    esperado: VERIFICADA
+    falso: {modos: [aprobada]}
+
+  - id: f
+    descripcion: Tamizaje no vigente (84 días), el profesional confirma que continúa
+    dni: "81567890"
+    fecha_tamizaje: 2026-07-28
+    confirma_tamizaje_no_vigente: true
+    consulta: ¿Qué tratamiento con hierro le corresponde por su anemia y cada cuánto se controla la hemoglobina?
+    esperado: VERIFICADA
+    falso: {modos: [aprobada]}
+
+  - id: g
+    descripcion: Falta la hemoglobina
+    dni: "81678901"
+    fecha_tamizaje: 2026-10-19
+    consulta: ¿Qué suplementación con hierro le corresponde?
+    esperado: DATOS_FALTANTES
+    falso: {modos: [aprobada]}
+
+  - id: h
+    descripcion: Consulta fuera del dominio
+    dni: "81345678"
+    fecha_tamizaje: 2026-10-19
+    consulta: ¿Qué antibiótico se usa para una neumonía en un niño de 3 años?
+    esperado: FUERA_DE_DOMINIO
+    falso: {modos: [aprobada]}
+
+  - id: i
+    descripcion: Nombre, DNI, historia clínica y teléfono escritos en la consulta
+    dni: "81234567"
+    fecha_tamizaje: 2026-09-26
+    consulta: ¿Qué tratamiento con hierro le doy a Mateo Quispe, DNI 81234567, HC 00452? Su mamá llama al 987654321.
+    esperado: VERIFICADA
+    falso: {modos: [aprobada]}
+
+  - id: j
+    descripcion: Antiparasitario junto con el hierro, se espera evidencia insuficiente
+    dni: "81456789"
+    fecha_tamizaje: 2026-10-18
+    consulta: ¿Cuántas horas hay que esperar entre el antiparasitario y el sulfato ferroso si se dan el mismo día?
+    esperado: EVIDENCIA_INSUFICIENTE
+    falso: {modos: [evidencia_insuficiente]}
+
+  - id: k
+    descripcion: Consulta en inglés, respuesta en inglés
+    dni: "81789012"
+    fecha_tamizaje: 2026-10-10
+    consulta: What iron treatment and hemoglobin follow-up does a child with mild anemia need? Please answer in English.
+    esperado: VERIFICADA
+    idioma_esperado: en
+    falso: {modos: [aprobada]}
+
+  - id: l
+    descripcion: Cita de la OMS en inglés, con traducción de apoyo
+    dni: "82012345"
+    fecha_tamizaje: 2026-10-14
+    consulta: ¿Qué recomienda la OMS sobre la suplementación con hierro en niños de 24 a 59 meses?
+    esperado: VERIFICADA
+    cita_oms: true
+    falso: {modos: [aprobada], preferir_ingles: true}

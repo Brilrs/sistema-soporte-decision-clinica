@@ -581,6 +581,7 @@ CREATE TABLE asistencia.intento_generacion (
   version_prompt VARCHAR(20),
   tokens_entrada INTEGER CHECK (tokens_entrada >= 0),
   tokens_salida INTEGER CHECK (tokens_salida >= 0),
+  tokens_razonamiento INTEGER CHECK (tokens_razonamiento >= 0),
   costo_usd NUMERIC(8,5) CHECK (costo_usd >= 0),
   latencia_llm_ms INTEGER,
   respuesta_borrador TEXT,
@@ -608,6 +609,7 @@ COMMENT ON COLUMN asistencia.intento_generacion.modelo_llm IS 'Identificador del
 COMMENT ON COLUMN asistencia.intento_generacion.version_prompt IS 'Versión de la plantilla del prompt clínico.';
 COMMENT ON COLUMN asistencia.intento_generacion.tokens_entrada IS 'Tokens de entrada facturados.';
 COMMENT ON COLUMN asistencia.intento_generacion.tokens_salida IS 'Tokens de salida facturados.';
+COMMENT ON COLUMN asistencia.intento_generacion.tokens_razonamiento IS 'Tokens de razonamiento del modelo en el intento; ya están incluidos en tokens_salida.';
 COMMENT ON COLUMN asistencia.intento_generacion.costo_usd IS 'Costo de la llamada en dólares.';
 COMMENT ON COLUMN asistencia.intento_generacion.latencia_llm_ms IS 'Tiempo de respuesta del proveedor en milisegundos.';
 COMMENT ON COLUMN asistencia.intento_generacion.respuesta_borrador IS 'Respuesta del LLM antes de la verificación.';

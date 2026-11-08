@@ -452,3 +452,11 @@ def test_intervalo_de_wilson():
     assert (round(bajo, 2), round(alto, 2)) == (0.25, 0.70)
     bajo, alto = variantes.wilson(19, 20)
     assert (round(bajo, 2), round(alto, 2)) == (0.76, 0.99)
+
+
+def test_consulta_de_recuperacion_combina_la_estructurada_y_el_texto_filtrado():
+    from app.rag.consulta_estructurada import ContextoClinico, combinar_consulta, construir_consulta
+    estructurada = construir_consulta(ContextoClinico(edad_meses=9, categoria="SIN_ANEMIA", nivel_riesgo="BAJO"))
+    combinada = combinar_consulta(estructurada, "  ¿Cuándo se vuelve a medir la hemoglobina?  ")
+    assert combinada.startswith("Lactante de 9 meses") and combinada.endswith("¿Cuándo se vuelve a medir la hemoglobina?")
+    assert combinar_consulta(estructurada, None) == combinar_consulta(estructurada, " ") == estructurada

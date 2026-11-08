@@ -100,6 +100,21 @@ El código está en `backend/app/rag/` (secciones 4.2 y 4.3 de la guía OE2). Ca
 
 Ningún módulo lee `asistencia.consulta.texto_consulta` ni `clinico.tamizaje.observaciones`: la recuperación usa `texto_filtrado` y datos estructurados. El alcance es el niño de 0 a 59 meses del CRED: las consultas sobre gestantes, puérperas, adolescentes y adultos quedan fuera del dominio. `consultas_validacion.yaml` es un conjunto de validación separado (15 consultas de recuperación y 30 del filtro de dominio) que no se usa para ajustar reglas ni umbrales, y `consultas_prueba.yaml` es el conjunto de prueba final (10 casos clínicos con la consulta de `construir_consulta` y 10 preguntas libres), que se mide una sola vez. La configuración del reranker y las mediciones de latencia están en [`docs/mediciones_sprint2.md`](docs/mediciones_sprint2.md).
 
+### Protección de datos, generación y verificación
+
+Código en `backend/app/rag/` (secciones 4.4 a 4.6 de la guía OE2). Hasta que llegue el grafo de LangGraph (parte D), `app/scripts/prueba_punta_a_punta.py` encadena las partes B y C con la conexión que corresponde a cada paso.
+
+| Módulo | Qué hace | Conexión |
+| --- | --- | --- |
+| `filtro_texto.py` | Filtro del texto libre: reemplaza el nombre y los apellidos del paciente por [PACIENTE], el DNI y los números de 8 dígitos por [DNI], la historia clínica por [HC], los teléfonos por [TELEFONO], las fechas completas por [FECHA] y los nombres frecuentes de terceros (`nombres_frecuentes.yaml`, lista aproximada sin palabras comunes) por [NOMBRE]. Genera las huellas HMAC del paciente para el control previo, que solo viven en memoria, y decide el idioma de la respuesta. | `cdss_clinica` |
+| `proteccion.py` | Solicitud mínima con lista blanca explícita (Tabla 7), serialización canónica, SHA-256 y control previo: compara cada palabra y número de la solicitud, incluidos los fragmentos, con las huellas; una coincidencia bloquea el envío. | `cdss_generacion` |
+| `cliente_llm.py` | Cliente real (API de Anthropic, `max_retries` = 0; no se puede crear con `CDSS_ENTORNO=pruebas`) y cliente falso con respuestas programadas. | ninguna |
+| `generacion.py` | Messages API con salida estructurada (`esquema_respuesta.json`) y el prompt versionado (`prompts/clinico_v1.md`). Modelo, tokens, tiempo de espera, razonamiento, esfuerzo y precios salen de `parametro_sistema`; no se envía temperatura. | `cdss_generacion` |
+| `verificacion.py` | Controles 6.1 (citas y extractos, dosis, cifras de la traducción de apoyo y vigencia), 6.2 (clasificación, riesgo, tratamiento y derivación) y 6.3 (umbral y evidencia declarada), y decisión de la Tabla 10 con un único reintento. | la del nodo |
+| `registro.py` | Intentos, fragmentos recuperados, recomendación, citas y eventos de auditoría (SOLICITUD_BLOQUEADA, CONSULTA_PROCESADA). | `cdss_generacion` |
+
+Al modelo de lenguaje solo se le envían datos sintéticos. `claude-sonnet-5-5` no acepta temperatura y razona de forma adaptativa: la migración 006 agrega `RAZONAMIENTO_LLM` (`between_tools`) y `ESFUERZO_LLM` (`medium`) y la columna `intento_generacion.tokens_razonamiento`. El tiempo agotado, el rechazo del modelo y los errores de la API terminan la consulta en ERROR sin reintento, con el mensaje «No se pudo evaluar la consulta. Aplique su criterio clínico.». La clave `ANTHROPIC_API_KEY` va en `.env` (vacía por defecto en `docker-compose.yml`); CI no la define y ninguna prueba automática llama a la API. La confirmación de la API (`app/scripts/confirmar_api.py`) y la prueba de punta a punta se explican en [`docs/mediciones_sprint2.md`](docs/mediciones_sprint2.md).
+
 ### Memoria
 
 Cada servicio tiene un límite (`mem_limit` en `docker-compose.yml`): `modelos` 5,5 GB, `db` y `chromadb` 0,75 GB cada uno, `backend` 0,5 GB, `nginx` 64 MB y `jobs` 0,75 GB. En total, 8,31 GB con el indexador en marcha; Docker necesita al menos 8,5 GB asignados. La exportación única del reranker a ONNX (`exportar-onnx`, bajo demanda) tiene un límite propio de 6 GB.
@@ -140,7 +155,7 @@ pip install -r requirements-dev.txt
 python -m pytest -q
 ```
 
-Las pruebas cubren: login correcto, mensaje genérico ante usuario o contraseña incorrectos, bloqueo tras 5 intentos fallidos, cuentas inactivas, permisos por rol, registro en la auditoría, separación de privilegios entre componentes, cifrado de la identidad del paciente, bitácora inmutable, unicidad de parámetros vigentes, cálculo de la edad en meses, idempotencia de las migraciones, permisos por columna de los componentes de generación e indexación, `generar_env.sh` y los endpoints del servicio de modelos, y del indexador: limpieza de páginas, tokens sospechosos del OCR, fragmentación 500/800/80, anclas de las modificaciones de la RM 429, transcripciones y valores críticos, consistencia entre PostgreSQL y ChromaDB, idempotencia por SHA-256 y reindexación por versiones, y de la recuperación: filtro de dominio e intentos de saltarse las instrucciones, datos mínimos y vigencia de 30 días, normalización, BM25 por idioma, fusión RRF, exclusión de fragmentos no vigentes, recomprobación en PostgreSQL, búsqueda ampliada y que ningún módulo lea el texto libre sin filtrar. El flujo de GitHub Actions (`.github/workflows/ci.yml`) las ejecuta en cada push.
+Las pruebas cubren: login correcto, mensaje genérico ante usuario o contraseña incorrectos, bloqueo tras 5 intentos fallidos, cuentas inactivas, permisos por rol, registro en la auditoría, separación de privilegios entre componentes, cifrado de la identidad del paciente, bitácora inmutable, unicidad de parámetros vigentes, cálculo de la edad en meses, idempotencia de las migraciones, permisos por columna de los componentes de generación e indexación, `generar_env.sh` y los endpoints del servicio de modelos, y del indexador: limpieza de páginas, tokens sospechosos del OCR, fragmentación 500/800/80, anclas de las modificaciones de la RM 429, transcripciones y valores críticos, consistencia entre PostgreSQL y ChromaDB, idempotencia por SHA-256 y reindexación por versiones, y de la recuperación: filtro de dominio e intentos de saltarse las instrucciones, datos mínimos y vigencia de 30 días, normalización, BM25 por idioma, fusión RRF, exclusión de fragmentos no vigentes, recomprobación en PostgreSQL, búsqueda ampliada y que ningún módulo lea el texto libre sin filtrar, y de la protección, generación y verificación: filtro del texto libre sin falsos positivos en cifras clínicas, bloqueo de identificadores en la consulta o en los fragmentos, lista blanca ante una columna nueva, hash reproducible, cada fila de la Tabla 10 (incluidos esquema inválido, respuesta cortada, tiempo agotado, rechazo y error de la API), controles de dosis y de cifras de la traducción, triggers de citas, que el cliente real no se pueda crear en pruebas y los 12 casos de punta a punta con el cliente falso. El flujo de GitHub Actions (`.github/workflows/ci.yml`) las ejecuta en cada push.
 
 ## Estructura del repositorio
 
@@ -149,13 +164,14 @@ backend/        API FastAPI
   app/core/       configuración, conexiones por rol, seguridad, auditoría
   app/api/        rutas (auth, salud, catálogos, pacientes, usuarios) y dependencias de permisos
   app/services/   reglas del negocio (pacientes, clasificación, usuarios)
-  app/rag/        filtro de dominio, validación, normalización y recuperación híbrida (Sprint 2)
-  app/scripts/    seed_demo (usuarios y pacientes ficticios) y mediciones de la recuperación
+  app/rag/        filtro de dominio, validación, normalización, recuperación híbrida, protección de datos,
+                  generación y verificación (Sprint 2)
+  app/scripts/    seed_demo (usuarios y pacientes ficticios), mediciones, confirmación de la API y prueba de punta a punta
   tests/          pruebas automáticas
 frontend/       React + Vite; Dockerfile con Nginx (único punto de entrada)
 db/
   init/           01 esquema (27 tablas), 02 catálogos, 03 usuarios de conexión, 04 migraciones
-  migraciones/    cambios idempotentes para bases existentes (001 a 004: Sprint 2)
+  migraciones/    cambios idempotentes para bases existentes (001 a 007: Sprint 2)
   sql/            usuarios de conexión con mínimo privilegio
   aplicar_bd.sh   aplica todo sobre una base nueva, o solo las migraciones (--solo-migraciones)
 modelos/        servicio interno de modelos locales (bge-m3 y bge-reranker-v2-m3); experimentos/ mide rerankers alternativos
@@ -170,7 +186,7 @@ docs/           documentación del desarrollo
 - **Esquema:** 27 tablas en 6 esquemas (`seguridad`, `clinico`, `asistencia`, `conocimiento`, `configuracion`, `auditoria`), triggers de integridad y vistas.
 - **Usuarios de conexión:** el backend usa un usuario por componente (`cdss_clinica`, `cdss_generacion`, `cdss_admin`, `cdss_auditor`) y el indexador usa `cdss_indexador`. El de generación no puede leer la identidad de los pacientes, el texto original de la consulta ni las observaciones del tamizaje; el indexador solo accede a la base de conocimiento.
 - **Identidad del paciente:** nombre, DNI, historia clínica y dirección se cifran con pgcrypto (AES-256) usando `CDSS_CLAVE_PII`. El DNI y la historia clínica se guardan además como HMAC para buscarlos sin descifrar. **Guarde `CDSS_CLAVE_PII`: sin ella no se puede recuperar la identidad.**
-- **Catálogos iniciales:** roles y permisos, síntomas, distritos con altitud, puntos de corte de hemoglobina, ajuste por altitud y 21 parámetros del sistema vigentes.
+- **Catálogos iniciales:** roles y permisos, síntomas, distritos con altitud, puntos de corte de hemoglobina, ajuste por altitud y 25 parámetros del sistema vigentes.
 - **Migraciones:** `db/migraciones/` lleva una base existente al estado actual sin perder datos. Son idempotentes: se pueden aplicar varias veces.
 
 ```bash

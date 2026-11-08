@@ -20,6 +20,9 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 10
     env:
+      # Sin ANTHROPIC_API_KEY: las pruebas nunca llaman a la API real y, con este
+      # entorno, el cliente real del modelo de lenguaje no se puede crear.
+      CDSS_ENTORNO: pruebas
       PGHOST: localhost
       PGUSER: postgres
       PGPASSWORD: postgres

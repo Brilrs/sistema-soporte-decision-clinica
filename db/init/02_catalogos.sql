@@ -189,3 +189,35 @@ SELECT c.clave, n.valor, c.tipo_dato, c.valor_minimo, c.valor_maximo, n.descripc
        '00000000-0000-0000-0000-000000000001'
 FROM cerrados c
 JOIN nuevos n USING (clave);
+
+-- Parámetros de la generación (migración 006): razonamiento y esfuerzo del modelo
+-- de lenguaje, confirmados con la API en la parte C.
+INSERT INTO configuracion.parametro_sistema
+  (clave, valor, tipo_dato, valor_minimo, valor_maximo, descripcion, modificado_por)
+SELECT v.clave, v.valor, 'TEXTO', NULL, NULL, v.descr, '00000000-0000-0000-0000-000000000001'
+FROM (VALUES
+  ('RAZONAMIENTO_LLM', 'between_tools', 'Configuración de razonamiento del modelo de lenguaje (between_tools o adaptive)'),
+  ('ESFUERZO_LLM',     'medium',        'Esfuerzo del modelo de lenguaje (low, medium o high)')
+) AS v(clave, valor, descr)
+WHERE NOT EXISTS (SELECT 1 FROM configuracion.parametro_sistema p
+                   WHERE p.clave = v.clave AND p.vigente_hasta IS NULL);
+
+-- Respuesta compacta (migración 007): MAX_TOKENS_SALIDA sube a 1500 y VERSION_PROMPT pasa
+-- a v1.1; los valores anteriores quedan cerrados en el historial.
+WITH nuevos (clave, valor_anterior, valor, descripcion) AS (VALUES
+  ('MAX_TOKENS_SALIDA', '1000', '1500', 'Longitud máxima de la respuesta del modelo, incluido el razonamiento'),
+  ('VERSION_PROMPT',    'v1.0', 'v1.1', 'Versión vigente del prompt clínico (v1.1: respuesta compacta)')
+),
+cerrados AS (
+  UPDATE configuracion.parametro_sistema p
+     SET vigente_hasta = now()
+    FROM nuevos n
+   WHERE p.clave = n.clave AND p.vigente_hasta IS NULL AND p.valor = n.valor_anterior
+  RETURNING p.clave, p.tipo_dato, p.valor_minimo, p.valor_maximo
+)
+INSERT INTO configuracion.parametro_sistema
+  (clave, valor, tipo_dato, valor_minimo, valor_maximo, descripcion, vigente_desde, modificado_por)
+SELECT c.clave, n.valor, c.tipo_dato, c.valor_minimo, c.valor_maximo, n.descripcion, now(),
+       '00000000-0000-0000-0000-000000000001'
+FROM cerrados c
+JOIN nuevos n USING (clave);

@@ -60,6 +60,8 @@ services:
       SEED_CONTRASENA: ${SEED_CONTRASENA}
       CHROMA_URL: http://chromadb:8000
       MODELOS_URL: http://modelos:8000
+      # Vacía por defecto: sin clave el stack arranca y solo falla la generación real.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ANONYMIZED_TELEMETRY: "FALSE"
       CORS_ORIGENES: '["http://localhost:8080","http://localhost:5173"]'
     mem_limit: 512m

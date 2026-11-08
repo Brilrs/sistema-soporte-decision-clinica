@@ -18,6 +18,8 @@ from decimal import Decimal
 from sqlalchemy import Connection, text
 from sqlalchemy.orm import Session
 
+from app.rag.recuperacion import leer_texto_filtrado
+
 SIN_ANEMIA = "SIN_ANEMIA"
 ANEMIA_LEVE = "ANEMIA_LEVE"
 ANEMIA_MODERADA = "ANEMIA_MODERADA"
@@ -149,3 +151,20 @@ def leer_contexto(sesion: Session | Connection, id_tamizaje: str) -> ContextoCli
         lactancia_materna_actual=fila.lactancia_materna_actual, parasitosis_reciente=fila.parasitosis_reciente,
         bajo_peso_nacer=fila.bajo_peso_nacer, prematuro=prematuro, sintomas=sintomas,
     )
+
+
+def combinar_consulta(estructurada: str, texto_filtrado: str | None) -> str:
+    """Consulta de recuperación del caso: la descripción estructurada del paciente
+    (construir_consulta) seguida de la pregunta del profesional ya filtrada. La
+    estructurada aporta la edad, la clasificación y los antecedentes que la pregunta
+    libre no suele repetir; sin texto filtrado queda solo la estructurada."""
+    pregunta = (texto_filtrado or "").strip()
+    return f"{estructurada} {pregunta}" if pregunta else estructurada
+
+
+def consulta_de_recuperacion(sesion: Session | Connection, id_consulta: str, id_tamizaje: str) -> str:
+    """Única forma de armar la consulta de recuperación (prueba de punta a punta y grafo
+    de la parte D). Con la sesión de cdss_generacion: lee el contexto estructurado y
+    asistencia.consulta.texto_filtrado, nunca texto_consulta."""
+    estructurada = construir_consulta(leer_contexto(sesion, id_tamizaje))
+    return combinar_consulta(estructurada, leer_texto_filtrado(sesion, id_consulta))
