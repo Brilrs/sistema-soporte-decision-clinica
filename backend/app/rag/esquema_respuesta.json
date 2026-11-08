@@ -1,0 +1,59 @@
+{
+  "type": "object",
+  "properties": {
+    "clasificacion_confirmada": {
+      "type": "string",
+      "enum": ["SIN_ANEMIA", "ANEMIA_LEVE", "ANEMIA_MODERADA", "ANEMIA_SEVERA", "SIN_CLASIFICACION"],
+      "description": "La clasificación calculada por el sistema, copiada sin cambios (SIN_CLASIFICACION si el sistema no la calculó)."
+    },
+    "nivel_riesgo": {
+      "type": "string",
+      "enum": ["BAJO", "MODERADO", "ALTO", "MUY_ALTO", "SIN_CLASIFICACION"],
+      "description": "El nivel de riesgo calculado por el sistema, copiado sin cambios."
+    },
+    "evidencia_suficiente": {
+      "type": "boolean",
+      "description": "false si los fragmentos no permiten responder la consulta."
+    },
+    "resumen": {
+      "type": "string",
+      "description": "Respuesta breve a la consulta, en el idioma de la respuesta."
+    },
+    "recomendacion": {
+      "type": "array",
+      "description": "Pasos de la recomendación. Vacío si la evidencia no es suficiente.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "texto": {"type": "string"},
+          "tipo": {"type": "string", "enum": ["PREVENCION", "TRATAMIENTO", "DERIVACION", "SEGUIMIENTO", "CONSEJERIA", "OTRO"]},
+          "citas": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^F-[0-9]{2}$"}}
+        },
+        "required": ["texto", "tipo", "citas"],
+        "additionalProperties": false
+      }
+    },
+    "citas": {
+      "type": "array",
+      "description": "Una entrada por fragmento citado, con un extracto copiado textualmente del fragmento.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "etiqueta": {"type": "string", "pattern": "^F-[0-9]{2}$"},
+          "extracto": {"type": "string", "description": "Texto copiado tal cual del fragmento, en su idioma original."},
+          "extracto_traducido": {
+            "type": ["string", "null"],
+            "description": "Traducción de apoyo del extracto al idioma de la respuesta si el fragmento está en otro idioma; null si no."
+          }
+        },
+        "required": ["etiqueta", "extracto", "extracto_traducido"],
+        "additionalProperties": false
+      }
+    },
+    "factores_identificados": {"type": "array", "items": {"type": "string"}},
+    "advertencias": {"type": "array", "items": {"type": "string"}}
+  },
+  "required": ["clasificacion_confirmada", "nivel_riesgo", "evidencia_suficiente", "resumen", "recomendacion",
+               "citas", "factores_identificados", "advertencias"],
+  "additionalProperties": false
+}

@@ -3,6 +3,185 @@
 Resumen de las mediciones de rendimiento. Los datos completos están en `data/mediciones/`,
 que no se versiona.
 
+## Parte C: confirmación de la API y prueba de punta a punta (07/11/2026)
+
+### Confirmación de la API (paso 0)
+
+Script `app/scripts/confirmar_api.py`, que solo se ejecuta con `--confirmo-datos-sinteticos`
+y envía un caso inventado, sin datos de pacientes. Hace tres solicitudes: los datos del
+modelo en la Models API (sin contenido), una llamada mínima a la Messages API y una
+solicitud con `temperature`, que la API rechaza antes de generar. SDK de Python
+`anthropic` 2.6.0, versión de API 2026-10-21. Resultado en
+`data/mediciones/c0_confirmacion_api.json`.
+
+| Elemento | Resultado | Fuente |
+| --- | --- | --- |
+| Modelo | `claude-sonnet-5-5` aceptado y respondido por ese mismo modelo; activo, sin fecha de retiro (no antes del 28/09/2027) | Llamada; https://platform.claude.com/docs/en/models/sonnet-5-5/overview |
+| Temperatura | Error 400 «temperature: Extra inputs are not permitted» | Llamada; https://platform.claude.com/docs/en/api/versioning |
+| Salida estructurada | `output_config.format` = `{type: json_schema, schema}`; respuesta válida con el esquema de prueba | Llamada; https://platform.claude.com/docs/en/build-with-claude/structured-outputs |
+| Razonamiento | Adaptativo por defecto; `disabled` no admitido; `between_tools` es el mínimo y sin herramientas no razona. Se envía `thinking: {type: between_tools}` con `output_config.effort` = `medium` | Models API; https://platform.claude.com/docs/en/build-with-claude/thinking y https://platform.claude.com/docs/en/build-with-claude/effort |
+| Uso de tokens | `usage.input_tokens`, `usage.output_tokens` (incluye el razonamiento) y `usage.output_tokens_details.thinking_tokens` | Llamada |
+| Rechazo | HTTP 200 con `stop_reason` = `refusal` y `stop_details.category` | https://platform.claude.com/docs/en/build-with-claude/refusals-and-fallback |
+| Precios | 2 dólares por millón de tokens de entrada y 10 por millón de salida | https://platform.claude.com/docs/en/about-claude/pricing |
+| Retiro de Claude Sonnet 4.5 | `claude-sonnet-4-5-20250929`: obsoleto el 30/09/2026, retiro el 30/11/2026, reemplazo `claude-sonnet-5-5` | https://platform.claude.com/docs/en/about-claude/model-deprecations |
+
+Llamada mínima (un fragmento sintético de 30 palabras y un esquema de 3 campos): 551
+tokens de entrada, 126 de salida, 0 de razonamiento, 3,5 s incluida la compilación del
+esquema la primera vez, y **0,00236 dólares**. Una consulta real envía 5 fragmentos de
+hasta unos 800 tokens y el prompt clínico, así que su costo será varias veces mayor; la
+cifra por consulta sale de la corrida real de punta a punta.
+
+### Prueba de punta a punta con el cliente falso
+
+12 casos de `app/scripts/casos_e2e.yaml` con pacientes de `seed_demo`, la recuperación real
+(modelos, ChromaDB y guías de la versión 4) y el cliente falso del modelo de lenguaje: **12 de
+12 dan el estado esperado** (8 VERIFICADA, 1 DATOS_FALTANTES, 1 FUERA_DE_DOMINIO, 1
+EVIDENCIA_INSUFICIENTE con búsqueda ampliada y 1 VERIFICADA con cita de la OMS y traducción
+de apoyo), y los 9 intentos enviados tienen `control_identificadores` = true. En el caso i el
+texto filtrado queda «¿Qué tratamiento con hierro le doy a [PACIENTE], DNI [DNI], HC [HC]? Su
+mamá llama al [TELEFONO].». Sin el modelo de lenguaje, cada consulta tarda unos 3,3 s
+(recuperación con el reranker int8) y unos 7 s cuando hace falta la búsqueda ampliada. Los
+tokens y el costo del cliente falso son simulados. Informe en
+`data/mediciones/c_punta_a_punta_falso.md`.
+
+La primera versión del caso f («¿Qué se recomienda según la hemoglobina registrada…?»)
+terminó en evidencia insuficiente: con una consulta tan genérica ningún fragmento alcanzó
+el umbral (0,011 con la búsqueda ampliada). Se reformuló como pregunta clínica concreta, igual
+que los demás casos.
+
+La corrida con el modelo real la ejecuta el responsable del proyecto (paso 8 de «Cómo
+repetir las mediciones»).
+
+### Corrida real completa con la consulta combinada (07/11/2026)
+
+Condiciones: Docker Desktop del equipo de desarrollo (entorno normal, reranker ONNX int8, 8
+candidatos de 256 tokens), no el perfil B2ms. `claude-sonnet-5-5`, prompt v1.1,
+`MAX_TOKENS_SALIDA` 1500, razonamiento `between_tools`, esfuerzo `medium`. Recuperación con la
+consulta estructurada más el texto filtrado y control de dosis con la dosis derivada del peso.
+Informe en `data/mediciones/c_punta_a_punta_real.md`.
+
+**Resultado: 10 de 12 casos dan el estado esperado.** Los que no coinciden son c y l, que
+terminaron en EVIDENCIA_INSUFICIENTE cuando se esperaba VERIFICADA.
+
+| Caso | Esperado | Obtenido | Intentos |
+| --- | --- | --- | --- |
+| a, b, d, f, i, k | VERIFICADA | VERIFICADA | 1 (INICIAL, APROBADO) |
+| e | VERIFICADA | VERIFICADA | 2 (INICIAL REINTENTO por 6.3; AMPLIADA APROBADO) |
+| c | VERIFICADA | EVIDENCIA_INSUFICIENTE | 2 (INICIAL REINTENTO por 6.3; AMPLIADA, falla 6.1 en el extracto de F-04) |
+| j | EVIDENCIA_INSUFICIENTE | EVIDENCIA_INSUFICIENTE | 2 (el modelo declaró evidencia insuficiente en los dos) |
+| l | VERIFICADA | EVIDENCIA_INSUFICIENTE | 2 (el modelo declaró evidencia insuficiente en los dos) |
+| g | DATOS_FALTANTES | DATOS_FALTANTES | sin llamada al modelo |
+| h | FUERA_DE_DOMINIO | FUERA_DE_DOMINIO | sin llamada al modelo |
+
+**Tokens y costo.** 14 intentos enviados, todos con `control_identificadores` = true y
+`stop_reason` = end_turn (ninguno cortado). 86 717 tokens de entrada (de 5738 a 6943 por
+intento, mediana 6128), 10 210 de salida (de 367 a 1015, mediana 863) y 0 de razonamiento.
+Costo total 0,276 dólares: de 0,016 a 0,023 por intento y 0,028 por consulta enviada.
+
+**Tiempos por etapa (14 intentos, ms).**
+
+| Etapa | Mínimo | Mediana | Máximo |
+| --- | --- | --- | --- |
+| Recuperación (búsqueda, fusión y reranker) | 3435 | 3792 | 4998 |
+| Llamada al modelo | 3452 | 5713 | 6642 |
+| Protección (solicitud, hash y control previo) | 3 | 4 | 5 |
+| Verificación | 1 | 2 | 3 |
+
+**Latencia de la etapa de generación frente al RNF3.** Se mide desde la recuperación hasta el
+cierre de la consulta; no incluye el filtro de texto, la validación ni el filtro de dominio de la
+etapa clínica.
+
+| Flujo | Casos | Mínimo | Mediana | Máximo | Objetivo del RNF3 |
+| --- | --- | --- | --- | --- | --- |
+| Un intento | 6 | 8,4 s | 10,2 s | 11,4 s | menos de 10 s en el percentil 90 |
+| Con reintento | 4 | 14,9 s | 17,0 s | 20,3 s | 25 s como máximo |
+
+Con un intento, 2 de los 6 casos quedan bajo 10 s y el máximo (11,4 s, caso a, con 5,0 s de
+recuperación) lo supera: con 6 casos, el percentil 90 es el máximo. Con reintento, los 4 casos
+quedan bajo 25 s.
+
+**Límites encontrados.**
+
+1. Caso c, intento 2: el extracto de F-04 (Tabla N° 20 de la NTS, «Al segundo, tercer y sexto
+   mes de iniciado tratamiento») no es un texto contiguo del fragmento. En la capa de texto de
+   la tabla, la etiqueta de la fila «6 meses a 35 meses» corta la celda: «Al segundo, tercer y
+   sexto mes de iniciado / 6 meses a 35 meses tratamiento». El modelo unió la celda quitando la
+   etiqueta intercalada; no es solo una diferencia de espacios, saltos de línea, guiones bajos o
+   símbolos de tabla, así que se mantiene el rechazo. La comparación ahora normaliza igual los dos
+   lados (espacios, saltos de línea, mayúsculas y símbolos de tabla `|`, `_`, `•`, `*`, `·`), sin
+   coincidencia aproximada. La Tabla N° 20 no está entre las transcripciones verificadas.
+2. Casos c y e, intento 1: la sección NTS 6.1.2 B.3 (tratamiento de 6 meses a 11 años) quedó
+   fuera de los 8 candidatos del reranker, mientras que B.2 (menor de 6 meses) entró:
+
+   | Caso (edad) | Fragmento | Fusión RRF | BM25 | Vectorial | Reranker |
+   | --- | --- | --- | --- | --- | --- |
+   | c (20 meses) | B.3 | 10 | sin resultado | 3 | 0,926, no evaluado |
+   | c (20 meses) | B.2 | 1 | 2 | 1 | 0,923, enviado F-01 |
+   | e (18 meses) | B.3 | 15 | sin resultado | 4 | 0,853, no evaluado |
+   | e (18 meses) | B.2 | 11 | sin resultado | 2 | 0,858, no evaluado |
+
+   Con la búsqueda ampliada, B.3 entra en los dos casos (fusión 6 y 2). El puntaje del reranker
+   fuera de los 8 se calculó aparte con el mismo modelo. BM25 no recupera B.3 en la búsqueda
+   inicial; la búsqueda vectorial la pone tercera o cuarta.
+3. Caso l: el fragmento de la OMS 2016 con la recomendación para niños de 24 a 59 meses existe en
+   el índice vigente (orden 9, página 17, sin etiqueta de sección, 657 tokens). Empieza con la
+   evidencia sobre ferritina y la frase «Daily iron supplementation is recommended as a public
+   health intervention in preschool-age children aged 24-59 months…» está a partir del carácter
+   1325, más allá de los 256 tokens que lee el reranker. Con la consulta combinada queda en el
+   puesto 3 de la fusión (BM25 1, vectorial 7) y el reranker le da 0,518, bajo los cinco
+   fragmentos de la NTS enviados (de 0,847 a 0,948). Con la búsqueda ampliada, fusión 3 y
+   reranker 0,508. La sección NTS 6.1.1 B.4 (prevención de 24 a 59 meses) tampoco se envió:
+   fusión 10 (BM25 17, vectorial 9), fuera de los 8, con 0,993 en el reranker calculado aparte;
+   con la búsqueda ampliada, fusión 40. El modelo declaró evidencia insuficiente porque no recibió
+   ningún fragmento de la OMS ni de prevención para 24 a 59 meses.
+
+### Primera corrida con el modelo real (07/11/2026) y diagnóstico
+
+Corrida del responsable del proyecto, con el prompt v1.0 y `MAX_TOKENS_SALIDA` = 1000: **3 de 12**
+casos dan el estado esperado (g, h y j). 18 intentos enviados, todos con
+`control_identificadores` = true; 95 432 tokens de entrada, 15 100 de salida, 0 de
+razonamiento y 0,34 dólares (0,038 por consulta enviada). Cada llamada tardó de 5 a 7,5 s.
+
+- **b, c y d (ERROR):** las respuestas llegaron a los 1000 tokens de salida en los dos intentos,
+  con 0 tokens de razonamiento: el corte se debe al largo del JSON (varios extractos largos por
+  fragmento, factores y advertencias extensos). Corrección: migración 007 y prompt v1.1 (fila 47
+  de `docs/cambios_respecto_al_OE2.md`).
+- **a, e, f, i, k y l (EVIDENCIA_INSUFICIENTE):** las respuestas guardadas en
+  `intento_generacion.respuesta_borrador` muestran que el modelo declaró la evidencia
+  insuficiente por el contenido de los fragmentos, no por un error. En el caso a dijo que los
+  fragmentos cubrían de 12 a 23 meses y de 5 a 11 años, pero no a una niña de 9 meses. En el
+  caso e respondió la parte del ajuste por altitud con citas, pero declaró insuficiente la
+  consulta completa porque faltaba el esquema de tratamiento.
+- **Recuperación del caso a:** se enviaron 4 fragmentos, no 5 (el quinto candidato, de la OMS
+  2016, tuvo 0,053 en el reranker, bajo el umbral de 0,15): NTS 6.1.1 B.3 (12 a 23 meses, 0,86),
+  NTS 6.1.1 A (medición de hemoglobina, 0,68), NTS 6.1.2 B.11 (seguimiento de casos de anemia,
+  0,43) y NTS 6.1.1 B.5 (5 a 11 años, 0,39). El fragmento NTS 6.1.1 B.2 «En el niño y la niña de
+  6 a 11 meses de edad» quedó en el puesto 21 de la fusión (sin BM25, puesto 11 en la búsqueda
+  vectorial), fuera de los 8 que evalúa el reranker; con la búsqueda ampliada, en el puesto 35.
+  La consulta libre no menciona la edad, que solo está en los datos estructurados. Con la consulta
+  estructurada más el texto filtrado, el mismo fragmento entra en el puesto 3 (reranker 0,97):
+  dato para la parte D, donde se combinan ambas.
+- **Pendiente para después de la próxima corrida:** en los casos b, c y d el modelo calculó la
+  dosis con el peso (por ejemplo «28,8 mg/día» para 9,6 kg). El control de dosis exige que cada
+  cifra con unidad figure en el fragmento citado, así que esas respuestas fallarían 6.1 aunque
+  ya no se corten.
+
+**Cambios después del diagnóstico (07/11/2026).** La recuperación usa la consulta estructurada
+más el texto filtrado (fila 48 de `docs/cambios_respecto_al_OE2.md`) y el control de dosis acepta
+la dosis derivada del peso de los datos estructurados (fila 49). Fragmentos enviados con el stack
+real, sin llamar a la API:
+
+| Caso | Fragmentos enviados (puntaje del reranker) |
+| --- | --- |
+| a | NTS 6.1.1 B.3, 12 a 23 meses (0,99); NTS 6.1.1 B.5, 5 a 11 años (0,99); **NTS 6.1.1 B.2, 6 a 11 meses (0,98)**; NTS 6.1.2 B.3, tratamiento de 6 meses a 11 años (0,96); NTS 6.1.2 B.2, tratamiento en menores de 6 meses (0,95) |
+| e | NTS 6.1.1 B.5, 5 a 11 años (0,94); NTS 5.3.1 y 5.3.2, ajuste del valor de Hb (0,90); NTS 6.1.2 B.10 y B.11, referencia y seguimiento (0,88); RM 429 5.3.2 Tabla 1, ajuste por altitud (0,79); OMS 2024 (0,71) |
+| f | NTS 6.1.2 B.10 y B.11, referencia y seguimiento (0,95); NTS 6.1.1 B.5, 5 a 11 años (0,90); NTS 6.1.2 B.3, tratamiento de 6 meses a 11 años (0,87); NTS 6.1.2 B.2, tratamiento en menores de 6 meses (0,86); OMS 2016 (0,85) |
+
+En el caso e no entra la sección de tratamiento con la dosis (NTS 6.1.2 B.3): el modelo podría
+volver a responder el ajuste por altitud y declarar insuficiente la parte del tratamiento. Con el
+cliente falso, los 12 casos siguen dando el estado esperado; el caso j ahora llega al modelo
+porque sus fragmentos superan el umbral con la consulta combinada.
+
 ## Parte B2: etiquetas de sección corregidas y versión 4 (07/11/2026)
 
 **Causa.** La segmentación guardaba el texto de cada segmento sin los saltos de línea de los
@@ -560,6 +739,15 @@ MSYS_NO_PATHCONV=1 docker compose run --rm --no-deps -T -v "$APP" backend $MEDIR
 MSYS_NO_PATHCONV=1 docker compose run --rm --no-deps -T -v "$APP" -v "$(pwd -W)/data/mediciones:/datos:ro" backend $MEDIR rankings --grupo desarrollo   --fragmentos /datos/b2c_fragmentos_250.json --coleccion experimento_250_400 > $D/b2c_rankings_desarrollo_250.json   # 20 min, llena la colección
 MSYS_NO_PATHCONV=1 docker compose run --rm --no-deps -T -v "$APP" backend $MEDIR rankings --grupo prueba > $D/b2c_rankings_prueba_v4.json         # 4 min, solo referencia
 cd backend && .venv/Scripts/python -m app.scripts.variantes_recuperacion --desarrollo ../$D/b2c_rankings_desarrollo_v4.json   --prueba ../$D/b2c_rankings_prueba_v4.json --propuesta 20x60x1:1x8 > ../$D/b2c_informe.md; cd ..
+
+# 8. Parte C: migración 006, confirmación de la API y punta a punta (07/11/2026)
+docker compose build backend                                              # imagen con el SDK anthropic
+MSYS_NO_PATHCONV=1 docker compose exec -T db psql -q -v ON_ERROR_STOP=1 -U postgres -d cdss --single-transaction -f - < db/migraciones/006_parametros_generacion.sql
+docker compose up -d backend
+DATOS="$(pwd -W)/data/mediciones:/app/data/mediciones"
+MSYS_NO_PATHCONV=1 docker compose run --rm --no-deps -T -v "$APP" -v "$DATOS" backend python -m app.scripts.confirmar_api   --confirmo-datos-sinteticos --salida data/mediciones/c0_confirmacion_api.json   # 3 solicitudes, menos de 1 centavo
+MSYS_NO_PATHCONV=1 docker compose run --rm --no-deps -T -v "$APP" -v "$DATOS" backend python -m app.scripts.prueba_punta_a_punta   # cliente falso, 1 min
+MSYS_NO_PATHCONV=1 docker compose run --rm --no-deps -T -v "$APP" -v "$DATOS" backend python -m app.scripts.prueba_punta_a_punta   --llm real --confirmo-datos-sinteticos                                      # API real, 12 casos; con --casos a,b,e solo esos
 
 # 4. Volver al entorno normal e informe detallado
 docker compose up -d

@@ -11,3 +11,4 @@ chromadb-client==0.6.3
 rank-bm25==0.2.2
 snowballstemmer==2.2.0
 pyyaml==6.0.3
+anthropic==2.6.0
