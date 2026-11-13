@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, catalogos, pacientes, salud, usuarios
+from app.api.routes import auth, catalogos, consultas, pacientes, salud, usuarios
 from app.core.config import get_settings
 from app.core.errores import manejar_error_validacion
 
@@ -71,3 +71,17 @@ app.include_router(auth.router)
 app.include_router(catalogos.router)
 app.include_router(pacientes.router)
 app.include_router(usuarios.router)
+app.include_router(consultas.router)
+
+
+def openapi_con_eventos() -> dict:
+    """OpenAPI con los esquemas de los eventos NDJSON de las consultas (EventoConsulta)."""
+    if app.openapi_schema is None:
+        from fastapi.openapi.utils import get_openapi
+        esquema = get_openapi(title=app.title, version=app.version, description=app.description, routes=app.routes)
+        esquema.setdefault("components", {}).setdefault("schemas", {}).update(consultas.esquemas_eventos())
+        app.openapi_schema = esquema
+    return app.openapi_schema
+
+
+app.openapi = openapi_con_eventos

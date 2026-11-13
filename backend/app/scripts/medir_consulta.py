@@ -11,11 +11,15 @@ el responsable). El perfil (normal o B2ms) lo fija docker compose; --entorno sol
 Uso (en el contenedor backend, con la red de Docker; ver docs/mediciones_sprint2.md):
     python -m app.scripts.medir_consulta [--llm falso|real] [--confirmo-datos-sinteticos]
         [--casos a,b] [--repeticiones 3] [--concurrentes 2] [--entorno normal] [--etiqueta v5]
-        [--sin-calentar]
+        [--sin-calentar] [--versiones-prompt v1.1,v1.2]
 
 Guarda <salida>/d_consulta_<llm>[_<etiqueta>].md y .json. Por cada consulta registra el
 estado, los eventos (sin texto de la consulta), los tiempos y, leídos con cdss_generacion,
-los intentos (tokens, costo, resultado, tiempos) y los fragmentos enviados."""
+los intentos (tokens, costo, resultado, tiempos) y los fragmentos enviados.
+
+Con --versiones-prompt (por ejemplo v1.1,v1.2) corre los casos una vez por versión del
+prompt, cambiándola solo en memoria (VERSION_PROMPT de la base no cambia), y agrega la
+comparación de estados, tokens de salida, tiempo de generar y total por versión."""
 import argparse
 import asyncio
 import json
@@ -54,7 +58,7 @@ def _ids(c, caso: dict) -> tuple[str, str]:
 
 
 _INTENTOS = """
-    SELECT numero_intento, tipo_busqueda, resultado, modelo_llm, tokens_entrada, tokens_salida, tokens_razonamiento,
+    SELECT numero_intento, tipo_busqueda, resultado, modelo_llm, version_prompt, tokens_entrada, tokens_salida, tokens_razonamiento,
            costo_usd, latencia_llm_ms, relevancia_maxima, valida_citas, valida_consistencia, valida_evidencia,
            tiempos_ms, id_intento::text
       FROM asistencia.intento_generacion WHERE id_consulta = CAST(:c AS uuid) ORDER BY numero_intento
@@ -124,7 +128,46 @@ def resumen(filas: list[dict]) -> dict:
     }
 
 
-def informe_markdown(filas: list[dict], total: dict, meta: dict) -> str:
+def comparar_versiones(filas: list[dict]) -> dict:
+    """Por versión del prompt: estados, tokens de salida por intento enviado, generar y total."""
+    comparacion = {}
+    for version in dict.fromkeys(f["version_prompt"] for f in filas):
+        propias = [f for f in filas if f["version_prompt"] == version]
+        enviados = [i for f in propias for i in f.get("intentos", []) if i.get("modelo_llm")]
+        salida = [i["tokens_salida"] for i in enviados if i.get("tokens_salida") is not None]
+        generar = [ms for f in propias for e in (f.get("tiempos_ms") or {}).get("etapas", [])
+                   if e["nodo"] == "generar" for ms in [e["ms"]]]
+        r = resumen(propias)
+        comparacion[version] = {
+            "coinciden": r["coinciden"], "consultas": r["consultas"], "intentos_enviados": r["intentos_enviados"],
+            "tokens_salida_total": r["tokens_salida"], "tokens_salida_p50": percentil(salida, 50),
+            "tokens_salida_max": max(salida, default=None),
+            "tokens_salida_media": round(sum(salida) / len(salida)) if salida else None,
+            "generar_ms_p50": percentil(generar, 50), "generar_ms_p90": percentil(generar, 90),
+            "total_ms": r["total_ms"], "total_verificadas_ms": r["total_verificadas_ms"], "costo_usd": r["costo_usd"],
+            "estados": {f"{f['caso']}#{f['repeticion']}": f["estado"] for f in propias},
+        }
+    return comparacion
+
+
+def informe_comparacion(comparacion: dict) -> list[str]:
+    versiones = list(comparacion)
+    lineas = ["## Comparación de versiones del prompt", "",
+              "| Versión | Coinciden | Intentos enviados | Tokens de salida p50 / media / máx. | Generar p50 / p90 (ms) "
+              "| Total p50 / p90 (ms) | Verificadas p50 / p90 (ms) | Costo (USD) |",
+              "| --- | --- | --- | --- | --- | --- | --- | --- |"]
+    for v, c in comparacion.items():
+        lineas.append(f"| {v} | {c['coinciden']}/{c['consultas']} | {c['intentos_enviados']} | "
+                      f"{c['tokens_salida_p50']} / {c['tokens_salida_media']} / {c['tokens_salida_max']} | "
+                      f"{c['generar_ms_p50']} / {c['generar_ms_p90']} | {c['total_ms']['p50']} / {c['total_ms']['p90']} | "
+                      f"{c['total_verificadas_ms']['p50']} / {c['total_verificadas_ms']['p90']} | {c['costo_usd']} |")
+    lineas += ["", "| Caso | " + " | ".join(versiones) + " |", "| --- |" + " --- |" * len(versiones)]
+    for clave in comparacion[versiones[0]]["estados"]:
+        lineas.append(f"| {clave} | " + " | ".join(comparacion[v]["estados"].get(clave, "") for v in versiones) + " |")
+    return lineas + [""]
+
+
+def informe_markdown(filas: list[dict], total: dict, meta: dict, comparacion: dict | None = None) -> str:
     lineas = [f"# Consulta de punta a punta por el grafo (cliente {meta['llm']}, entorno {meta['entorno']})", "",
               f"Fecha {meta['fecha']}; {meta['repeticiones']} repetición(es), {meta['concurrentes']} consulta(s) a la "
               f"vez; límites {meta['limites']}; calentamiento {meta['calentamiento']}.", "",
@@ -135,19 +178,21 @@ def informe_markdown(filas: list[dict], total: dict, meta: dict) -> str:
               f"en cola: {total['espera_cola_ms_max']} ms. Intentos enviados {total['intentos_enviados']}, costo "
               f"{total['costo_usd']} USD." + (" Con el cliente falso los tokens y el costo son simulados."
                                              if meta["llm"] == "falso" else ""), "",
-              "Mediana por nodo (ms): " + ", ".join(f"{n} {v}" for n, v in total["por_nodo_p50_ms"].items()), "",
-              "| Caso | Rep. | Esperado | Obtenido | Intentos | Primer evento (ms) | Total (ms) | Nodos (ms) |",
-              "| --- | --- | --- | --- | --- | --- | --- | --- |"]
+              "Mediana por nodo (ms): " + ", ".join(f"{n} {v}" for n, v in total["por_nodo_p50_ms"].items()), ""]
+    if comparacion:
+        lineas += informe_comparacion(comparacion)
+    lineas += ["| Prompt | Caso | Rep. | Esperado | Obtenido | Intentos | Primer evento (ms) | Total (ms) | Nodos (ms) |",
+               "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"]
     for f in filas:
         nodos = ", ".join(f"{e['nodo']} {e['ms']}" for e in (f.get("tiempos_ms") or {}).get("etapas", []))
         intentos = "; ".join(f"{i['numero_intento']} {i['tipo_busqueda']} {i['resultado']}" for i in f["intentos"]) \
             or "sin intentos"
         marca = f["estado"] if f["coincide"] else f"**{f['estado']}**"
-        lineas.append(f"| {f['caso']} | {f['repeticion']} | {f['esperado']} | {marca} | {intentos} | "
+        lineas.append(f"| {f['version_prompt']} | {f['caso']} | {f['repeticion']} | {f['esperado']} | {marca} | {intentos} | "
                       f"{f['primer_evento_ms']} | {f['total_cliente_ms']} | {nodos} |")
     lineas += ["", "## Fragmentos enviados y citas (primera repetición)", ""]
     for f in [f for f in filas if f["repeticion"] == 1]:
-        lineas.append(f"### Caso {f['caso']}: {f['descripcion']}")
+        lineas.append(f"### Caso {f['caso']} (prompt {f['version_prompt']}): {f['descripcion']}")
         if f.get("mensaje"):
             lineas.append(f"- Mensaje: {f['mensaje']}")
         for i in f["intentos"]:
@@ -186,6 +231,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--entorno", default="normal", help="etiqueta del perfil (normal, b2ms)")
     p.add_argument("--etiqueta", help="sufijo del informe")
     p.add_argument("--sin-calentar", action="store_true", help="la primera consulta se mide en frío")
+    p.add_argument("--versiones-prompt", help="versiones del prompt a comparar, separadas por comas (p. ej. v1.1,v1.2); "
+                                             "por defecto, la vigente")
     p.add_argument("--salida", type=Path, default=Path(os.environ.get("CDSS_DIR_MEDICIONES", "data/mediciones")))
     a = p.parse_args(argv)
     if a.repeticiones < 1 or a.concurrentes < 1:
@@ -195,6 +242,11 @@ def main(argv: list[str] | None = None) -> int:
             p.error("--llm real exige --confirmo-datos-sinteticos")
         if not os.environ.get("ANTHROPIC_API_KEY"):
             p.error("--llm real exige ANTHROPIC_API_KEY")
+    from app.rag.generacion import VERSIONES_PROMPT
+    versiones = a.versiones_prompt.split(",") if a.versiones_prompt else [None]
+    desconocidas = [v for v in versiones if v is not None and v not in VERSIONES_PROMPT]
+    if desconocidas:
+        p.error(f"Versiones del prompt sin archivo: {', '.join(desconocidas)}")
     fecha_referencia, casos = cargar_casos()
     if a.casos:
         elegidos = set(a.casos.split(","))
@@ -218,20 +270,29 @@ def main(argv: list[str] | None = None) -> int:
             id_paciente, id_tamizaje = _ids(c, caso)
             solicitudes[caso["id"]] = srv.SolicitudConsulta(
                 id_paciente, usuario, caso["consulta"], id_tamizaje, bool(caso.get("confirma_tamizaje_no_vigente")))
-    filas = asyncio.run(_correr(casos, solicitudes, entorno, a.llm, a.repeticiones, a.concurrentes))
+    filas = []
+    for version in versiones:
+        propias = asyncio.run(_correr(casos, solicitudes, replace(entorno, version_prompt=version), a.llm,
+                                      a.repeticiones, a.concurrentes))
+        for f in propias:
+            f["version_prompt"] = version or "vigente"
+        filas += propias
     for f in filas:
         f["intentos"] = detalle_intentos(motores["generacion"], f["id_consulta"]) if f["id_consulta"] else []
     total = resumen(filas)
+    comparacion = comparar_versiones(filas) if len(versiones) > 1 else None
     meta = {"llm": a.llm, "entorno": a.entorno, "fecha": time.strftime("%Y-%m-%d %H:%M:%S"),
             "repeticiones": a.repeticiones, "concurrentes": a.concurrentes, "nucleos": srv.nucleos_visibles(),
-            "limites": repr(entorno.limites), "calentamiento": calentamiento}
+            "limites": repr(entorno.limites), "calentamiento": calentamiento,
+            "versiones_prompt": [v or "vigente" for v in versiones]}
     a.salida.mkdir(parents=True, exist_ok=True)
     nombre = f"d_consulta_{a.llm}" + (f"_{a.etiqueta}" if a.etiqueta else "")
-    (a.salida / f"{nombre}.md").write_text(informe_markdown(filas, total, meta) + "\n", encoding="utf-8")
-    (a.salida / f"{nombre}.json").write_text(json.dumps({"meta": meta, "resumen": total, "consultas": filas},
+    (a.salida / f"{nombre}.md").write_text(informe_markdown(filas, total, meta, comparacion) + "\n", encoding="utf-8")
+    (a.salida / f"{nombre}.json").write_text(json.dumps({"meta": meta, "resumen": total, "comparacion": comparacion,
+                                                         "consultas": filas},
                                                         ensure_ascii=False, indent=2, default=str) + "\n",
                                              encoding="utf-8")
-    print(json.dumps(total, ensure_ascii=False))
+    print(json.dumps(comparacion or total, ensure_ascii=False, default=str))
     print(f"Informe: {a.salida / nombre}.md")
     return 0 if total["coinciden"] == total["consultas"] else 1
 

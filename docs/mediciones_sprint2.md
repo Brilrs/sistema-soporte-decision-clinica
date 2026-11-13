@@ -3,6 +3,107 @@
 Resumen de las mediciones de rendimiento. Los datos completos están en `data/mediciones/`,
 que no se versiona.
 
+## Parte D2: API de consultas por etapas (13/11/2026)
+
+Comprobaciones hechas sin la API de Anthropic:
+
+- **Pruebas:** 608 pruebas sin marca (incluidas las 27 de `test_d2_api.py`, con el cliente falso)
+  y las 62 lentas, con la base de pruebas.
+- **Formato:** cada línea del stream es un evento válido del contrato (`EventoConsulta`).
+- **Cierre de la conexión:** el cliente cierra después del primer evento (validar) y la consulta
+  termina en el servidor como VERIFICADA, con sus tiempos y sin transacciones abiertas.
+- **Nginx:** `nginx -t` sin errores con el `location` de stream. A través de Nginx, el paciente
+  inexistente responde 404, la consulta inexistente 404 y `admin.cdss` 403.
+
+### Stream a través de Nginx (13/11/2026)
+
+`comprobar_stream --confirmo-llamada-real`, ejecutado por el responsable contra `http://nginx`,
+con una consulta VERIFICADA de la paciente ficticia de DNI 81345678 y la API real. Se considera
+por etapas si las líneas llegan en tres momentos distintos o más y entre la primera y la
+última pasa al menos un segundo.
+
+- `Content-Type: application/x-ndjson`: 9 líneas en 8 momentos distintos, del primer evento a
+  los 0,31 s al último a los 11,19 s. **Por etapas: sí.**
+- Llegada al cliente frente a la hora del servidor: validar 313 / 299 ms, recuperar 4 788 /
+  4 775 ms, generar 11 118 / 11 105 ms, `fin` 11 188 / 11 175 ms. Cada línea llega de 13 a 14 ms
+  después de que el servidor la escribe: Nginx no guarda la respuesta en un búfer.
+
+Resultado en `data/mediciones/d2_stream_nginx.json`.
+
+### Corrida con el modelo real en el perfil B2ms (13/11/2026)
+
+`medir_consulta --llm real --confirmo-datos-sinteticos --entorno b2ms --etiqueta b2ms_real` con
+`docker-compose.b2ms.yml` (todos los servicios en las CPU 0 y 1), ejecutada después del
+calentamiento (reranker 1, LLM 4). Prompt v1.1, una repetición.
+
+| Medida | B2ms | Perfil normal (parte D1) |
+| --- | --- | --- |
+| Estados como se esperaba | 12 de 12 | 12 de 12 |
+| Intentos enviados | 11 | 11 |
+| Primer evento p50 / p90 | 0,35 / 0,48 s | 0,23 / 0,27 s |
+| Total p50 / p90 (todas) | 12,33 / 18,25 s | 11,76 / 12,54 s |
+| Total de las verificadas p50 / p90 | 12,66 / 18,92 s; de 11,58 a 18,92 s | 11,79 / 12,54 s |
+| Recuperar, mediana | 4,72 s | 3,93 s |
+| Generar, mediana | 6,90 s | 7,41 s |
+| Costo | 0,24168 USD | 0,24004 USD |
+| Tokens de entrada / salida | 71 881 / 9 790 | 71 881 / 9 626 |
+
+- **Caso d:** 18,92 s. La llamada a la API tardó 13,50 s con 1 099 tokens de salida; en los otros 8
+  casos verificados tardó de 6,57 a 8,37 s, con 720 a 1 234 tokens. La recuperación del caso d
+  tardó 5,00 s, como en los demás (4,55 a 5,00 s). Sin el caso d, el total de las verificadas va de
+  11,58 a 14,18 s.
+- **Caso j** (reintento con búsqueda ampliada, dos llamadas): 18,25 s, dentro de los 25 s del RNF3
+  con reintento. La recuperación ampliada tardó 6,30 s.
+- **RNF3, flujo normal** (p90 menor a 10 s): en B2ms el p90 de las verificadas es 18,92 s, y la
+  mediana, 12,66 s. No se cumple. Recuperar es 0,8 s más lento que en el perfil normal; la
+  llamada a la API no depende del perfil.
+
+Informe en `data/mediciones/d_consulta_real_b2ms_real.md` y `.json`.
+
+### Prompt v1.2 frente a v1.1 (13/11/2026)
+
+`medir_consulta --llm real --confirmo-datos-sinteticos --versiones-prompt v1.1,v1.2`, ejecutada por el
+responsable: los 12 casos con cada versión, perfil normal, una repetición. La versión se cambió
+solo en memoria; `VERSION_PROMPT` siguió en v1.1.
+
+| Medida | v1.1 | v1.2 |
+| --- | --- | --- |
+| Estados como se esperaba | 12 de 12 | 12 de 12 (los mismos) |
+| Tokens de salida por intento enviado, media / p50 | 863 / 933 | 728 / 820 |
+| Generar p50 / p90 | 7,18 / 7,73 s | 6,50 / 7,02 s |
+| Total p50 / p90 | 11,58 / 13,50 s | 10,64 / 11,71 s |
+| Costo de los 12 casos | 0,239 USD | 0,227 USD |
+
+Comparación de los textos de los 9 casos verificados (`app/scripts/comparar_prompts.py`, sin
+llamar a la API; informe en `data/mediciones/comparacion_prompts_v1_1_v1_2.md`):
+
+- **Dosis:** ninguna dosis del texto de v1.1 falta en v1.2. En e y k, v1.2 agrega la dosis
+  calculada con el peso (29,7 mg/día con 9,9 kg).
+- **Caso d (anemia severa):** v1.2 pone el paso de TRATAMIENTO antes que el de DERIVACION, y v1.1
+  los pone al revés. v1.2 omite el incremento ≥ 1 g/dL a los 30 días (F-02, que deja de citar) y
+  la advertencia «La decisión final corresponde al profesional tratante».
+- **Caso f:** v1.2 omite «Al concluir el tratamiento se inicia la suplementación preventiva según
+  edad» y la advertencia de que la recomendación de la OMS es preventiva y no aplica al
+  tratamiento.
+- **Caso l:** v1.2 omite la advertencia sobre la diferencia entre la OMS y la norma nacional (6 y
+  3 meses según la edad).
+
+**Decisión (13/11/2026): v1.2 no se adopta y v1.1 sigue vigente.** v1.2 baja 0,7 s la mediana de
+generar y 1,8 s el p90 total, pero omite contenido clínico de los casos d, f y l. Tampoco alcanza
+el RNF3: su p90 de 11,71 s sigue por encima de los 10 s. `clinico_v1_2.md` queda marcado como
+experimental, y `configuracion_generacion` rechaza una versión experimental como `VERSION_PROMPT`.
+
+**Hallazgo: las advertencias no se verifican contra las fuentes.** En el caso l, v1.2 advierte
+que «la NTS 213 acepta además … micronutrientes en polvo como alternativas». El texto sí aparece
+en un fragmento enviado al modelo, pero con dos diferencias:
+- El fragmento es F-04 (RM 429-2024/MINSA, numeral 6.1.1 B, Tabla 8, modificación N.° 7), no la
+  NTS 213.
+- La fila es la de 24 a 35 meses. Para la paciente de 49 meses (36 a 59 meses), la misma tabla
+  indica 30 mg de hierro elemental en jarabe.
+
+El control 6.1 comprueba las etiquetas y los extractos de las citas, y 6.2 las dosis y la
+clasificación. Ninguno compara el contenido de las advertencias con los fragmentos.
+
 ## Parte D1: grafo de la consulta (13/11/2026)
 
 Los 12 casos de `casos_e2e.yaml` por el grafo de LangGraph y el servicio de consultas
@@ -1061,6 +1162,15 @@ MSYS_NO_PATHCONV=1 docker compose $B2MS run --rm --no-deps -T -v "$APP" -v "$DAT
 MSYS_NO_PATHCONV=1 docker compose $B2MS run --rm --no-deps -T -v "$APP" -v "$DATOS" backend python -m app.scripts.medir_consulta --repeticiones 3 --entorno b2ms --etiqueta b2ms
 docker compose up -d --force-recreate
 # Con el modelo real (solo el responsable): ... medir_consulta --llm real --confirmo-datos-sinteticos --entorno normal --etiqueta real
+
+# 11. Parte D2: API por etapas, prompt v1.2 y B2ms con la API real (PowerShell; los corre el responsable)
+docker compose build backend nginx; docker compose up -d                  # nginx.conf y el código van en las imágenes
+docker compose run --rm --no-deps -T -v "${PWD}\data\mediciones:/app/data/mediciones" backend python -m app.scripts.comprobar_stream --confirmo-llamada-real
+docker compose run --rm --no-deps -T -v "${PWD}\backend\app:/app/app:ro" -v "${PWD}\data\mediciones:/app/data/mediciones" backend python -m app.scripts.medir_consulta --llm real --confirmo-datos-sinteticos --versiones-prompt v1.1,v1.2 --entorno normal --etiqueta prompts_v1_1_v1_2
+docker compose run --rm --no-deps -T -v "${PWD}\backend\app:/app/app:ro" -v "${PWD}\data\mediciones:/app/data/mediciones" backend python -m app.scripts.comparar_prompts   # textos v1.1 y v1.2, sin API
+docker compose -f docker-compose.yml -f docker-compose.b2ms.yml up -d --force-recreate   # esperar «Calentamiento (intento» en docker compose logs backend
+docker compose -f docker-compose.yml -f docker-compose.b2ms.yml run --rm --no-deps -T -v "${PWD}\backend\app:/app/app:ro" -v "${PWD}\data\mediciones:/app/data/mediciones" backend python -m app.scripts.medir_consulta --llm real --confirmo-datos-sinteticos --entorno b2ms --etiqueta b2ms_real
+docker compose up -d --force-recreate
 
 # 4. Volver al entorno normal e informe detallado
 docker compose up -d

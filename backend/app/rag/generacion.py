@@ -31,7 +31,10 @@ from app.rag.proteccion import SolicitudProtegida
 
 ESQUEMA = Path(__file__).with_name("esquema_respuesta.json")
 PROMPTS = Path(__file__).with_name("prompts")
-VERSIONES_PROMPT = {"v1.0": "clinico_v1.md", "v1.1": "clinico_v1_1.md"}
+VERSIONES_PROMPT = {"v1.0": "clinico_v1.md", "v1.1": "clinico_v1_1.md", "v1.2": "clinico_v1_2.md"}
+# Versiones que solo se usan en mediciones (medir_consulta --versiones-prompt); no pueden ser VERSION_PROMPT.
+VERSIONES_EXPERIMENTALES = frozenset({"v1.2"})
+_COMENTARIO_INICIAL = re.compile(r"\A\s*<!--.*?-->\s*", re.S)
 RAZONAMIENTOS = frozenset({"between_tools", "adaptive"})
 ESFUERZOS = frozenset({"low", "medium", "high"})
 
@@ -77,6 +80,8 @@ def configuracion_generacion(sesion: Session | Connection) -> ConfiguracionGener
         raise ErrorParametro(f"ESFUERZO_LLM: «{v['ESFUERZO_LLM']}» no es {sorted(ESFUERZOS)}")
     if v["VERSION_PROMPT"] not in VERSIONES_PROMPT:
         raise ErrorParametro(f"VERSION_PROMPT: no hay prompt para «{v['VERSION_PROMPT']}»")
+    if v["VERSION_PROMPT"] in VERSIONES_EXPERIMENTALES:
+        raise ErrorParametro(f"VERSION_PROMPT: «{v['VERSION_PROMPT']}» es experimental y no puede ser la vigente")
     return ConfiguracionGeneracion(
         llm=ConfiguracionLLM(modelo=v["MODELO_LLM"], max_tokens=v["MAX_TOKENS_SALIDA"], timeout_s=v["TIMEOUT_LLM_S"],
                              razonamiento=v["RAZONAMIENTO_LLM"], esfuerzo=v["ESFUERZO_LLM"]),
@@ -88,7 +93,9 @@ def configuracion_generacion(sesion: Session | Connection) -> ConfiguracionGener
 
 @lru_cache
 def cargar_prompt(version: str) -> str:
-    return (PROMPTS / VERSIONES_PROMPT[version]).read_text(encoding="utf-8").strip()
+    """Texto del prompt, sin el comentario HTML inicial (notas internas que el modelo no recibe)."""
+    texto = (PROMPTS / VERSIONES_PROMPT[version]).read_text(encoding="utf-8")
+    return _COMENTARIO_INICIAL.sub("", texto, count=1).strip()
 
 
 @lru_cache
