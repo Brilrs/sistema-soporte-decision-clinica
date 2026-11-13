@@ -1,5 +1,5 @@
 # Integración continua: pruebas del backend sobre PostgreSQL 16, pruebas del servicio de
-# modelos (sin PyTorch ni pesos descargados) y compilación del frontend.
+# modelos (sin PyTorch ni pesos descargados), y pruebas y compilación del frontend.
 name: CI
 
 on:
@@ -89,4 +89,5 @@ jobs:
       - working-directory: frontend
         run: |
           npm ci
+          npm test
           npm run build
