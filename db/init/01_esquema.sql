@@ -523,14 +523,15 @@ CREATE TABLE asistencia.consulta (
   id_tamizaje UUID NOT NULL REFERENCES clinico.tamizaje (id_tamizaje),
   id_usuario UUID NOT NULL REFERENCES seguridad.usuario (id_usuario),
   texto_consulta TEXT NOT NULL,
-  estado VARCHAR(25) NOT NULL DEFAULT 'EN_PROCESO' CHECK (estado IN ('EN_PROCESO','VERIFICADA','DATOS_FALTANTES','FUERA_DE_DOMINIO','EVIDENCIA_INSUFICIENTE','ERROR')),
+  estado VARCHAR(25) NOT NULL DEFAULT 'EN_PROCESO' CHECK (estado IN ('EN_PROCESO','VERIFICADA','DATOS_FALTANTES','FUERA_DE_DOMINIO','EVIDENCIA_INSUFICIENTE','ERROR','TAMIZAJE_NO_VIGENTE','SOLICITUD_BLOQUEADA')),
   numero_intentos SMALLINT NOT NULL DEFAULT 0 CHECK (numero_intentos BETWEEN 0 AND 2),
   fecha_hora_inicio TIMESTAMPTZ NOT NULL DEFAULT now(),
   fecha_hora_fin TIMESTAMPTZ,
   latencia_total_ms INTEGER CHECK (latencia_total_ms >= 0),
   confirma_tamizaje_no_vigente BOOLEAN NOT NULL DEFAULT false,
   texto_filtrado TEXT,
-  idioma_respuesta CHAR(2) NOT NULL DEFAULT 'es' CONSTRAINT ck_consulta_idioma_respuesta CHECK (idioma_respuesta IN ('es','en'))
+  idioma_respuesta CHAR(2) NOT NULL DEFAULT 'es' CONSTRAINT ck_consulta_idioma_respuesta CHECK (idioma_respuesta IN ('es','en')),
+  tiempos_ms JSONB
 );
 COMMENT ON TABLE asistencia.consulta IS 'Pregunta clínica formulada por el profesional sobre un tamizaje. Registra su estado a lo largo del flujo y el tiempo total de respuesta (RNF3). Las consultas de seguimiento se enlazan con la consulta previa para conservar el contexto de sesión (1.3).';
 COMMENT ON COLUMN asistencia.consulta.id_consulta IS 'Identificador de la consulta.';
@@ -538,7 +539,7 @@ COMMENT ON COLUMN asistencia.consulta.id_consulta_previa IS 'Consulta anterior d
 COMMENT ON COLUMN asistencia.consulta.id_tamizaje IS 'Tamizaje que da contexto clínico a la consulta.';
 COMMENT ON COLUMN asistencia.consulta.id_usuario IS 'Profesional que formula la consulta.';
 COMMENT ON COLUMN asistencia.consulta.texto_consulta IS 'Texto original de la consulta; permanece en el servidor y nunca se envía al proveedor del LLM.';
-COMMENT ON COLUMN asistencia.consulta.estado IS 'EN_PROCESO, VERIFICADA, DATOS_FALTANTES, FUERA_DE_DOMINIO, EVIDENCIA_INSUFICIENTE o ERROR.';
+COMMENT ON COLUMN asistencia.consulta.estado IS 'EN_PROCESO, VERIFICADA, DATOS_FALTANTES, FUERA_DE_DOMINIO, EVIDENCIA_INSUFICIENTE, ERROR, TAMIZAJE_NO_VIGENTE o SOLICITUD_BLOQUEADA.';
 COMMENT ON COLUMN asistencia.consulta.numero_intentos IS 'Intentos de generación ejecutados (máximo dos: inicial y un reintento).';
 COMMENT ON COLUMN asistencia.consulta.fecha_hora_inicio IS 'Inicio del procesamiento.';
 COMMENT ON COLUMN asistencia.consulta.fecha_hora_fin IS 'Fin del procesamiento.';
@@ -546,6 +547,7 @@ COMMENT ON COLUMN asistencia.consulta.latencia_total_ms IS 'Tiempo total de resp
 COMMENT ON COLUMN asistencia.consulta.confirma_tamizaje_no_vigente IS 'Indica que el profesional decidió continuar con un tamizaje que superaba el plazo de vigencia.';
 COMMENT ON COLUMN asistencia.consulta.texto_filtrado IS 'Texto de la consulta tras el filtro de texto libre (4.4), sin identificadores; es el único texto de la consulta que lee el componente de generación.';
 COMMENT ON COLUMN asistencia.consulta.idioma_respuesta IS 'Idioma en que se genera la recomendación (es o en).';
+COMMENT ON COLUMN asistencia.consulta.tiempos_ms IS 'Tiempos de la consulta en milisegundos: por nodo del grafo, espera en cola, hasta el primer evento y total.';
 CREATE INDEX ix_consulta_id_consulta_previa ON asistencia.consulta (id_consulta_previa);
 CREATE INDEX ix_consulta_id_tamizaje ON asistencia.consulta (id_tamizaje);
 CREATE INDEX ix_consulta_id_usuario ON asistencia.consulta (id_usuario);
@@ -593,6 +595,7 @@ CREATE TABLE asistencia.intento_generacion (
   tokens_entrada INTEGER CHECK (tokens_entrada >= 0),
   tokens_salida INTEGER CHECK (tokens_salida >= 0),
   tokens_razonamiento INTEGER CHECK (tokens_razonamiento >= 0),
+  tiempos_ms JSONB,
   costo_usd NUMERIC(8,5) CHECK (costo_usd >= 0),
   latencia_llm_ms INTEGER,
   respuesta_borrador TEXT,
@@ -621,6 +624,7 @@ COMMENT ON COLUMN asistencia.intento_generacion.version_prompt IS 'Versión de l
 COMMENT ON COLUMN asistencia.intento_generacion.tokens_entrada IS 'Tokens de entrada facturados.';
 COMMENT ON COLUMN asistencia.intento_generacion.tokens_salida IS 'Tokens de salida facturados.';
 COMMENT ON COLUMN asistencia.intento_generacion.tokens_razonamiento IS 'Tokens de razonamiento del modelo en el intento; ya están incluidos en tokens_salida.';
+COMMENT ON COLUMN asistencia.intento_generacion.tiempos_ms IS 'Tiempos del intento en milisegundos: recuperación, protección, llamada al modelo, verificación y espera en cola.';
 COMMENT ON COLUMN asistencia.intento_generacion.costo_usd IS 'Costo de la llamada en dólares.';
 COMMENT ON COLUMN asistencia.intento_generacion.latencia_llm_ms IS 'Tiempo de respuesta del proveedor en milisegundos.';
 COMMENT ON COLUMN asistencia.intento_generacion.respuesta_borrador IS 'Respuesta del LLM antes de la verificación.';
@@ -639,8 +643,8 @@ CREATE TABLE asistencia.fragmento_recuperado (
   id_fragmento UUID NOT NULL REFERENCES conocimiento.fragmento (id_fragmento),
   posicion_rrf SMALLINT NOT NULL,
   puntaje_rrf NUMERIC(6,5) NOT NULL,
-  puntaje_reranker NUMERIC(4,3) NOT NULL,
-  posicion_final SMALLINT NOT NULL,
+  puntaje_reranker NUMERIC(4,3),
+  posicion_final SMALLINT,
   enviado_al_llm BOOLEAN NOT NULL DEFAULT false,
   etiqueta_cita VARCHAR(8),
   PRIMARY KEY (id_intento, id_fragmento),
@@ -651,8 +655,8 @@ COMMENT ON COLUMN asistencia.fragmento_recuperado.id_intento IS 'Intento en el q
 COMMENT ON COLUMN asistencia.fragmento_recuperado.id_fragmento IS 'Fragmento recuperado.';
 COMMENT ON COLUMN asistencia.fragmento_recuperado.posicion_rrf IS 'Posición tras la fusión Reciprocal Rank Fusion (3.3).';
 COMMENT ON COLUMN asistencia.fragmento_recuperado.puntaje_rrf IS 'Puntaje de la fusión RRF.';
-COMMENT ON COLUMN asistencia.fragmento_recuperado.puntaje_reranker IS 'Puntaje del reranker clínico (3.4).';
-COMMENT ON COLUMN asistencia.fragmento_recuperado.posicion_final IS 'Posición tras el reranking.';
+COMMENT ON COLUMN asistencia.fragmento_recuperado.puntaje_reranker IS 'Puntaje del reranker clínico (3.4); NULL si el candidato no pasó por el reranker.';
+COMMENT ON COLUMN asistencia.fragmento_recuperado.posicion_final IS 'Posición tras el reranking; NULL si el candidato no pasó por el reranker.';
 COMMENT ON COLUMN asistencia.fragmento_recuperado.enviado_al_llm IS 'Indica si el fragmento formó parte del top-5 enviado.';
 COMMENT ON COLUMN asistencia.fragmento_recuperado.etiqueta_cita IS 'Etiqueta asignada al fragmento enviado (p. ej., F-12).';
 CREATE INDEX ix_fragmento_recuperado_id_fragmento ON asistencia.fragmento_recuperado (id_fragmento);

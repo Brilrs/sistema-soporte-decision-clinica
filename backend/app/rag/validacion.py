@@ -106,10 +106,12 @@ def dias_desde(fecha_tamizaje: date, referencia: date) -> int:
 
 
 def validar_tamizaje(sesion: Session | Connection, id_tamizaje: str, confirma_tamizaje_no_vigente: bool = False,
-                     fecha_referencia: date | None = None) -> ResultadoValidacion:
+                     fecha_referencia: date | None = None, con_clasificacion: bool = True) -> ResultadoValidacion:
     """Comprueba los datos mínimos, la vigencia (DIAS_VIGENCIA_TAMIZAJE: el día límite
     se acepta y el siguiente no) y obtiene la clasificación, calculándola y
-    guardándola si falta. Usar con la sesión de cdss_clinica."""
+    guardándola si falta. Con con_clasificacion=False se detiene antes de clasificar (el
+    grafo lo hace en su propio nodo con obtener_clasificacion). Usar con la sesión de
+    cdss_clinica."""
     datos = _datos_tamizaje(sesion, id_tamizaje)
     if datos is None:
         raise LookupError("El tamizaje no existe")
@@ -135,15 +137,23 @@ def validar_tamizaje(sesion: Session | Connection, id_tamizaje: str, confirma_ta
             return resultado
         resultado.continua_con_tamizaje_no_vigente = True
 
-    resultado.clasificacion = leer_clasificacion(sesion, id_tamizaje)
-    if resultado.clasificacion is None:
-        evaluacion = clasificar(sesion, datos.hemoglobina_g_dl, datos.edad_meses, datos.altitud_msnm)
-        if evaluacion.clasificacion is None:
-            resultado.motivo_sin_clasificacion = evaluacion.motivo
-        else:
-            c = evaluacion.clasificacion
-            guardar_resultado(sesion, id_tamizaje, c)
-            resultado.clasificacion = ResumenClasificacion(c.categoria, c.nivel_riesgo, c.hb_ajustada_g_dl,
-                                                           c.ajuste_hb_g_dl, c.altitud_msnm, c.requiere_derivacion,
-                                                           calculada_ahora=True)
+    if con_clasificacion:
+        resultado.clasificacion, resultado.motivo_sin_clasificacion = obtener_clasificacion(sesion, id_tamizaje)
     return resultado
+
+
+def obtener_clasificacion(sesion: Session | Connection,
+                          id_tamizaje: str) -> tuple[ResumenClasificacion | None, str | None]:
+    """2.3: la clasificación guardada o, si falta, la calculada y guardada en esta misma
+    sesión (cdss_clinica). Devuelve también el motivo cuando no se puede clasificar."""
+    guardada = leer_clasificacion(sesion, id_tamizaje)
+    if guardada is not None:
+        return guardada, None
+    datos = _datos_tamizaje(sesion, id_tamizaje)
+    evaluacion = clasificar(sesion, datos.hemoglobina_g_dl, datos.edad_meses, datos.altitud_msnm)
+    if evaluacion.clasificacion is None:
+        return None, evaluacion.motivo
+    c = evaluacion.clasificacion
+    guardar_resultado(sesion, id_tamizaje, c)
+    return ResumenClasificacion(c.categoria, c.nivel_riesgo, c.hb_ajustada_g_dl, c.ajuste_hb_g_dl, c.altitud_msnm,
+                                c.requiere_derivacion, calculada_ahora=True), None

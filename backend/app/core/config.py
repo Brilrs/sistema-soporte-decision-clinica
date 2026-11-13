@@ -2,7 +2,7 @@
 Azure Key Vault en producción)."""
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,6 +33,21 @@ class Settings(BaseSettings):
     modelos_url: str = Field("http://modelos:8000", alias="MODELOS_URL")
     modelos_timeout_s: float = Field(120.0, alias="MODELOS_TIMEOUT_S", gt=0)
     cors_origenes: list[str] = Field(default_factory=lambda: ["http://localhost:5173"], alias="CORS_ORIGENES")
+
+    # Consultas (parte D): llamadas simultáneas al servicio modelos (embedding y reranker)
+    # y a la API del modelo de lenguaje. Vacío en MAX_CONCURRENCIA_RERANKER significa
+    # automático: núcleos visibles dividido por los hilos que informa el servicio modelos
+    # (mínimo 1). Son de infraestructura, no de parametro_sistema.
+    max_concurrencia_reranker: int | None = Field(None, alias="MAX_CONCURRENCIA_RERANKER", ge=1, le=16)
+    max_concurrencia_llm: int = Field(4, alias="MAX_CONCURRENCIA_LLM", ge=1, le=32)
+    # Calentamiento al arrancar: con true, además de los modelos locales, hace una llamada
+    # sintética a la API del modelo de lenguaje (nunca con CDSS_ENTORNO=pruebas).
+    calentar_llm: bool = Field(False, alias="CALENTAR_LLM")
+
+    @field_validator("max_concurrencia_reranker", mode="before")
+    @classmethod
+    def _vacio_es_automatico(cls, valor):
+        return None if isinstance(valor, str) and not valor.strip() else valor
 
 
 @lru_cache

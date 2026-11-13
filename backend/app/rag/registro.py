@@ -4,8 +4,11 @@
   solicitud enviada, su SHA-256, el resultado del control previo, el modelo efectivo,
   la versión del prompt, los tokens (de entrada, de salida y de razonamiento), el costo,
   la latencia, la respuesta tal como llegó y el resultado de cada control.
-- fragmento_recuperado: los candidatos evaluados por el reranker; los enviados al
+- fragmento_recuperado: los 20 primeros candidatos de la fusión. Los evaluados por el
+  reranker llevan su puntaje y su posición final; los demás, NULL. Los enviados al
   modelo llevan su etiqueta F-01 a F-05.
+- tiempos_ms: por intento en intento_generacion (cdss_generacion) y por consulta en
+  consulta (lo escribe el nodo salida con cdss_clinica).
 - recomendacion y cita_evidencia: solo para el intento aprobado. Los triggers de la
   base rechazan una recomendación de un intento no aprobado y una cita de un fragmento
   no enviado en ese intento.
@@ -32,7 +35,7 @@ def guardar_intento(sesion: Session | Connection, id_consulta: str, numero_inten
                     solicitud: SolicitudProtegida | None = None, control: ResultadoControl | None = None,
                     generacion: ResultadoGeneracion | None = None,
                     verificacion: ResultadoVerificacion | None = None,
-                    valida_evidencia: bool | None = None) -> str:
+                    valida_evidencia: bool | None = None, tiempos_ms: dict | None = None) -> str:
     """valida_evidencia se indica cuando 6.3 falló antes de llamar al modelo."""
     enviada = solicitud is not None and control is not None and control.aprobado
     g = generacion
@@ -42,9 +45,9 @@ def guardar_intento(sesion: Session | Connection, id_consulta: str, numero_inten
               candidatos_evaluados, relevancia_maxima, umbral_relevancia, solicitud_enviada, hash_solicitud,
               control_identificadores, modelo_llm, version_prompt, tokens_entrada, tokens_salida,
               tokens_razonamiento, costo_usd, latencia_llm_ms, respuesta_borrador, valida_citas,
-              valida_consistencia, valida_evidencia, resultado)
+              valida_consistencia, valida_evidencia, resultado, tiempos_ms)
            VALUES (CAST(:c AS uuid), :n, :tb, :cr, :tn, :ce, :rm, :ur, CAST(:sol AS jsonb), :h, :ci, :m, :vp,
-                   :te, :ts, :tr, :costo, :lat, :borrador, :vc, :vcons, :ve, :res)
+                   :te, :ts, :tr, :costo, :lat, :borrador, :vc, :vcons, :ve, :res, CAST(:tiempos AS jsonb))
            RETURNING id_intento::text"""
     ), {
         "c": id_consulta, "n": numero_intento, "tb": recuperacion.tipo_busqueda, "cr": recuperacion.consulta,
@@ -60,21 +63,21 @@ def guardar_intento(sesion: Session | Connection, id_consulta: str, numero_inten
         "vc": verificacion.valida_citas if verificacion else None,
         "vcons": verificacion.valida_consistencia if verificacion else None,
         "ve": verificacion.valida_evidencia if verificacion else valida_evidencia,
-        "res": resultado,
+        "res": resultado, "tiempos": json.dumps(tiempos_ms) if tiempos_ms is not None else None,
     }).scalar_one()
 
 
 def guardar_fragmentos(sesion: Session | Connection, id_intento: str, recuperacion: ResultadoRecuperacion,
                        solicitud: SolicitudProtegida | None) -> None:
     etiquetas = {f.id_fragmento: e for e, f in solicitud.etiquetas.items()} if solicitud is not None else {}
-    for f in recuperacion.fragmentos:
+    for f in [*recuperacion.fragmentos, *recuperacion.no_evaluados]:
         sesion.execute(text(
             """INSERT INTO asistencia.fragmento_recuperado
                  (id_intento, id_fragmento, posicion_rrf, puntaje_rrf, puntaje_reranker, posicion_final,
                   enviado_al_llm, etiqueta_cita)
                VALUES (CAST(:i AS uuid), CAST(:f AS uuid), :prrf, :rrf, :rr, :pf, :env, :et)"""
         ), {"i": id_intento, "f": f.id_fragmento, "prrf": f.posicion_rrf, "rrf": round(f.puntaje_rrf, 5),
-            "rr": round(f.puntaje_reranker or 0.0, 3), "pf": f.posicion_final,
+            "rr": None if f.puntaje_reranker is None else round(f.puntaje_reranker, 3), "pf": f.posicion_final,
             "env": f.id_fragmento in etiquetas, "et": etiquetas.get(f.id_fragmento)})
 
 
@@ -115,6 +118,17 @@ def cerrar_consulta(sesion: Session | Connection, id_consulta: str, estado: str,
               SET estado = :e, numero_intentos = :n, fecha_hora_fin = now(), latencia_total_ms = :l
             WHERE id_consulta = CAST(:c AS uuid)"""), {"e": estado, "n": numero_intentos, "l": latencia_total_ms,
                                                        "c": id_consulta})
+
+
+def cerrar_consulta_con_tiempos(sesion: Session | Connection, id_consulta: str, estado: str, numero_intentos: int,
+                                latencia_total_ms: int, tiempos_ms: dict) -> None:
+    """Cierre del nodo salida, con la sesión de cdss_clinica (que puede escribir tiempos_ms)."""
+    sesion.execute(text(
+        """UPDATE asistencia.consulta
+              SET estado = :e, numero_intentos = :n, fecha_hora_fin = now(), latencia_total_ms = :l,
+                  tiempos_ms = CAST(:t AS jsonb)
+            WHERE id_consulta = CAST(:c AS uuid)"""),
+        {"e": estado, "n": numero_intentos, "l": latencia_total_ms, "t": json.dumps(tiempos_ms), "c": id_consulta})
 
 
 def registrar_bloqueo(sesion: Session | Connection, id_consulta: str, id_intento: str, control: ResultadoControl,

@@ -19,6 +19,10 @@
 6. Antes de devolver, los candidatos evaluados se vuelven a comprobar contra
    PostgreSQL y se descartan los que dejaron de ser recuperables mientras tanto.
 
+Para el registro, el resultado lleva además los candidatos de la fusión que siguen a
+los evaluados hasta completar CANDIDATOS_REGISTRADOS (20), sin puntaje del reranker ni
+posición final.
+
 La consulta que recibe esta capa es el texto filtrado (asistencia.consulta.texto_filtrado)
 o una consulta construida con datos estructurados; nunca texto_consulta. La
 persistencia en asistencia.fragmento_recuperado corresponde al orquestador."""
@@ -34,6 +38,8 @@ from app.core.vectores import AlmacenVectorial
 from app.rag.bm25 import CONDICION_RECUPERABLE, CacheBM25, terminos_consulta
 from app.rag.normalizacion import ConsultaNormalizada
 from app.rag.parametros import ParametrosRecuperacion
+
+CANDIDATOS_REGISTRADOS = 20
 
 INICIAL = "INICIAL"
 AMPLIADA = "AMPLIADA"
@@ -86,6 +92,8 @@ class ResultadoRecuperacion:
     fragmentos: list[FragmentoRecuperado]
     descartados: list[str] = field(default_factory=list)
     tiempos_ms: dict[str, float] = field(default_factory=dict)
+    # Candidatos de la fusión que no pasaron por el reranker (hasta CANDIDATOS_REGISTRADOS en total).
+    no_evaluados: list[FragmentoRecuperado] = field(default_factory=list)
 
     @property
     def seleccionados(self) -> list[FragmentoRecuperado]:
@@ -224,7 +232,6 @@ def seleccionar(sesion: Session | Connection, consulta: ConsultaNormalizada, can
     """Pasos 4 a 6: reranker sobre los mejores de la fusión, selección con umbral y
     recomprobación en PostgreSQL."""
     c, filas, descartados = cand.cronometro, cand.filas, list(cand.descartados)
-    pos_bm25, pos_vector = cand.posiciones_bm25, cand.posiciones_vectoriales
     evaluados = cand.fusionados[:parametros.candidatos_reranker]
 
     if reranker is not None and evaluados:
@@ -244,16 +251,11 @@ def seleccionar(sesion: Session | Connection, consulta: ConsultaNormalizada, can
         fila, puntaje = vigentes[id_], puntajes[j]
         alcanza = puntaje is None or puntaje >= parametros.umbral_relevancia
         enviados = sum(f.seleccionado for f in fragmentos)
-        fragmentos.append(FragmentoRecuperado(
-            id_fragmento=id_, posicion_bm25=pos_bm25.get(id_), posicion_vectorial=pos_vector.get(id_),
-            posicion_rrf=posicion_rrf, puntaje_rrf=round(rrf, 6),
-            puntaje_reranker=None if puntaje is None else round(float(puntaje), 4), posicion_final=len(fragmentos) + 1,
-            seleccionado=alcanza and enviados < parametros.fragmentos_enviados, id_documento=fila.id_documento,
-            documento=fila.titulo, codigo_documento=fila.codigo_documento, seccion=fila.seccion,
-            pagina_inicio=fila.pagina_inicio, pagina_fin=fila.pagina_fin, idioma=fila.idioma,
-            tipo_contenido=fila.tipo_contenido, texto=fila.texto, edad_min_meses=fila.edad_min_meses,
-            edad_max_meses=fila.edad_max_meses, poblacion=fila.poblacion,
-        ))
+        fragmentos.append(_fragmento(
+            fila, id_, cand, posicion_rrf, rrf, None if puntaje is None else round(float(puntaje), 4),
+            len(fragmentos) + 1, alcanza and enviados < parametros.fragmentos_enviados))
+    no_evaluados = [_fragmento(filas[i], i, cand, pos, rrf, None, None, False)
+                    for i, rrf, pos in cand.fusionados[len(evaluados):CANDIDATOS_REGISTRADOS]]
 
     reales = [f.puntaje_reranker for f in fragmentos if f.puntaje_reranker is not None]
     maxima = max(reales) if reales else None
@@ -263,7 +265,20 @@ def seleccionar(sesion: Session | Connection, consulta: ConsultaNormalizada, can
         candidatos_por_metodo=cand.candidatos_por_metodo,
         candidatos_evaluados=len(evaluados), umbral_relevancia=parametros.umbral_relevancia,
         relevancia_maxima=maxima, suficiente=any(f.seleccionado for f in fragmentos),
-        fragmentos=fragmentos, descartados=descartados, tiempos_ms=c.tiempos,
+        fragmentos=fragmentos, descartados=descartados, tiempos_ms=c.tiempos, no_evaluados=no_evaluados,
+    )
+
+
+def _fragmento(fila, id_: str, cand: Candidatos, posicion_rrf: int, rrf: float, puntaje: float | None,
+               posicion_final: int | None, seleccionado: bool) -> FragmentoRecuperado:
+    return FragmentoRecuperado(
+        id_fragmento=id_, posicion_bm25=cand.posiciones_bm25.get(id_),
+        posicion_vectorial=cand.posiciones_vectoriales.get(id_), posicion_rrf=posicion_rrf,
+        puntaje_rrf=round(rrf, 6), puntaje_reranker=puntaje, posicion_final=posicion_final,
+        seleccionado=seleccionado, id_documento=fila.id_documento, documento=fila.titulo,
+        codigo_documento=fila.codigo_documento, seccion=fila.seccion, pagina_inicio=fila.pagina_inicio,
+        pagina_fin=fila.pagina_fin, idioma=fila.idioma, tipo_contenido=fila.tipo_contenido, texto=fila.texto,
+        edad_min_meses=fila.edad_min_meses, edad_max_meses=fila.edad_max_meses, poblacion=fila.poblacion,
     )
 
 
