@@ -1,6 +1,7 @@
 // Tipos y llamadas a los endpoints de pacientes y tamizajes (backend, parte A del Sprint 1).
 // Los valores decimales llegan como texto ("9.8") para no perder precisión.
 import { api } from "./cliente";
+import type { ConsultaListada } from "./tipos_consulta";
 
 export type Decimal = string;
 export type Sexo = "M" | "F";
@@ -103,7 +104,8 @@ export type Franja = {
   hb_max_g_dl: Decimal | null;
 };
 
-export type Historial = { id_paciente: string; tamizajes: TamizajeHistorial[]; franjas: Franja[] };
+// consultas: solo las del usuario autenticado (vacía si su rol no realiza consultas).
+export type Historial = { id_paciente: string; tamizajes: TamizajeHistorial[]; franjas: Franja[]; consultas: ConsultaListada[] };
 
 export type TamizajeEntrada = {
   fecha_tamizaje: string;
