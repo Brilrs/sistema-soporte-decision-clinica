@@ -17,6 +17,8 @@ from dataclasses import dataclass, field
 from typing import Protocol
 
 ENTORNO_PRUEBAS = "pruebas"
+# Nombre que el cliente falso registra en intento_generacion.modelo_llm; marca los resultados de prueba.
+MODELO_FALSO = "modelo-falso"
 FIN_NORMAL = "end_turn"
 FIN_RECHAZO = "refusal"
 FIN_MAX_TOKENS = "max_tokens"
@@ -159,7 +161,7 @@ class ClienteFalso:
     solicitudes recibidas para las pruebas."""
     modos: list[str] = field(default_factory=lambda: [APROBADA])
     preferir_ingles: bool = False
-    modelo: str = "modelo-falso"
+    modelo: str = MODELO_FALSO
     llamadas: list[dict] = field(default_factory=list)
 
     def __post_init__(self):

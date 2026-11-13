@@ -61,9 +61,9 @@ def usar_entorno(entorno):  # noqa: F811
     actual = {"entorno": entorno}
     app.dependency_overrides[rutas.entorno_consultas] = lambda: actual["entorno"]
 
-    def con(modos=None, preferir_ingles=False, **cambios):
-        actual["entorno"] = replace(entorno, cliente=ClienteFalso(modos or [APROBADA], preferir_ingles=preferir_ingles),
-                                    **cambios)
+    def con(modos=None, preferir_ingles=False, cliente=None, **cambios):
+        cliente = cliente or ClienteFalso(modos or [APROBADA], preferir_ingles=preferir_ingles)
+        actual["entorno"] = replace(entorno, cliente=cliente, **cambios)
         return actual["entorno"]
     con()
     yield con

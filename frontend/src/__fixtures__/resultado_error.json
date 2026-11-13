@@ -1,0 +1,56 @@
+{
+  "id_consulta": "00000000-0000-4000-8000-000000000001",
+  "id_paciente": "00000000-0000-4000-8000-000000000002",
+  "id_tamizaje": "00000000-0000-4000-8000-000000000003",
+  "id_consulta_previa": null,
+  "estado": "ERROR",
+  "mensaje": "No se pudo evaluar la consulta. Aplique su criterio clínico.",
+  "idioma": "es",
+  "texto_filtrado": "Tiene anemia leve y no recibe suplementación con hierro. ¿Qué tratamiento le corresponde y en qué dosis?",
+  "numero_intentos": 1,
+  "fecha_hora_inicio": "2026-10-20T10:00:00-05:00",
+  "fecha_hora_fin": "2026-10-20T10:00:00-05:00",
+  "latencia_total_ms": 100,
+  "datos_faltantes": [],
+  "vigencia": {
+    "dias_transcurridos": 24,
+    "dias_vigencia": 30,
+    "continua_con_tamizaje_no_vigente": false
+  },
+  "clasificacion": {
+    "categoria": "ANEMIA_LEVE",
+    "nivel_riesgo": "MODERADO",
+    "hb_ajustada_g_dl": 9.8,
+    "ajuste_hb_g_dl": 0.0,
+    "altitud_msnm": 160,
+    "requiere_derivacion": false
+  },
+  "recomendacion": null,
+  "citas": [],
+  "intentos": [
+    {
+      "numero": 1,
+      "tipo_busqueda": "INICIAL",
+      "candidatos_evaluados": 6,
+      "relevancia_maxima": 0.297,
+      "umbral_relevancia": 0.05,
+      "resultado": "ERROR"
+    }
+  ],
+  "verificacion": {
+    "numero_intento": 1,
+    "valida_citas": null,
+    "valida_consistencia": null,
+    "valida_evidencia": null,
+    "relevancia_maxima": 0.297,
+    "umbral_relevancia": 0.05
+  },
+  "modo_prueba": false,
+  "decision": null,
+  "opciones_decision": [
+    {
+      "tipo": "CRITERIO_CLINICO_PROPIO",
+      "nota_obligatoria": false
+    }
+  ]
+}

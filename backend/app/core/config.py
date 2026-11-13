@@ -2,7 +2,9 @@
 Azure Key Vault en producción)."""
 from functools import lru_cache
 
-from pydantic import Field, field_validator
+from typing import Literal
+
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -43,6 +45,17 @@ class Settings(BaseSettings):
     # Calentamiento al arrancar: con true, además de los modelos locales, hace una llamada
     # sintética a la API del modelo de lenguaje (nunca con CDSS_ENTORNO=pruebas).
     calentar_llm: bool = Field(False, alias="CALENTAR_LLM")
+    # Modelo de lenguaje del servicio de consultas: real (API de Anthropic) o falso (cliente
+    # falso, sin costo, para revisar la interfaz). falso solo se acepta con
+    # CDSS_ENTORNO=desarrollo; en otro entorno la configuración no carga y el backend no arranca.
+    llm: Literal["real", "falso"] = Field("real", alias="CDSS_LLM")
+
+    @model_validator(mode="after")
+    def _llm_falso_solo_en_desarrollo(self):
+        if self.llm == "falso" and self.entorno != "desarrollo":
+            raise ValueError(f"CDSS_LLM=falso solo se admite con CDSS_ENTORNO=desarrollo (entorno actual: "
+                             f"{self.entorno}). Use CDSS_LLM=real o quite la variable.")
+        return self
 
     @field_validator("max_concurrencia_reranker", mode="before")
     @classmethod

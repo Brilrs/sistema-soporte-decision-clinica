@@ -17,6 +17,7 @@ from app.core.db import sesion_clinica
 from app.core.fechas import edad_en_meses, hoy
 from app.services import pacientes as srv
 from app.services.clasificacion import Evaluacion
+from app.api.routes.consultas import ConsultaListada, listar as listar_consultas
 
 router = APIRouter(prefix="/api/pacientes", tags=["Pacientes"])
 
@@ -226,7 +227,8 @@ class Historial(BaseModel):
     id_paciente: str
     tamizajes: list[TamizajeHistorial]
     franjas: list[Franja]
-    consultas: list[dict] = Field(default_factory=list, description="Evaluaciones RAG (Sprint 2)")
+    consultas: list[ConsultaListada] = Field(
+        default_factory=list, description="Consultas del paciente hechas por el usuario (GET /api/pacientes/{id}/consultas)")
 
 
 class VistaPrevia(EvaluacionSalida):
@@ -405,9 +407,10 @@ def vista_previa(id_paciente: UUID, datos: TamizajeEntrada, _: UsuarioActual = D
 
 
 @router.get("/{id_paciente}/historial", response_model=Historial)
-def ver_historial(id_paciente: UUID, _: UsuarioActual = Depends(lectura),
+def ver_historial(id_paciente: UUID, usuario: UsuarioActual = Depends(lectura),
                   sesion: Session = Depends(sesion_clinica)) -> dict:
-    """Sin datos de identidad: el encabezado de M08 los toma de la ficha."""
+    """Sin datos de identidad: el encabezado de M08 los toma de la ficha. consultas lleva solo
+    las del usuario autenticado (vacía si su rol no realiza consultas)."""
     _paciente_o_404(sesion, id_paciente)
     return {"id_paciente": str(id_paciente), "tamizajes": srv.historial(sesion, str(id_paciente)),
-            "franjas": srv.franjas_vigentes(sesion), "consultas": []}
+            "franjas": srv.franjas_vigentes(sesion), "consultas": listar_consultas(sesion, str(id_paciente), usuario)}

@@ -86,10 +86,19 @@ def detalle_intentos(motor, id_consulta: str) -> list[dict]:
     return salida
 
 
+def cliente_de_corrida(caso: dict, llm: str):
+    """Con --llm real, siempre el cliente de la API de Anthropic, aunque CDSS_LLM=falso."""
+    from app.rag.cliente_llm import ClienteFalso
+    cliente = cliente_para(caso, llm)
+    if llm == "real" and isinstance(cliente, ClienteFalso):
+        raise RuntimeError("--llm real no puede usar el cliente falso")
+    return cliente
+
+
 async def _una(caso: dict, solicitud: srv.SolicitudConsulta, entorno: srv.EntornoConsulta, llm: str,
                repeticion: int) -> dict:
     inicio = time.perf_counter()
-    eventos = await srv.eventos_de(solicitud, replace(entorno, cliente=cliente_para(caso, llm)))
+    eventos = await srv.eventos_de(solicitud, replace(entorno, cliente=cliente_de_corrida(caso, llm)))
     total_cliente = round((time.perf_counter() - inicio) * 1000)
     fin = eventos[-1]
     return {"caso": caso["id"], "repeticion": repeticion, "descripcion": caso["descripcion"],
@@ -98,7 +107,7 @@ async def _una(caso: dict, solicitud: srv.SolicitudConsulta, entorno: srv.Entorn
             "primer_evento_ms": eventos[0]["transcurrido_ms"], "tiempos_ms": fin.get("tiempos_ms"),
             "eventos": [{k: v for k, v in e.items() if k not in ("recomendacion", "citas", "clasificacion")}
                         for e in eventos],
-            "citas": fin.get("citas", []), "mensaje": fin.get("mensaje")}
+            "citas": fin.get("citas", []), "mensaje": fin.get("mensaje"), "modo_prueba": fin.get("modo_prueba")}
 
 
 def resumen(filas: list[dict]) -> dict:
@@ -279,6 +288,8 @@ def main(argv: list[str] | None = None) -> int:
         filas += propias
     for f in filas:
         f["intentos"] = detalle_intentos(motores["generacion"], f["id_consulta"]) if f["id_consulta"] else []
+    if a.llm == "real" and any(f.get("modo_prueba") for f in filas):
+        p.error("Una consulta con --llm real quedó marcada modo_prueba: revise el cliente del modelo de lenguaje")
     total = resumen(filas)
     comparacion = comparar_versiones(filas) if len(versiones) > 1 else None
     meta = {"llm": a.llm, "entorno": a.entorno, "fecha": time.strftime("%Y-%m-%d %H:%M:%S"),

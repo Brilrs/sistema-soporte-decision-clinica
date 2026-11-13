@@ -1,0 +1,35 @@
+{
+  "id_consulta": "00000000-0000-4000-8000-000000000001",
+  "id_paciente": "00000000-0000-4000-8000-000000000002",
+  "id_tamizaje": "00000000-0000-4000-8000-000000000003",
+  "id_consulta_previa": null,
+  "estado": "FUERA_DE_DOMINIO",
+  "mensaje": "La consulta está fuera del alcance del sistema: evaluación y manejo de la anemia en niños de 0 a 59 meses.",
+  "idioma": "es",
+  "texto_filtrado": "¿Qué antibiótico se usa para una neumonía en un niño de 3 años?",
+  "numero_intentos": 0,
+  "fecha_hora_inicio": "2026-10-20T10:00:00-05:00",
+  "fecha_hora_fin": "2026-10-20T10:00:00-05:00",
+  "latencia_total_ms": 100,
+  "datos_faltantes": [],
+  "vigencia": {
+    "dias_transcurridos": 1,
+    "dias_vigencia": 30,
+    "continua_con_tamizaje_no_vigente": false
+  },
+  "clasificacion": {
+    "categoria": "SIN_ANEMIA",
+    "nivel_riesgo": "BAJO",
+    "hb_ajustada_g_dl": 11.6,
+    "ajuste_hb_g_dl": 0.0,
+    "altitud_msnm": 160,
+    "requiere_derivacion": false
+  },
+  "recomendacion": null,
+  "citas": [],
+  "intentos": [],
+  "verificacion": null,
+  "modo_prueba": false,
+  "decision": null,
+  "opciones_decision": []
+}

@@ -7,6 +7,7 @@
 - POST /api/consultas/{id}/datos-faltantes: completa la hemoglobina y reanuda como consulta
   nueva enlazada a la previa, con el mismo flujo de eventos.
 - POST /api/consultas/{id}/decision: decisión del profesional (M07 mínimo).
+- GET /api/pacientes/{id}/consultas: consultas del paciente hechas por el usuario (M04 y M08).
 
 Permiso REALIZAR_CONSULTA (el Administrador no lo tiene: 403). Cada profesional ve y
 decide solo sus consultas: la de otro responde 404, sin revelar que existe, y queda el
@@ -15,7 +16,7 @@ el texto original; la auditoría guarda solo ids, estados y tipos. El contrato c
 está en docs/contrato_consultas.md."""
 import asyncio
 import json
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Any, Literal, Union
 from uuid import UUID
@@ -98,6 +99,28 @@ class Cita(BaseModel):
     pagina_inicio: int | None = None
     pagina_fin: int | None = None
     idioma: str
+    puntaje_reranker: float | None = Field(None, description="Relevancia del fragmento según el reranker (0 a 1)")
+
+
+class Intento(BaseModel):
+    """Detalle de la búsqueda de un intento (M07)."""
+    numero: int
+    tipo_busqueda: Literal["INICIAL", "AMPLIADA"]
+    candidatos_evaluados: int = Field(description="Fragmentos que evaluó el reranker")
+    relevancia_maxima: float | None = None
+    umbral_relevancia: float = Field(description="UMBRAL_RELEVANCIA aplicado")
+    resultado: Literal["APROBADO", "REINTENTO", "EVIDENCIA_INSUFICIENTE", "ERROR"]
+
+
+class Verificacion(BaseModel):
+    """Controles 6.1 a 6.3 del intento que decide (el aprobado o, si no hay, el último). null en
+    un control que no se llegó a ejecutar."""
+    numero_intento: int
+    valida_citas: bool | None = Field(None, description="6.1 Citas")
+    valida_consistencia: bool | None = Field(None, description="6.2 Consistencia")
+    valida_evidencia: bool | None = Field(None, description="6.3 Suficiencia de evidencia")
+    relevancia_maxima: float | None = None
+    umbral_relevancia: float
 
 
 class Vigencia(BaseModel):
@@ -159,7 +182,10 @@ class EventoFin(BaseModel):
     clasificacion: Clasificacion | None = None
     recomendacion: Recomendacion | None = None
     citas: list[Cita]
-    intentos: int
+    numero_intentos: int
+    intentos: list[Intento]
+    verificacion: Verificacion | None = None
+    modo_prueba: bool = Field(description="true si la respuesta la generó el cliente falso (CDSS_LLM=falso o pruebas)")
     opciones_decision: list[OpcionDecision]
     tiempos_ms: dict[str, Any] | None = None
     transcurrido_ms: int
@@ -211,9 +237,31 @@ class ResultadoConsulta(BaseModel):
     clasificacion: Clasificacion | None = None
     recomendacion: Recomendacion | None = None
     citas: list[Cita]
+    intentos: list[Intento]
+    verificacion: Verificacion | None = None
+    modo_prueba: bool = Field(description="true si la respuesta la generó el cliente falso (CDSS_LLM=falso o pruebas)")
     decision: Decision | None = None
     opciones_decision: list[OpcionDecision] = Field(
         description="Tipos de decisión admitidos y si cada uno exige nota; vacía si ya hay decisión o no se admite")
+
+
+class ConsultaListada(BaseModel):
+    """Una consulta del paciente hecha por el usuario (M04, consultas previas; M08, evaluaciones)."""
+    id_consulta: str
+    id_tamizaje: str
+    fecha_tamizaje: date
+    id_consulta_previa: str | None = None
+    estado: Estado | Literal["EN_PROCESO"]
+    texto_filtrado: str | None = Field(None, description="Pregunta tras el filtro de identificadores")
+    idioma: str
+    fecha_hora_inicio: datetime
+    fecha_hora_fin: datetime | None = None
+    numero_intentos: int
+    latencia_total_ms: int | None = None
+    confirma_tamizaje_no_vigente: bool
+    categoria: str | None = Field(None, description="Clasificación del tamizaje")
+    tipo_decision: TipoDecision | None = None
+    modo_prueba: bool
 
 
 def esquemas_eventos() -> dict:
@@ -297,6 +345,28 @@ async def iniciar_consulta(id_paciente: UUID, datos: ConsultaEntrada, request: R
                       "confirma_tamizaje_no_vigente": solicitud.confirma_tamizaje_no_vigente}, _ip(request))
     sesion.commit()
     return _stream(solicitud, entorno, id_tamizaje)
+
+
+def listar(sesion: Session, id_paciente: str, usuario: UsuarioActual) -> list[dict]:
+    """Consultas del paciente hechas por el usuario; vacía si su rol no realiza consultas."""
+    if "REALIZAR_CONSULTA" not in usuario.permisos:
+        return []
+    with engines()["generacion"].connect() as c:
+        return res.consultas_del_paciente(sesion, c, id_paciente, usuario.id_usuario)
+
+
+@router.get("/api/pacientes/{id_paciente}/consultas", response_model=list[ConsultaListada], responses=_ERRORES)
+def consultas_del_paciente(id_paciente: UUID, request: Request, usuario: UsuarioActual = Depends(realiza_consulta),
+                           sesion: Session = Depends(sesion_clinica)) -> list[dict]:
+    """Consultas del paciente hechas por el usuario autenticado, de la más reciente a la más antigua.
+    Las de otros profesionales no se listan."""
+    if datos_permanentes(sesion, str(id_paciente)) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "El paciente no existe")
+    consultas = listar(sesion, str(id_paciente), usuario)
+    registrar_evento(sesion, "CONSULTAS_LISTADAS", usuario.id_usuario, "paciente", str(id_paciente),
+                     {"consultas": len(consultas)}, _ip(request))
+    sesion.commit()
+    return consultas
 
 
 @router.get("/api/consultas/{id_consulta}", response_model=ResultadoConsulta, responses=_ERRORES)
