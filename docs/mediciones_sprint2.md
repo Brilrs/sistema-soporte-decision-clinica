@@ -3,6 +3,101 @@
 Resumen de las mediciones de rendimiento. Los datos completos están en `data/mediciones/`,
 que no se versiona.
 
+## Parte D1: grafo de la consulta (13/11/2026)
+
+Los 12 casos de `casos_e2e.yaml` por el grafo de LangGraph y el servicio de consultas
+(`app/scripts/medir_consulta.py`), con el cliente falso del modelo de lenguaje: el tiempo de la
+llamada al modelo no está incluido. Versión 5 de las guías, `BONIFICACION_EDAD` 0,7, reranker
+ONNX int8 de 8 candidatos de 256 tokens. Tres repeticiones por perfil, una consulta a la vez,
+con el calentamiento previo. El total es el que ve el cliente del servicio, desde la solicitud
+hasta el evento «fin».
+
+| Perfil | Coinciden | Total p50 / p90 | Verificadas p50 / p90 | Primer evento p50 / p90 | Límites |
+| --- | --- | --- | --- | --- | --- |
+| Normal (8 núcleos visibles, modelos con 4 hilos) | 36/36 | 3,95 / 4,19 s | 3,97 / 4,09 s | 0,20 / 0,24 s | reranker 2, LLM 4 |
+| B2ms (2 CPU) | 36/36 | 5,63 / 6,28 s | 5,67 / 6,05 s | 0,33 / 0,47 s | reranker 1, LLM 4 |
+
+Mediana por nodo (ms):
+
+| Perfil | validar | clasificar | normalizar | recuperar | proteger | generar | verificar |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Normal | 203 | 2 | 8 | 3699 | 5 | 2 | 19 |
+| B2ms | 326 | 2 | 7 | 5295 | 5 | 1 | 14 |
+
+- **La recuperación es casi todo el tiempo** (reranker incluido). Los demás nodos suman menos de
+  medio segundo: el filtro de dominio de validar (un embedding) y los registros en PostgreSQL.
+- **Frente a la parte C:** la recuperación de 8 x 256 medía 3,75 / 3,88 s en el perfil normal y
+  5,03 / 5,48 s en B2ms (parte C2); el grafo agrega el filtro de dominio y los registros, unos
+  0,2 a 0,3 s. Con el modelo real hay que sumar la llamada a la API: en la corrida real de C2
+  (versión 5, 12 de 12), de 3,8 a 8,5 s por intento, con un total de 11,1 a 17,8 s en las
+  verificadas. **Riesgo para RNF3** (p90 menor a 10 s en el flujo normal): recuperación más
+  llamada al modelo ya lo superan en el perfil normal; la corrida real por el grafo lo confirma
+  (ver «Corrida con el modelo real»).
+- **Primer evento:** sale al terminar validar (la consulta ya registrada, con su id), a los 0,2 s en
+  el perfil normal y 0,3 s en B2ms.
+- **El caso j** recorre dos veces recuperar (búsqueda ampliada) y es el máximo de cada perfil
+  (8,62 s y 13,71 s).
+- **Primera consulta en frío en B2ms** (sin calentamiento, caso b): 13,60 s, de
+  los cuales 6,47 s son el filtro de dominio (embeddings de las
+  consultas de referencia) y 7,01 s la recuperación (índice BM25
+  y primer reranker). Con el calentamiento al arrancar (en segundo plano, con reintentos hasta que
+  `modelos` responde; en B2ms terminó en el intento 12, unos 60 s después de arrancar) la primera
+  consulta ya no paga ese costo.
+- **Concurrencia:** con 4 consultas a la vez en el perfil normal (límite 2 en el servicio modelos)
+  hubo 14 eventos «en_cola», una espera máxima de 7,90 s y un total p50 / p90
+  de 8,26 / 15,76 s; los 12 casos dieron el estado esperado.
+- **Memoria del backend:** 180 MiB después del calentamiento con LangGraph (antes, 80 MiB en reposo),
+  dentro de los 512 MiB de `mem_limit`.
+
+Valores por defecto de la concurrencia, confirmados el 13/11/2026: `MAX_CONCURRENCIA_RERANKER`
+automático (núcleos visibles / hilos de `modelos`: 2 en el perfil normal y 1 en B2ms) y
+`MAX_CONCURRENCIA_LLM` = 4.
+
+Informes en `data/mediciones/d_consulta_falso_normal.md`, `_b2ms.md`, `_b2ms_frio.md` y
+`_normal_4a_la_vez.md`.
+
+### Corrida con el modelo real (13/11/2026)
+
+`medir_consulta --llm real --confirmo-datos-sinteticos --repeticiones 1 --entorno normal
+--etiqueta v1_real`, ejecutada por el responsable: los 12 casos por el grafo con
+`claude-sonnet-5-5`, prompt v1.1, `MAX_TOKENS_SALIDA` 1500, perfil normal (reranker 2, LLM 4),
+una consulta a la vez y con el calentamiento previo. Es la referencia del grafo.
+
+| Medida | Resultado |
+| --- | --- |
+| Casos con el estado esperado | 12 de 12 (9 VERIFICADA, 1 EVIDENCIA_INSUFICIENTE, 1 DATOS_FALTANTES, 1 FUERA_DE_DOMINIO) |
+| Intentos enviados al modelo | 11 (uno por caso verificado y dos en el caso j) |
+| Primer evento p50 / p90 | 0,23 / 0,27 s |
+| Total p50 / p90 (todas) | 11,76 / 12,54 s; máximo 17,54 s (caso j, con reintento) |
+| Total de las verificadas | p50 11,79 s, p90 12,54 s; de 11,24 a 12,54 s |
+| Costo | 0,24004 USD; 0,024 USD por consulta con llamada al modelo |
+| Tokens | 71 881 de entrada y 9 626 de salida; 0 de razonamiento |
+
+Mediana por nodo (ms): validar 222, clasificar 2, normalizar 11, recuperar 3 928, proteger 5,
+generar 7 407, verificar 32.
+
+- **Generar** (llamada a la API) es el 63 % del total en la mediana de las verificadas: de 6,80 a
+  8,14 s en los 9 casos verificados. **Recuperar** es el 33 %: de 3,78 a 4,09 s. Los demás nodos suman
+  menos de 0,4 s.
+- **Tokens por intento verificado:** de 5 863 a 7 238 de entrada y de 764 a 1 134 de salida. En el
+  caso j, cada intento produjo unos 360 tokens de salida y la llamada tardó 4,0 s.
+- **RNF3, flujo normal** (p90 menor a 10 s): p90 de 12,54 s con respuesta completa en el perfil
+  normal, 2,54 s por encima. No se cumple. Recuperar (3,9 s) más generar (7,4 s) ya suman 11,3 s.
+- **RNF3, con reintento** (máximo 25 s): el caso j, con búsqueda ampliada y dos llamadas, tardó
+  17,54 s. Se cumple.
+- **Frente a la parte C2** (corrida real con `prueba_punta_a_punta`, sin el grafo): 12 de 12, 12
+  intentos enviados, 0,26097 USD y un total de 11,1 a 17,8 s en las verificadas. El grafo no agrega
+  tiempo apreciable: validar, clasificar, normalizar, proteger y verificar suman unos 0,27 s.
+
+Informe en `data/mediciones/d_consulta_real_v1_real.md` y `.json`.
+
+### Pendientes para D2
+
+- Probar un prompt compacto v1.2 que acorte la salida (hoy de 764 a 1 134 tokens por respuesta
+  verificada), para bajar el tiempo de generar y acercar el p90 al objetivo del RNF3.
+- Medir con la API real en el perfil B2ms (`medir_consulta --llm real` con
+  `docker-compose.b2ms.yml`), donde recuperar tarda 5,3 s de mediana con el cliente falso.
+
 ## Parte C2: grupo etario, versión 5 y bonificación por edad (12/11/2026)
 
 Mediciones sin la API de Anthropic: recuperación real (modelos, ChromaDB y PostgreSQL) y, en la
@@ -955,6 +1050,17 @@ MSYS_NO_PATHCONV=1 docker compose $B2MS run --rm --no-deps -T -v "$APP" backend 
 docker compose up -d --force-recreate
 # Migración 009 (BONIFICACION_EDAD 0,7). Sin mediciones en curso: toma bloqueos sobre las tablas de conocimiento
 MSYS_NO_PATHCONV=1 docker compose exec -T db bash /docker-entrypoint-initdb.d/04_migraciones.sh
+
+# 10. Parte D1: consulta de punta a punta por el grafo (13/11/2026)                (unos 15 min)
+MSYS_NO_PATHCONV=1 docker compose exec -T db bash /docker-entrypoint-initdb.d/04_migraciones.sh   # migración 010
+docker compose build backend && docker compose up -d                       # LangGraph va en la imagen
+MSYS_NO_PATHCONV=1 docker compose run --rm --no-deps -T -v "$APP" -v "$DATOS" backend python -m app.scripts.medir_consulta --repeticiones 3 --entorno normal --etiqueta normal
+MSYS_NO_PATHCONV=1 docker compose run --rm --no-deps -T -v "$APP" -v "$DATOS" backend python -m app.scripts.medir_consulta --concurrentes 4 --entorno normal --etiqueta normal_4a_la_vez
+docker compose $B2MS up -d --force-recreate                               # esperar el calentamiento en los logs del backend
+MSYS_NO_PATHCONV=1 docker compose $B2MS run --rm --no-deps -T -v "$APP" -v "$DATOS" backend python -m app.scripts.medir_consulta --casos b --sin-calentar --entorno b2ms --etiqueta b2ms_frio
+MSYS_NO_PATHCONV=1 docker compose $B2MS run --rm --no-deps -T -v "$APP" -v "$DATOS" backend python -m app.scripts.medir_consulta --repeticiones 3 --entorno b2ms --etiqueta b2ms
+docker compose up -d --force-recreate
+# Con el modelo real (solo el responsable): ... medir_consulta --llm real --confirmo-datos-sinteticos --entorno normal --etiqueta real
 
 # 4. Volver al entorno normal e informe detallado
 docker compose up -d
