@@ -84,7 +84,10 @@ consultas:
   - id: R12
     consulta: ¿Cada cuánto tiempo se controla la hemoglobina durante el tratamiento de la anemia en el niño?
     esperado:
-      - {documento: NTS 213-MINSA/DGIESP-2024, texto_contiene: "Tabla N°20"}
+      # Corregido el 12/11/2026, después de ver el resultado: desde la versión 5 la tabla es
+      # una transcripción verificada que dice «Tabla N° 20» (con espacio); antes era el
+      # texto del OCR, «Tabla N°20». Mismo contenido.
+      - {documento: NTS 213-MINSA/DGIESP-2024, texto_contiene: "Tabla N° 20"}
     revisar: true
 
   - id: R13

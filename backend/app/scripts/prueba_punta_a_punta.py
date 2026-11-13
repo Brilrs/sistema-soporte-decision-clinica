@@ -26,7 +26,7 @@ import json
 import os
 import sys
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
 
@@ -198,7 +198,8 @@ def etapa_generacion(entorno: Entorno, r: ResultadoCaso, id_tamizaje: str, huell
                                               "verificacion": None}
             if rec is None or siguiente == ver.AMPLIADA:
                 t0 = time.perf_counter()
-                rec = recuperar(c, consulta, entorno.servicios, parametros, AMPLIADA if numero == 2 else INICIAL)
+                rec = recuperar(c, consulta, entorno.servicios, parametros, AMPLIADA if numero == 2 else INICIAL,
+                                datos.edad_meses)
                 tiempos["recuperacion"] = _ms(t0)
             intento = {"numero": numero, "tipo_busqueda": rec.tipo_busqueda, "relevancia_maxima": rec.relevancia_maxima,
                        "tiempos_ms": tiempos}
@@ -382,7 +383,12 @@ def main(argv: list[str] | None = None) -> int:
                    help="Obligatoria con --llm real: confirma que los casos usan solo pacientes ficticios")
     p.add_argument("--casos", help="Ids de los casos separados por comas (por defecto, todos)")
     p.add_argument("--salida", type=Path, default=Path(os.environ.get("CDSS_DIR_MEDICIONES", "data/mediciones")))
+    p.add_argument("--bonificacion-edad", type=float,
+                   help="Peso de la edad en la fusión solo para esta corrida (en memoria; no cambia parametro_sistema)")
+    p.add_argument("--etiqueta", help="Sufijo del informe, para no reemplazar el de otra corrida (por ejemplo v5_b0.3)")
     a = p.parse_args(argv)
+    if a.bonificacion_edad is not None and not 0 <= a.bonificacion_edad <= 1:
+        p.error("--bonificacion-edad debe estar entre 0 y 1")
     if a.llm == "real":
         if not a.confirmo_datos_sinteticos:
             p.error("--llm real exige --confirmo-datos-sinteticos")
@@ -397,6 +403,9 @@ def main(argv: list[str] | None = None) -> int:
         p.error(f"Casos con pacientes que no son de seed_demo: {', '.join(fuera_de_seed)}")
 
     entorno = _entorno_real(fecha_referencia)
+    if a.bonificacion_edad is not None:
+        with entorno.generacion.connect() as c:
+            entorno.parametros = replace(parametros_recuperacion(c), bonificacion_edad=a.bonificacion_edad)
     resultados = []
     for caso in casos:
         r = ejecutar_caso(entorno, caso, cliente_para(caso, a.llm))
@@ -406,12 +415,15 @@ def main(argv: list[str] | None = None) -> int:
     a.salida.mkdir(parents=True, exist_ok=True)
     # Con --casos, un informe aparte para no reemplazar el de la corrida completa.
     sufijo = "_" + "-".join(c["id"] for c in casos) if a.casos else ""
-    base = a.salida / f"c_punta_a_punta_{a.llm}{sufijo}"
-    base.with_suffix(".md").write_text(informe_markdown(resultados, a.llm, total) + "\n", encoding="utf-8")
-    base.with_suffix(".json").write_text(json.dumps({"resumen": total, "casos": [r.__dict__ for r in resultados]},
-                                                    ensure_ascii=False, indent=2, default=str) + "\n", encoding="utf-8")
+    sufijo += f"_{a.etiqueta}" if a.etiqueta else ""
+    # Sin with_suffix: una etiqueta como «v5_b0.7» tiene un punto que no es una extensión.
+    nombre = f"c_punta_a_punta_{a.llm}{sufijo}"
+    informe_md, informe_json = a.salida / f"{nombre}.md", a.salida / f"{nombre}.json"
+    informe_md.write_text(informe_markdown(resultados, a.llm, total) + "\n", encoding="utf-8")
+    informe_json.write_text(json.dumps({"resumen": total, "casos": [r.__dict__ for r in resultados]},
+                                       ensure_ascii=False, indent=2, default=str) + "\n", encoding="utf-8")
     print(json.dumps(total, ensure_ascii=False))
-    print(f"Informe: {base.with_suffix('.md')}")
+    print(f"Informe: {informe_md}")
     return 0 if total["coinciden"] == total["casos"] else 1
 
 

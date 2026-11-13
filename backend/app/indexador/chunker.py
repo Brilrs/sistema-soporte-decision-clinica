@@ -23,6 +23,13 @@ _ITEM = re.compile(r"^(\d{1,2})\.\s+([A-ZÁÉÍÓÚÑ][^\n]{2,150})")
 _TABLA = re.compile(r"^(?:Tabla|Table)\s*(?:N|No)?\s*[°ºo’'”\".]*\s*\d+\s*(?:[.:]\s+\S.*)?$", re.IGNORECASE)
 _FIN_TABLA = re.compile(r"^(?:Fuente|Source|Nota|Note|\(\s*[*•]\s*\))", re.IGNORECASE)
 _VINETA = re.compile(r"^(?:[-•*·]\s|\(\.\.\.\))")
+# Recuadros de recomendación de las guías de la OMS: el título «Recommendation» queda al
+# final de la línea anterior («... is shown in Annex 1B. Recommendation»). Se separa en
+# su propia línea y abre un fragmento, para que el reranker vea la recomendación en sus
+# primeros tokens.
+_RECUADRO = re.compile(r"^Recommendations?$")
+_RECUADRO_AL_FINAL = re.compile(r"^(.*[.:])\s+(Recommendations?)$")
+SECCION_RECUADRO = "Recommendation"
 _FRASE = re.compile(r"(?<=[.;:!?])\s+(?=[A-ZÁÉÍÓÚÑ¿¡\"“(•\-\d])")
 MAX_LINEAS_TABLA = 70
 NIVEL_CORTE = 3
@@ -58,6 +65,12 @@ class Fragmento:
     modificacion: int | None = None
     numero_tokens: int = 0
     orden: int = 0
+    # Grupo etario (grupos_etarios.py): sin edad ni población aplica a todos.
+    edad_min_meses: int | None = None
+    edad_max_meses: int | None = None
+    poblacion: str = "GENERAL"
+    origen_rango: str = "TITULO"
+    rango_dudoso: bool = False
 
 
 @dataclass
@@ -175,7 +188,11 @@ def _unidades(segmento: Segmento) -> list[_Unidad]:
     """Divide el texto en frases y tablas, con la posición de cada una en el documento."""
     lineas, pos = [], segmento.inicio
     for linea in segmento.texto.split("\n"):
-        lineas.append((linea.strip(), pos))
+        if m := _RECUADRO_AL_FINAL.match(linea.strip()):
+            desde = len(linea) - len(linea.lstrip()) + len(m.group(1))
+            lineas += [(m.group(1), pos), (m.group(2), pos + linea.index(m.group(2), desde))]
+        else:
+            lineas.append((linea.strip(), pos))
         pos += len(linea) + 1
 
     unidades: list[_Unidad] = []
@@ -227,6 +244,9 @@ def _unidades(segmento: Segmento) -> list[_Unidad]:
         if e := encabezado(linea):
             cerrar_parrafo()
             corte_pendiente = e[0]
+        elif _RECUADRO.match(linea):
+            cerrar_parrafo()
+            corte_pendiente = NIVEL_CORTE
         elif _VINETA.match(linea):
             cerrar_parrafo()
         parrafo.append((linea, p))
@@ -342,6 +362,9 @@ def fragmentar(segmentos: list[Segmento], doc: TextoDocumento, tokenizador: Toke
             seccion = seg.seccion or secciones.en(inicio)
             if not seg.seccion and grupo[0][0].corte_antes:
                 seccion = secciones.al_inicio(texto, inicio) or seccion
+            if not seg.seccion and _RECUADRO.match(grupo[0][0].texto):
+                siguiente = grupo[1][0].texto.lstrip("-•*· ") if len(grupo) > 1 else ""
+                seccion = f"{SECCION_RECUADRO}: {_titulo(siguiente, 150)}" if siguiente else SECCION_RECUADRO
             if not seg.seccion and not es_tabla:
                 # Los títulos que empiezan dentro del fragmento también se nombran en su sección.
                 otros = [t for t in secciones.contenidos(texto, inicio)[:MAX_TITULOS_CONTENIDOS]

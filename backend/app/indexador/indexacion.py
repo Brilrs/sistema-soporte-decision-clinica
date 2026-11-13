@@ -15,6 +15,7 @@ from pathlib import Path
 from app.indexador.chunker import Avisos, Fragmento, fragmentar
 from app.indexador.config import FuenteDocumento
 from app.indexador.errores import ErrorIndexacion
+from app.indexador.grupos_etarios import asignar_grupos
 from app.indexador.extraccion import PaginaTexto, contar_sospechosos, extraer_pdf
 from app.indexador.modificaciones import cargar_mapa
 from app.indexador.repositorio import Documento, Repositorio
@@ -83,6 +84,9 @@ def preparar(fuente: FuenteDocumento, paginas: list[PaginaTexto], tokenizador: T
     fragmentos = fragmentar(seg.segmentos, doc, tokenizador, objetivo, maximo, solapamiento, avisos)
     if not fragmentos:
         raise ErrorIndexacion("El documento no produjo fragmentos")
+    for id_sin_aplicar in asignar_grupos(fragmentos, fuente.clave):
+        avisos.mensajes.append(f"grupos_etarios.yaml: la corrección {id_sin_aplicar} no se aplicó (no existe ese "
+                               "fragmento o su texto ya no empieza igual); revise la página de grupos etarios")
     return Preparacion(paginas, seg, fragmentos, avisos.mensajes, transcripciones,
                        {p.numero: contar_sospechosos(p.texto) for p in paginas})
 
@@ -103,6 +107,10 @@ def _metadatos(documento: Documento, f: Fragmento, version: int) -> dict:
         "fuente_texto": f.fuente_texto,
         "verificado": f.verificado,
         "version_indexacion": version,
+        # ChromaDB no admite nulos: -1 significa sin límite de edad.
+        "edad_min_meses": -1 if f.edad_min_meses is None else f.edad_min_meses,
+        "edad_max_meses": -1 if f.edad_max_meses is None else f.edad_max_meses,
+        "poblacion": f.poblacion,
     }
 
 

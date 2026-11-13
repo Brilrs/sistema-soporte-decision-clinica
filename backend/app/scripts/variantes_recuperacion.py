@@ -15,7 +15,12 @@ la comparación de variantes. Se ejecuta en el anfitrión:
         --propuesta 20x60x1:1x8+e
 
 El conjunto de desarrollo son las consultas de ajuste (R) y de validación (V); el de
-prueba (P) se evalúa una sola vez, al final, con la variante actual y la propuesta."""
+prueba (P) se evalúa una sola vez, al final, con la variante actual y la propuesta.
+
+Con --edad (parte C2) compara los pesos de la bonificación por edad en la fusión
+(BONIFICACION_EDAD): el peso se elige con R y se informa V. La edad de cada consulta
+sale de su texto (dominio.edad_mencionada_meses) y el signo de cada fragmento, de su
+grupo etario, ambos guardados por medir_recuperacion rankings."""
 import argparse
 import itertools
 import json
@@ -23,7 +28,7 @@ import math
 from dataclasses import dataclass
 from pathlib import Path
 
-from app.rag.recuperacion import fusion_rrf
+from app.rag.recuperacion import ajustar_por_edad, fusion_rrf
 from app.rag.texto import terminos
 
 FRAGMENTOS_ENVIADOS = 5
@@ -38,18 +43,22 @@ class Variante:
     candidatos_reranker: int = 8
     # BM25 con los sinónimos en español del diccionario desde la búsqueda inicial.
     expansion: bool = False
+    # Peso de la edad del paciente en la fusión (BONIFICACION_EDAD).
+    bono_edad: float = 0.0
 
     @property
     def nombre(self) -> str:
         return (f"{self.candidatos_busqueda}x{self.rrf_k}x{self.peso_bm25:g}:{self.peso_vectorial:g}"
-                f"x{self.candidatos_reranker}" + ("+e" if self.expansion else ""))
+                f"x{self.candidatos_reranker}" + ("+e" if self.expansion else "")
+                + (f"+b{self.bono_edad:g}" if self.bono_edad else ""))
 
     @classmethod
     def desde_nombre(cls, nombre: str) -> "Variante":
+        nombre, _, bono = nombre.partition("+b")
         expansion = nombre.endswith("+e")
         n, k, pesos, r = nombre.removesuffix("+e").split("x")
         pb, pv = pesos.split(":")
-        return cls(int(n), int(k), float(pb), float(pv), int(r), expansion)
+        return cls(int(n), int(k), float(pb), float(pv), int(r), expansion, float(bono) if bono else 0.0)
 
 
 ACTUAL = Variante()
@@ -64,10 +73,19 @@ def rejilla(expansion: bool = True) -> list[Variante]:
                               (False, True) if expansion else (False,))]
 
 
+BONOS_EDAD = (0.1, 0.2, 0.3, 0.5, 0.7)
+
+
+def rejilla_edad() -> list[Variante]:
+    """La configuración vigente con cada peso de la bonificación por edad."""
+    return [Variante(bono_edad=b) for b in BONOS_EDAD]
+
+
 def fusionar(consulta: dict, v: Variante) -> list[str]:
     lexica = consulta["bm25_expandida"] if v.expansion else consulta["bm25"]
     listas = [lexica[:v.candidatos_busqueda], consulta["vectorial"][:v.candidatos_busqueda]]
-    return [i for i, _ in fusion_rrf(listas, v.rrf_k, [v.peso_bm25, v.peso_vectorial])]
+    fusion = fusion_rrf(listas, v.rrf_k, [v.peso_bm25, v.peso_vectorial])
+    return [i for i, _ in ajustar_por_edad(fusion, consulta.get("signos", {}), v.bono_edad)]
 
 
 def evaluados(consulta: dict, v: Variante) -> list[str]:
@@ -224,6 +242,23 @@ def detalle(datos: dict, variantes: list[Variante]) -> list[str]:
     return lineas
 
 
+def tabla_edad(datos: dict) -> list[str]:
+    """Aciertos en el top 5 por peso de la bonificación: R (calibración), V (validación)
+    y las consultas con edad en el texto; y las consultas que cambian frente a 0."""
+    consultas = datos["consultas"]
+    r = [q for q in consultas if q["id"].startswith("R")]
+    v = [q for q in consultas if q["id"].startswith("V")]
+    con_edad = [q for q in consultas if q.get("edad_meses") is not None]
+    filas = ["| Peso | R (calibración) | V (validación) | Con edad en el texto (R y V) | Cambian frente a 0 |",
+             "| --- | --- | --- | --- | --- |"]
+    for variante in [ACTUAL, *rejilla_edad()]:
+        cambios = [f"{q['id']} {'+' if acierta(q, variante) else '-'}" for q in consultas
+                   if acierta(q, variante) != acierta(q, ACTUAL)]
+        filas.append(f"| {variante.bono_edad:g} | {_pct(*tasa(r, variante))} | {_pct(*tasa(v, variante))} | "
+                     f"{_pct(*tasa(con_edad, variante))} | {', '.join(cambios) or 'ninguna'} |")
+    return [f"Consultas con edad en el texto: {len(con_edad)} ({', '.join(q['id'] for q in con_edad)}).", "", *filas]
+
+
 def cargar(ruta: str) -> dict:
     return json.loads(Path(ruta).read_text(encoding="utf-8"))
 
@@ -233,8 +268,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--desarrollo", required=True, help="JSON de rankings del conjunto de desarrollo")
     parser.add_argument("--prueba", help="JSON de rankings del conjunto de prueba (medición final)")
     parser.add_argument("--propuesta", help="variante propuesta, por ejemplo 30x60x1:1x8")
+    parser.add_argument("--edad", action="store_true", help="compara los pesos de la bonificación por edad")
     args = parser.parse_args(argv)
     desarrollo = cargar(args.desarrollo)
+    if args.edad:
+        print("\n".join(["## Bonificación por edad en la fusión", "", *tabla_edad(desarrollo), ""]))
+        return 0
     salida = ["## Conjunto de desarrollo", "", *tabla_diagnostico(desarrollo), "",
               "**Variantes de la primera etapa** (las 15 mejores y la actual)", "",
               *tabla_variantes(desarrollo, rejilla("bm25_expandida" in desarrollo["consultas"][0])), ""]

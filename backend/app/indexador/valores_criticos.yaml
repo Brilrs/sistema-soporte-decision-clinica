@@ -209,3 +209,20 @@ valores:
     descripcion: "Tabla 17: 5 a 11 años, 3 mg/kg/día, máximo 120 mg/día, 6 meses continuos"
     transcripcion: rm251/b3_tabla17_tratamiento_6_meses_a_11_anios
     regex: '\| 5 a 11 años \| 3 mg/Kg/día \(Máximo dosis 120 mg/día\) \|[^\n]*\| 6 meses continuos \|'
+  # RM 251-2024/MINSA, pág. 23 (Tabla N° 20)
+  - id: tabla20_bajo_peso_prematuro
+    descripcion: "Tabla 20: recién nacido con bajo peso al nacer o prematuro, manejo hospitalario"
+    transcripcion: rm251/b11_tabla20_control_hemoglobina
+    regex: '\| Recién nacido con bajo peso al nacer/Prematuro \| Manejo hospitalario \|'
+  - id: tabla20_6_a_35_meses
+    descripcion: "Tabla 20: 6 a 35 meses, control al mes y al segundo, tercer y sexto mes"
+    transcripcion: rm251/b11_tabla20_control_hemoglobina
+    regex: '\| 6 meses a 35 meses \| Al mes de iniciado tratamiento\. Al segundo, tercer y sexto mes de iniciado tratamiento \|'
+  - id: tabla20_36_meses_a_11_anios
+    descripcion: "Tabla 20: 36 meses a 11 años, control al mes, al tercer y al sexto mes"
+    transcripcion: rm251/b11_tabla20_control_hemoglobina
+    regex: '\| 36 meses a 11 años \| Al mes de iniciado el tratamiento\. Al tercer y sexto mes del tratamiento \|'
+  - id: tabla20_gestante
+    descripcion: "Tabla 20: gestante, control cada 4 semanas hasta el valor normal"
+    transcripcion: rm251/b11_tabla20_control_hemoglobina
+    regex: '\| Gestante \| Cada 4 semanas hasta que la hemoglobina alcance el valor normal\. \|'

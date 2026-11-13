@@ -3,7 +3,12 @@
 1. BM25 (CANDIDATOS_BUSQUEDA) y búsqueda vectorial en ChromaDB con el mismo número de
    candidatos, filtrando nivel 1, documento VIGENTE y fragmento vigente.
 2. Fusión Reciprocal Rank Fusion: puntaje = suma de 1 / (RRF_K + posición), con la
-   posición contada desde 1 en cada lista.
+   posición contada desde 1 en cada lista. Con la edad del paciente (datos
+   estructurados), el puntaje de un fragmento cuyo grupo etario la incluye se multiplica
+   por (1 + BONIFICACION_EDAD) y el de uno que la excluye (otro rango de edad, o
+   gestantes, adolescentes o mujeres en edad fértil) por (1 - BONIFICACION_EDAD); sin
+   grupo etario, o con un rango dudoso que no se corrigió a mano, no cambia (GENERAL). No hay filtro duro: un fragmento de otro grupo puede llegar
+   al reranker si su puntaje lo justifica.
 3. Comprobación contra PostgreSQL de los candidatos fusionados (vigente, documento
    VIGENTE, nivel 1 y última versión); de allí sale además el texto.
 4. Reranker sobre los CANDIDATOS_RERANKER mejores de la fusión, con pares de hasta
@@ -36,7 +41,8 @@ FILTRO_VECTORIAL = {"nivel": 1, "estado_documento": "VIGENTE", "vigente": True}
 
 _FRAGMENTOS = f"""
     SELECT f.id_fragmento::text AS id_fragmento, f.id_documento::text AS id_documento, d.titulo,
-           d.codigo_documento, d.idioma, f.seccion, f.pagina_inicio, f.pagina_fin, f.texto, f.tipo_contenido
+           d.codigo_documento, d.idioma, f.seccion, f.pagina_inicio, f.pagina_fin, f.texto, f.tipo_contenido,
+           f.edad_min_meses, f.edad_max_meses, f.poblacion, f.rango_dudoso
       FROM conocimiento.fragmento f
       JOIN conocimiento.documento_fuente d ON d.id_documento = f.id_documento
      WHERE f.id_fragmento = ANY(CAST(:ids AS uuid[])) AND {CONDICION_RECUPERABLE}
@@ -62,6 +68,9 @@ class FragmentoRecuperado:
     idioma: str
     tipo_contenido: str
     texto: str
+    edad_min_meses: int | None = None
+    edad_max_meses: int | None = None
+    poblacion: str = "GENERAL"
 
 
 @dataclass
@@ -104,6 +113,36 @@ def fusion_rrf(listas: list[list[str]], k: int, pesos: list[float] | None = None
     return sorted(puntajes.items(), key=lambda p: (-p[1], mejor[p[0]], p[0]))
 
 
+POBLACIONES_NO_PEDIATRICAS = frozenset({"GESTANTE", "ADOLESCENTE", "MUJER_EDAD_FERTIL"})
+
+
+def signo_edad(edad_meses: int | None, edad_min: int | None, edad_max: int | None, poblacion: str | None,
+               rango_dudoso: bool = False) -> int:
+    """+1 si el grupo etario del fragmento incluye la edad del paciente, -1 si la excluye
+    (otro rango o una población que no es pediátrica) y 0 si no hay edad, el fragmento
+    aplica a todos o su rango es dudoso. Un rango dudoso sigue marcado solo si ninguna
+    corrección manual de grupos_etarios.yaml lo reemplazó (la corrección deja
+    rango_dudoso en false), así que se trata como GENERAL."""
+    if edad_meses is None or rango_dudoso:
+        return 0
+    if poblacion in POBLACIONES_NO_PEDIATRICAS:
+        return -1
+    if edad_min is None and edad_max is None:
+        return 0
+    minimo = 0 if edad_min is None else edad_min
+    maximo = edad_meses if edad_max is None else edad_max
+    return 1 if minimo <= edad_meses <= maximo else -1
+
+
+def ajustar_por_edad(fusion: list[tuple[str, float]], signos: dict[str, int], peso: float) -> list[tuple[str, float]]:
+    """Multiplica el puntaje RRF por (1 + peso x signo) y reordena; los empates
+    conservan el orden de la fusión."""
+    if not peso or not any(signos.values()):
+        return fusion
+    ajustados = [(i, p * (1 + peso * signos.get(i, 0)), k) for k, (i, p) in enumerate(fusion)]
+    return [(i, p) for i, p, _ in sorted(ajustados, key=lambda x: (-x[1], x[2]))]
+
+
 def leer_texto_filtrado(sesion: Session | Connection, id_consulta: str) -> str | None:
     """Único texto de la consulta que usa la recuperación (columna permitida a cdss_generacion)."""
     return sesion.execute(text("SELECT texto_filtrado FROM asistencia.consulta WHERE id_consulta = CAST(:c AS uuid)"),
@@ -143,9 +182,11 @@ class Candidatos:
 
 
 def buscar_candidatos(sesion: Session | Connection, consulta: ConsultaNormalizada, servicios: Servicios,
-                      parametros: ParametrosRecuperacion, tipo_busqueda: str = INICIAL) -> Candidatos:
-    """Pasos 1 a 3: BM25, búsqueda vectorial, fusión RRF y comprobación en PostgreSQL.
-    fusionados guarda (id, puntaje RRF, posición RRF) de los candidatos recuperables."""
+                      parametros: ParametrosRecuperacion, tipo_busqueda: str = INICIAL,
+                      edad_meses: int | None = None) -> Candidatos:
+    """Pasos 1 a 3: BM25, búsqueda vectorial, fusión RRF (con el ajuste por la edad del
+    paciente, si se conoce) y comprobación en PostgreSQL. fusionados guarda (id, puntaje
+    RRF ajustado, posición) de los candidatos recuperables."""
     ampliada = tipo_busqueda == AMPLIADA
     n = parametros.candidatos_busqueda_ampliada if ampliada else parametros.candidatos_busqueda
     texto_busqueda = consulta.texto_ampliado() if ampliada else consulta.texto_normalizado
@@ -157,6 +198,9 @@ def buscar_candidatos(sesion: Session | Connection, consulta: ConsultaNormalizad
     vectoriales = c.medir("chromadb", servicios.almacen.consultar, vector, n, FILTRO_VECTORIAL)
     fusion = c.medir("rrf", fusion_rrf, [[i for i, _ in lexicos], [i for i, _ in vectoriales]], parametros.rrf_k)
     filas = c.medir("postgresql", comprobar_fragmentos, sesion, [i for i, _ in fusion])
+    signos = {i: signo_edad(edad_meses, f.edad_min_meses, f.edad_max_meses, f.poblacion, f.rango_dudoso)
+              for i, f in filas.items()}
+    fusion = ajustar_por_edad(fusion, signos, parametros.bonificacion_edad)
     return Candidatos(
         tipo_busqueda=tipo_busqueda, texto_busqueda=texto_busqueda, candidatos_por_metodo=n,
         fusionados=[(i, p, pos) for pos, (i, p) in enumerate(fusion, start=1) if i in filas], filas=filas,
@@ -167,10 +211,11 @@ def buscar_candidatos(sesion: Session | Connection, consulta: ConsultaNormalizad
 
 
 def recuperar(sesion: Session | Connection, consulta: ConsultaNormalizada, servicios: Servicios,
-              parametros: ParametrosRecuperacion, tipo_busqueda: str = INICIAL) -> ResultadoRecuperacion:
+              parametros: ParametrosRecuperacion, tipo_busqueda: str = INICIAL,
+              edad_meses: int | None = None) -> ResultadoRecuperacion:
     """Una pasada de la recuperación híbrida. Con servicios.reranker = None (solo para
     las mediciones) se seleccionan los mejores de la fusión RRF sin umbral."""
-    cand = buscar_candidatos(sesion, consulta, servicios, parametros, tipo_busqueda)
+    cand = buscar_candidatos(sesion, consulta, servicios, parametros, tipo_busqueda, edad_meses)
     return seleccionar(sesion, consulta, cand, servicios.reranker, parametros)
 
 
@@ -206,7 +251,8 @@ def seleccionar(sesion: Session | Connection, consulta: ConsultaNormalizada, can
             seleccionado=alcanza and enviados < parametros.fragmentos_enviados, id_documento=fila.id_documento,
             documento=fila.titulo, codigo_documento=fila.codigo_documento, seccion=fila.seccion,
             pagina_inicio=fila.pagina_inicio, pagina_fin=fila.pagina_fin, idioma=fila.idioma,
-            tipo_contenido=fila.tipo_contenido, texto=fila.texto,
+            tipo_contenido=fila.tipo_contenido, texto=fila.texto, edad_min_meses=fila.edad_min_meses,
+            edad_max_meses=fila.edad_max_meses, poblacion=fila.poblacion,
         ))
 
     reales = [f.puntaje_reranker for f in fragmentos if f.puntaje_reranker is not None]
@@ -222,10 +268,11 @@ def seleccionar(sesion: Session | Connection, consulta: ConsultaNormalizada, can
 
 
 def recuperar_con_ampliacion(sesion: Session | Connection, consulta: ConsultaNormalizada, servicios: Servicios,
-                             parametros: ParametrosRecuperacion) -> list[ResultadoRecuperacion]:
+                             parametros: ParametrosRecuperacion,
+                             edad_meses: int | None = None) -> list[ResultadoRecuperacion]:
     """Búsqueda inicial y, si ningún fragmento alcanza el umbral, la ampliada. Devuelve
     las pasadas ejecutadas en orden; la última es la que cuenta."""
-    inicial = recuperar(sesion, consulta, servicios, parametros, INICIAL)
+    inicial = recuperar(sesion, consulta, servicios, parametros, INICIAL, edad_meses)
     if inicial.suficiente:
         return [inicial]
-    return [inicial, recuperar(sesion, consulta, servicios, parametros, AMPLIADA)]
+    return [inicial, recuperar(sesion, consulta, servicios, parametros, AMPLIADA, edad_meses)]
