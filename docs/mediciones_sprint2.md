@@ -3,6 +3,195 @@
 Resumen de las mediciones de rendimiento. Los datos completos están en `data/mediciones/`,
 que no se versiona.
 
+## Parte C2: grupo etario, versión 5 y bonificación por edad (12/11/2026)
+
+Mediciones sin la API de Anthropic: recuperación real (modelos, ChromaDB y PostgreSQL) y, en la
+prueba de punta a punta, el cliente falso del modelo de lenguaje. Reranker ONNX int8, 8
+candidatos de 256 tokens, 20 por método, k 60, `UMBRAL_RELEVANCIA` 0,15. El peso de la
+bonificación se aplicó en memoria en cada corrida. `BONIFICACION_EDAD` se registró en 0 con la
+migración 008; desde el 13/11/2026 vale 0,7 (migración 009, ver «Elección del peso»).
+
+### Versión 5
+
+Reindexación del 12/11/2026 (`cargar --reindexar`, unos 8 minutos). Cambios respecto a la versión 4:
+
+- **Tabla N° 20 de la NTS** (control de hemoglobina en el tratamiento) transcrita y verificada
+  contra la imagen (Brii, 12/11/2026). Reemplaza la capa de texto, en la que la etiqueta de la
+  fila «6 meses a 35 meses» cortaba la celda (límite 1 del caso c de la parte C).
+- **Recuadros «Recommendation» de las guías de la OMS:** el título se separa de la línea
+  anterior y abre su propio fragmento, con la sección «Recommendation: …». La recomendación queda
+  en los primeros tokens que lee el reranker (límite 3 del caso l de la parte C).
+- **Grupo etario de cada fragmento** (migración 008, `grupos_etarios.py` y
+  `grupos_etarios.yaml`): edad mínima y máxima en meses, población, origen del rango y marca de
+  dudoso. Incluye la revisión de Brii en la página `grupos_etarios.html`: la OMS 2024 entera
+  queda GENERAL, 9 fragmentos pasan a GENERAL, uno de la OMS 2016 a 24 a 59 meses y 8 se
+  confirman. En la versión 5 quedan 146 fragmentos vigentes GENERAL, 28 NINO, 6 GESTANTE y 3
+  ADOLESCENTE, ninguno dudoso y 78 con origen MANUAL.
+
+| Documento | Versión 4: total (vigentes) | Versión 5: total (vigentes) |
+| --- | --- | --- |
+| NTS 213-MINSA/DGIESP-2024 | 101 (82) | 102 (83) |
+| RM 429-2024/MINSA | 14 (14) | 14 (14) |
+| OMS 2024 | 60 (60) | 60 (60) |
+| OMS 2016 | 27 (27) | 26 (26) |
+| **Total** | **202 (183)** | **202 (183)** |
+
+PostgreSQL y ChromaDB coinciden en los cuatro documentos (`data/mediciones/c2_extraccion_v5.md`).
+Ninguna transcripción queda sin verificar.
+
+### Antes y después
+
+Recuperación real (`recuperar`). En R y V, la edad del paciente sale del texto de la consulta
+(`edad_mencionada_meses`). La columna de la versión 4 es la medición de la parte B2. Intervalos
+de Wilson al 95 %.
+
+| Conjunto | Versión 4 | Versión 5, peso 0 | Versión 5, peso 0,7 |
+| --- | --- | --- | --- |
+| Ajuste (R, 20) | 95 % (19/20) | 90 % (18/20) | 95 % (19/20) |
+| Validación (V, 15), con V11 corregida | 67 % (10/15) | 73 % (11/15) | 73 % (11/15) |
+| **Desarrollo (35)** | **83 % (29/35), IC 67 a 92 %** | **83 % (29/35), IC 67 a 92 %** | **86 % (30/35), IC 71 a 94 %** |
+
+- **V15 pasa a acertar** con la versión 5: el recuadro de la OMS 2016 de 24 a 59 meses queda en
+  el puesto 1. Antes, la frase de la recomendación estaba después de los 256 tokens.
+- **R08 falla en la versión 5 sin la bonificación.** El fragmento esperado (NTS 6.1.1 B.4, 24 a
+  59 meses, 283 caracteres) queda en el puesto 11 de la fusión, fuera de los 8 candidatos. Con
+  la bonificación entra y queda primero.
+- **Fallan en todas las variantes** R09 y V06, V09, V12 y V14, por las causas ya descritas en B2:
+  fragmentos largos de la RM 429 y de las definiciones, e idioma.
+- **R12 se corrigió después de ver el resultado.** Su sección esperada era el literal del OCR
+  «Tabla N°20»; la transcripción dice «Tabla N° 20». Con el literal anterior, R12 no tenía
+  ningún fragmento esperado en la versión 5, aunque el fragmento de la tabla queda en el puesto 1.
+  Con la corrección acierta con todos los pesos.
+
+Con el análisis sin modelos (`variantes_recuperacion`, rankings de `medir_recuperacion
+rankings`), contando R12 por contenido:
+
+| Conjunto | Versión 4 | Versión 5, peso 0 | Versión 5, pesos 0,1 a 0,7 |
+| --- | --- | --- | --- |
+| Ajuste (R, 20) | 90 % (18/20) | 90 % (18/20) | 95 % (19/20) |
+| Validación (V, 15) | 67 % (10/15) | 73 % (11/15) | 73 % (11/15) |
+
+### Calibración del peso de la bonificación (solo con R)
+
+Hay 7 consultas con edad en el texto: R01, R02, R04, R07, R08 y R10 en R, y V07 en V. En las
+demás, la bonificación no cambia nada.
+
+**Criterio:** el peso con más aciertos en R con la recuperación real; si hay empate, el menor.
+V solo se informa.
+
+**Recuperación real** (`medir_recuperacion edad`). Las corridas de 0,1 y 0,3 se hicieron el
+12/11/2026 con un script temporal, antes de corregir R12, y se cuenta R12 como acierto: queda en
+el puesto 1 con todos los pesos. Las de 0, 0,5 y 0,7 se repitieron el 13/11/2026 con el
+subcomando `edad`, ya con R12 corregida, y dan las mismas cifras
+(`data/mediciones/c2_edad_pesos_v5.json`).
+
+| Peso | R | Fallan en R | Posición del esperado: R01 / R07 / R08 | V |
+| --- | --- | --- | --- | --- |
+| 0 | 18/20 | R08, R09 | 5 / 2 / no aparece | 11/15 |
+| 0,1 | 18/20 | R01, R09 | 6 / 1 / 2 | 11/15 |
+| 0,3 | 18/20 | R01, R09 | 6 / 1 / 2 | 11/15 |
+| 0,5 | 18/20 | R01, R09 | 6 / 1 / 1 | 11/15 |
+| **0,7** | **19/20** | **R09** | **4 / 2 / 1** | **11/15** |
+
+R02, R04, R10 y V07 tienen el esperado en la misma posición con todos los pesos. En V ninguna
+consulta cambia.
+
+**Sin modelos**, todos los pesos de 0,1 a 0,7 dan 19 de 20. La posición en la fusión del
+fragmento esperado de R08 marca el margen: 11 con peso 0, 8 con 0,1 y 0,2 (el último de los 8
+candidatos), 7 con 0,3, y 5 con 0,5 y 0,7.
+
+**Por qué R01 difiere entre pesos.** Su fragmento esperado (NTS 6.1.1 B.2, Tabla 6, 6 a 11
+meses) recibe del reranker 0,165, 0,149 o 0,144 según el lote con que se evalúa. Con 0,1 a 0,5
+lo adelanta por 0,02 un fragmento GENERAL de los anexos. Con 0,7 salen de los 8 evaluados las
+tablas de 12 a 23 meses y de menores de 6 meses, que no aplican a un lactante de 8 meses, y el
+esperado sube al puesto 4.
+
+Con cualquier peso distinto de 0, ese fragmento queda en el top 5 pero bajo
+`UMBRAL_RELEVANCIA` (0,15), así que no se enviaría al modelo.
+
+**Propuesta del 12/11/2026: `BONIFICACION_EDAD` = 0,7**, con una migración nueva (versión con
+vigencia). Aprobada con la condición de compararla antes con 0,5 (ver «Elección del peso»).
+
+- **Es el único peso que mejora R con la recuperación real**, y también tiene el mayor margen
+  sin modelos.
+- **Fuerza:** un fragmento cuyo rango incluye la edad pesa 1,7 veces y uno que la excluye, 0,3
+  veces (5,7 veces menos). No es un filtro duro, pero se acerca. Por eso depende de que los
+  rangos estén bien: hoy no hay dudosos y la revisión manual cubrió todos los que había.
+- **Muestra chica:** frente a 0,5, la diferencia es una sola consulta (R01) cuyo esperado está
+  en el límite del umbral. Si se prefiere un ajuste más suave, 0,5 da el mismo resultado sin
+  modelos y queda 18 de 20 con la recuperación real.
+
+### Fragmentos enviados en la prueba de punta a punta
+
+12 casos de `casos_e2e.yaml` con el cliente falso. Los 12 dan el estado esperado en las tres
+corridas: versión 4, versión 5 con peso 0 y versión 5 con peso 0,7. Con 11 intentos enviados
+y `control_identificadores` = true en todos. El cliente falso no juzga el contenido; lo que
+importa es qué fragmentos llegan al modelo.
+
+| Caso (edad) | Versión 4 | Versión 5, peso 0 | Versión 5, peso 0,7 |
+| --- | --- | --- | --- |
+| a (9 meses), prevención y control | Prevención 12 a 23 meses (0,99) y 5 a 11 años (0,99); **prevención 6 a 11 meses** (0,98); tratamiento 6 meses a 11 años (0,96) y menores de 6 meses (0,95) | Lo mismo, con otro orden | **Prevención 6 a 11 meses** (0,98); 6.1 intervenciones (0,97); tratamiento 6 meses a 11 años (0,96); 5.7 consideraciones (0,92); RM 429 Tabla 4 (0,75) |
+| c (20 meses), tratamiento y control | Tratamiento en menores de 6 meses (0,92); referencia (0,92); seguimiento y Tabla 20 del OCR (0,89); gestantes (0,61 y 0,45). **Sin el tratamiento de 6 meses a 11 años** | Tratamiento en menores de 6 meses (0,93); **tratamiento 6 meses a 11 años** (0,92); referencia (0,90); seguimiento y **Tabla 20 transcrita** (0,85); gestantes (0,66) | **Tratamiento 6 meses a 11 años** (0,94); prevención 12 a 23 meses (0,91); referencia (0,90); seguimiento y **Tabla 20 transcrita** (0,86); recuadro OMS 2016 de 6 a 23 meses (0,66) |
+| e (18 meses), altitud y tratamiento | 5 a 11 años (0,94); 5.3.1 ajuste de Hb (0,90); referencia (0,88); RM 429 Tabla 1 (0,79); OMS 2024 (0,71). **Sin tratamiento** | 5 a 11 años (0,94); 5.3.1 (0,91); referencia (0,88); RM 429 Tabla 1 (0,83); OMS 2024 Tabla 4, ajuste por altitud (0,79). **Sin tratamiento** | 5.3.1 (0,90); referencia (0,88); **tratamiento 6 meses a 11 años** (0,87); RM 429 Tabla 1 (0,84); OMS 2024 Tabla 4 (0,78) |
+| l (49 meses), recomendación de la OMS | 5 a 11 años (0,95); 12 a 23 meses (0,93); 6 a 11 meses (0,89); dos de tratamiento (0,86 y 0,85). **Sin la OMS ni 24 a 59 meses** | **Recuadro OMS 2016 de 24 a 59 meses** (0,98); 12 a 23 meses (0,95); 5 a 11 años (0,95); 6 a 11 meses (0,89); página de la OMS 2016 (0,89) | **NTS prevención 24 a 59 meses** (0,99); **recuadro OMS 2016 de 24 a 59 meses** (0,99); página de la OMS 2016 (0,91); RM 429 Tabla 8, 24 a 59 meses (0,89); tratamiento 6 meses a 11 años (0,82) |
+
+En los demás casos se ve lo mismo con el peso 0,7: salen las tablas de otras edades y entra la
+del grupo del paciente.
+
+- **b (14 meses) y k (18 meses):** entra la prevención de 12 a 23 meses. Salen la de 5 a 11
+  años y el tratamiento en menores de 6 meses.
+- **d (26 meses):** el tratamiento en menores de 6 meses se reemplaza por el de 6 meses a 11 años.
+- **f (31 meses) e i (14 meses):** salen las tablas de 5 a 11 años y de menores de 6 meses.
+- **j:** sigue en evidencia insuficiente, como se espera.
+
+Informes en `data/mediciones/c_punta_a_punta_falso_v4.md`, `_v5_b0.md`, `_v5_b0.5.md` y
+`_v5_b0.7.md`.
+
+### Elección del peso: 0,5 frente a 0,7 (13/11/2026)
+
+**Criterio acordado:** si con 0,5 llegan al modelo los mismos fragmentos correctos que con 0,7
+en los casos a, c, e y l, se elige 0,5; si alguno se pierde, 0,7. Se cuenta como correcto un
+fragmento del grupo de edad del paciente o que responde la pregunta del caso.
+
+| Caso (edad) | Con 0,7 y no con 0,5 | Con 0,5 y no con 0,7 |
+| --- | --- | --- |
+| a (9 meses) | 6.1 intervenciones (0,97); RM 429 Tabla 4 (0,75) | Prevención 5 a 11 años (0,99) y 12 a 23 meses (0,99), de otras edades. La de 6 a 11 meses sigue, pero en el puesto 3 |
+| c (20 meses) | **Recuadro OMS 2016 de 6 a 23 meses** (0,66) | Tratamiento en menores de 6 meses (0,94), primero en la lista |
+| e (18 meses) | **Tratamiento 6 meses a 11 años** (0,87) | Una página metodológica de la OMS 2024 (0,74) |
+| l (49 meses) | Ninguno: los cinco fragmentos son los mismos | Ninguno |
+
+**Elegido: 0,7.** Con 0,5 se pierden dos fragmentos correctos. En e, el tratamiento de 6 meses
+a 11 años, que es la indicación del caso (falta desde la versión 4). En c, el recuadro de la OMS
+2016 para 6 a 23 meses. Además, en a y c vuelven al primer puesto tablas de otras edades. En R,
+0,5 da 18 de 20 (falla R01) y 0,7, 19 de 20; en V, los dos dan 11 de 15. Los 12 casos dan el
+estado esperado con 0,5, igual que con 0,7 (`data/mediciones/c_punta_a_punta_falso_v5_b0.5.md`).
+
+Queda aplicado con la migración 009 en la base principal y en la de pruebas: cierra la vigencia
+del 0 y registra 0,7.
+
+### Regla de la OMS
+
+No hace falta reservar un lugar para la OMS cuando la consulta la nombra. El caso l, que antes
+no recibía ningún fragmento de la OMS, ahora recibe el recuadro de la OMS 2016 de 24 a 59 meses
+con y sin la bonificación (0,98 y 0,99). La causa del fallo (la recomendación después de los
+256 tokens) la resolvió el corte de los recuadros. Una reserva sumaría código y un parámetro sin
+ningún caso que lo necesite. Se vuelve a evaluar si el caso l falla en la corrida real.
+
+### Latencia de la recuperación (30 consultas, 8 x 256, versión 5)
+
+| Perfil | Peso | Recuperación p50 / p90 | Reranker p50 / p90 | Referencia anterior |
+| --- | --- | --- | --- | --- |
+| Normal | 0 | 3,78 / 3,93 s | 3,44 / 3,56 s | 3,53 / 3,63 s (06/11/2026) |
+| Normal | 0,7 | 3,75 / 3,88 s | 3,50 / 3,62 s | |
+| B2ms (2 CPU) | 0,7 | 5,03 / 5,48 s | 4,55 / 4,99 s | 5,15 / 5,62 s (07/11/2026) |
+
+- **La bonificación no agrega tiempo:** las dos corridas del entorno normal se hicieron una
+  después de otra con los pesos 0 y 0,7, y el ajuste es una multiplicación sobre los candidatos
+  ya leídos.
+- **El entorno normal varía con la carga del equipo:** una corrida anterior con 0,7 dio 4,11 /
+  4,45 s. El perfil B2ms, fijado a 2 CPU, es más estable.
+- **Primera consulta en frío en B2ms:** 6,9 s.
+
 ## Parte C: confirmación de la API y prueba de punta a punta (07/11/2026)
 
 ### Confirmación de la API (paso 0)
@@ -748,6 +937,24 @@ DATOS="$(pwd -W)/data/mediciones:/app/data/mediciones"
 MSYS_NO_PATHCONV=1 docker compose run --rm --no-deps -T -v "$APP" -v "$DATOS" backend python -m app.scripts.confirmar_api   --confirmo-datos-sinteticos --salida data/mediciones/c0_confirmacion_api.json   # 3 solicitudes, menos de 1 centavo
 MSYS_NO_PATHCONV=1 docker compose run --rm --no-deps -T -v "$APP" -v "$DATOS" backend python -m app.scripts.prueba_punta_a_punta   # cliente falso, 1 min
 MSYS_NO_PATHCONV=1 docker compose run --rm --no-deps -T -v "$APP" -v "$DATOS" backend python -m app.scripts.prueba_punta_a_punta   --llm real --confirmo-datos-sinteticos                                      # API real, 12 casos; con --casos a,b,e solo esos
+
+# 9. Parte C2: versión 5 y bonificación por edad (12/11/2026)              (unos 50 min)
+docker compose up -d                                                      # entorno normal, int8; esperar healthy
+MSYS_NO_PATHCONV=1 docker compose run --rm --no-deps -T -v "$APP" backend $MEDIR rankings --grupo desarrollo > $D/c2_rankings_desarrollo_v4.json   # 8 min, antes de reindexar
+MSYS_NO_PATHCONV=1 docker compose run --rm --no-deps -T -v "$APP" -v "$DATOS" backend python -m app.scripts.prueba_punta_a_punta --etiqueta v4   # 1 min
+docker compose build jobs                                                 # transcripciones y grupos_etarios.yaml van en la imagen
+docker compose run --rm jobs python -m app.indexador cargar --manifiesto fuentes_iniciales.yaml --reindexar      # 8 min, versión 5
+MSYS_NO_PATHCONV=1 docker compose run --rm jobs python -m app.indexador comparar --salida /datos/mediciones/c2_extraccion_v5.md
+MSYS_NO_PATHCONV=1 docker compose run --rm --no-deps -T -v "$APP" backend $MEDIR rankings --grupo desarrollo > $D/c2_rankings_desarrollo_v5.json   # 8 min
+cd backend && .venv/Scripts/python -m app.scripts.variantes_recuperacion --desarrollo ../$D/c2_rankings_desarrollo_v5.json --edad; cd ..
+MSYS_NO_PATHCONV=1 docker compose run --rm --no-deps -T -v "$APP" backend $MEDIR edad --entorno normal-int8-v5 --pesos 0,0.1,0.3,0.5,0.7 > $D/c2_edad_pesos_v5.json   # 5 min por peso; recuperación real de R y V
+for b in 0 0.5 0.7; do MSYS_NO_PATHCONV=1 docker compose run --rm --no-deps -T -v "$APP" -v "$DATOS" backend python -m app.scripts.prueba_punta_a_punta --bonificacion-edad $b --etiqueta v5_b$b; done
+for b in 0 0.7; do MSYS_NO_PATHCONV=1 docker compose run --rm --no-deps -T -v "$APP" backend $MEDIR latencia --entorno normal-int8-v5-b$b --consultas 30 --configuraciones 8x256 --bonificacion-edad $b > $D/c2_latencia_normal_b$b.json; done
+docker compose $B2MS up -d --force-recreate                               # esperar healthy
+MSYS_NO_PATHCONV=1 docker compose $B2MS run --rm --no-deps -T -v "$APP" backend $MEDIR latencia --entorno b2ms-int8-v5 --frio --calentamiento 0 --consultas 30 --configuraciones 8x256 --bonificacion-edad 0.7 > $D/c2_latencia_b2ms.json   # 3 min
+docker compose up -d --force-recreate
+# Migración 009 (BONIFICACION_EDAD 0,7). Sin mediciones en curso: toma bloqueos sobre las tablas de conocimiento
+MSYS_NO_PATHCONV=1 docker compose exec -T db bash /docker-entrypoint-initdb.d/04_migraciones.sh
 
 # 4. Volver al entorno normal e informe detallado
 docker compose up -d

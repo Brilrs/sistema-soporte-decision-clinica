@@ -17,6 +17,7 @@ CLAVES = {
     "CANDIDATOS_RERANKER": "candidatos_reranker",
     "MAX_LONGITUD_RERANKER": "max_longitud_reranker",
     "DIAS_VIGENCIA_TAMIZAJE": "dias_vigencia_tamizaje",
+    "BONIFICACION_EDAD": "bonificacion_edad",
 }
 
 
@@ -35,6 +36,7 @@ class ParametrosRecuperacion:
     candidatos_reranker: int
     max_longitud_reranker: int
     dias_vigencia_tamizaje: int
+    bonificacion_edad: float
 
 
 def _convertir(clave: str, valor: str, tipo: str, minimo: Decimal | None, maximo: Decimal | None):

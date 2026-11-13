@@ -221,3 +221,32 @@ SELECT c.clave, n.valor, c.tipo_dato, c.valor_minimo, c.valor_maximo, n.descripc
        '00000000-0000-0000-0000-000000000001'
 FROM cerrados c
 JOIN nuevos n USING (clave);
+
+-- Recuperación con edad (migración 008): peso de la edad del paciente en la fusión,
+-- en 0 (sin efecto) hasta calibrarlo con el conjunto de desarrollo.
+INSERT INTO configuracion.parametro_sistema
+  (clave, valor, tipo_dato, valor_minimo, valor_maximo, descripcion, modificado_por)
+SELECT 'BONIFICACION_EDAD', '0', 'DECIMAL', 0, 1,
+       'Peso de la edad del paciente en la fusión RRF: multiplica por (1 + peso) el puntaje de los fragmentos cuyo rango incluye la edad y por (1 - peso) el de los que la excluyen',
+       '00000000-0000-0000-0000-000000000001'
+WHERE NOT EXISTS (SELECT 1 FROM configuracion.parametro_sistema
+                   WHERE clave = 'BONIFICACION_EDAD' AND vigente_hasta IS NULL);
+
+-- Peso de la edad calibrado en C2 (migración 009): BONIFICACION_EDAD pasa de 0 a 0.7; el
+-- valor anterior queda cerrado en el historial.
+WITH nuevos (clave, valor_anterior, valor, descripcion) AS (VALUES
+  ('BONIFICACION_EDAD', '0', '0.7', 'Peso de la edad del paciente en la fusión RRF: multiplica por (1 + peso) el puntaje de los fragmentos cuyo rango incluye la edad y por (1 - peso) el de los que la excluyen (0.7 calibrado en C2)')
+),
+cerrados AS (
+  UPDATE configuracion.parametro_sistema p
+     SET vigente_hasta = now()
+    FROM nuevos n
+   WHERE p.clave = n.clave AND p.vigente_hasta IS NULL AND p.valor = n.valor_anterior
+  RETURNING p.clave, p.tipo_dato, p.valor_minimo, p.valor_maximo
+)
+INSERT INTO configuracion.parametro_sistema
+  (clave, valor, tipo_dato, valor_minimo, valor_maximo, descripcion, vigente_desde, modificado_por)
+SELECT c.clave, n.valor, c.tipo_dato, c.valor_minimo, c.valor_maximo, n.descripcion, now(),
+       '00000000-0000-0000-0000-000000000001'
+FROM cerrados c
+JOIN nuevos n USING (clave);

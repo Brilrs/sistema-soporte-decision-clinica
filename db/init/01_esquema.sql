@@ -256,7 +256,13 @@ CREATE TABLE conocimiento.fragmento (
   verificado BOOLEAN NOT NULL DEFAULT false,
   fecha_verificacion TIMESTAMPTZ,
   version_indexacion SMALLINT NOT NULL DEFAULT 1,
+  edad_min_meses SMALLINT,
+  edad_max_meses SMALLINT,
+  poblacion VARCHAR(20) NOT NULL DEFAULT 'GENERAL' CONSTRAINT ck_fragmento_poblacion CHECK (poblacion IN ('NINO','ADOLESCENTE','GESTANTE','MUJER_EDAD_FERTIL','GENERAL')),
+  origen_rango VARCHAR(10) NOT NULL DEFAULT 'TITULO' CONSTRAINT ck_fragmento_origen_rango CHECK (origen_rango IN ('TITULO','TEXTO','MANUAL')),
+  rango_dudoso BOOLEAN NOT NULL DEFAULT false,
   CONSTRAINT uq_fragmento_documento_version_orden UNIQUE (id_documento, version_indexacion, numero_orden),
+  CONSTRAINT ck_fragmento_rango_edad CHECK (edad_min_meses IS NULL OR edad_max_meses IS NULL OR edad_min_meses <= edad_max_meses),
   CONSTRAINT ck_fragmento_motivo_exclusion CHECK (vigente OR motivo_exclusion IS NOT NULL),
   CONSTRAINT ck_fragmento_verificacion CHECK (verificado = (fecha_verificacion IS NOT NULL)),
   CONSTRAINT ck_fragmento_version_indexacion CHECK (version_indexacion >= 1)
@@ -282,6 +288,11 @@ COMMENT ON COLUMN conocimiento.fragmento.fuente_texto IS 'Origen del texto: CAPA
 COMMENT ON COLUMN conocimiento.fragmento.verificado IS 'Indica que el texto fue contrastado con la imagen del documento original.';
 COMMENT ON COLUMN conocimiento.fragmento.fecha_verificacion IS 'Fecha y hora de la verificación; obligatoria si verificado es verdadero.';
 COMMENT ON COLUMN conocimiento.fragmento.version_indexacion IS 'Número de la indexación del documento que generó el fragmento. Al reindexar, los fragmentos de las versiones anteriores pasan a no vigentes y solo los de la última versión están en ChromaDB.';
+COMMENT ON COLUMN conocimiento.fragmento.edad_min_meses IS 'Edad mínima en meses a la que aplica el fragmento; nulo sin límite.';
+COMMENT ON COLUMN conocimiento.fragmento.edad_max_meses IS 'Edad máxima en meses a la que aplica el fragmento; nulo sin límite.';
+COMMENT ON COLUMN conocimiento.fragmento.poblacion IS 'NINO, ADOLESCENTE, GESTANTE (incluye la puérpera), MUJER_EDAD_FERTIL o GENERAL (aplica a todos).';
+COMMENT ON COLUMN conocimiento.fragmento.origen_rango IS 'De dónde salió el grupo etario: TITULO de la sección, TEXTO del fragmento o corrección MANUAL.';
+COMMENT ON COLUMN conocimiento.fragmento.rango_dudoso IS 'El grupo etario mezcla varios rangos o poblaciones y queda para revisión.';
 CREATE INDEX ix_fragmento_id_documento ON conocimiento.fragmento (id_documento);
 CREATE INDEX ix_fragmento_id_documento_modificatorio ON conocimiento.fragmento (id_documento_modificatorio);
 

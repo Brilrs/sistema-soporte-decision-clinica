@@ -100,6 +100,18 @@ def edad_fuera_del_alcance(texto: str) -> bool:
     return False
 
 
+def edad_mencionada_meses(texto: str) -> int | None:
+    """Edad del niño escrita en la consulta («14 meses», «2 años»), en meses, o None.
+    No cuenta los límites de un rango. Solo para medir las consultas de referencia, que
+    no tienen datos estructurados: el sistema usa la edad del tamizaje."""
+    for m in _EDAD.finditer(sin_tildes(texto)):
+        if _LIMITE_DE_RANGO.search(m["previo"]):
+            continue
+        n = int(m["n"]) if m["n"].isdigit() else _NUMEROS[m["n"]]
+        return n * 12 if m["unidad"].startswith("ano") else n
+    return None
+
+
 def es_poblacion_fuera_del_alcance(texto: str) -> bool:
     return bool(_POBLACION_FUERA.search(sin_tildes(texto))) or edad_fuera_del_alcance(texto)
 

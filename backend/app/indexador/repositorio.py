@@ -124,15 +124,19 @@ class Repositorio:
             """INSERT INTO conocimiento.fragmento
                  (id_fragmento, id_documento, numero_orden, seccion, pagina_inicio, pagina_fin, texto, numero_tokens,
                   terminos_mesh, conceptos_umls, modelo_embedding, vigente, id_documento_modificatorio, motivo_exclusion,
-                  tipo_contenido, fuente_texto, verificado, fecha_verificacion, version_indexacion)
+                  tipo_contenido, fuente_texto, verificado, fecha_verificacion, version_indexacion,
+                  edad_min_meses, edad_max_meses, poblacion, origen_rango, rango_dudoso)
                VALUES (:id, :doc, :orden, :seccion, :pi, :pf, :texto, :tokens, '{}', '{}', :modelo, :vigente, :mod,
-                       :motivo, :tipo, :fuente, :verificado, :fecha, :version)"""
+                       :motivo, :tipo, :fuente, :verificado, :fecha, :version, :emin, :emax, :pob, :origen,
+                       :dudoso)"""
         ), [
             {"id": i, "doc": id_documento, "orden": f.orden, "seccion": f.seccion, "pi": f.pagina_inicio,
              "pf": f.pagina_fin, "texto": f.texto, "tokens": f.numero_tokens, "modelo": modelo, "vigente": f.vigente,
              "mod": f.id_documento_modificatorio, "motivo": f.motivo_exclusion, "tipo": f.tipo_contenido,
              "fuente": f.fuente_texto, "verificado": f.verificado,
-             "fecha": f.fecha_verificacion if f.verificado else None, "version": version}
+             "fecha": f.fecha_verificacion if f.verificado else None, "version": version,
+             "emin": f.edad_min_meses, "emax": f.edad_max_meses, "pob": f.poblacion, "origen": f.origen_rango,
+             "dudoso": f.rango_dudoso}
             for f, i in zip(fragmentos, ids)
         ])
 

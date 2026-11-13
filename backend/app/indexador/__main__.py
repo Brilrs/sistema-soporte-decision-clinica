@@ -4,6 +4,7 @@
     python -m app.indexador procesar --documento rm251 [--reindexar]
     python -m app.indexador comparar [--parametros 250,400,40 --fragmentos-json archivo.json]
     python -m app.indexador verificar-valores
+    python -m app.indexador grupos-etarios [--salida archivo.html]
     python -m app.indexador trabajador
 """
 import argparse
@@ -17,6 +18,7 @@ from app.indexador.config import ConfigIndexador, FuenteDocumento, cargar_config
 from app.indexador.extraccion import extraer_pdf
 from app.indexador.indexacion import Indexador, Opciones, Resultado, preparar
 from app.indexador.informes import informe_extraccion, informe_valores, seccion_documento
+from app.indexador.pagina_grupos import pagina_grupos
 from app.indexador.pagina_verificacion import pagina_verificacion
 
 MANIFIESTO = "fuentes_iniciales.yaml"
@@ -162,6 +164,43 @@ def cmd_verificar_valores(args, config: ConfigIndexador) -> int:
     return 0
 
 
+def cmd_grupos_etarios(args, config: ConfigIndexador) -> int:
+    """Prepara los documentos del manifiesto sin escribir en la base y arma la página de
+    revisión de los grupos etarios de los fragmentos vigentes."""
+    from app.indexador.repositorio import Repositorio
+    _, tokenizador = _servicios(config, args.falsos)
+    repo = Repositorio.desde_url(config.database_url) if config.database_url else None
+    filas = []
+    for fuente in cargar_manifiesto(args.manifiesto):
+        ruta = config.dir_guias / fuente.archivo
+        if not ruta.is_file():
+            print(f"{fuente.clave}: no se encontró {fuente.archivo}", flush=True)
+            continue
+        documento = repo.documento(fuente.id_documento) if repo else None
+        inicio, fin = (documento.pagina_inicio_cuerpo, documento.pagina_fin_cuerpo) if documento else (None, None)
+        parametros = repo.parametros_fragmentacion() if repo else (500, 800, 80)
+        prep = preparar(fuente, extraer_pdf(ruta, inicio, fin, fuente.recorte), tokenizador, parametros)
+        vigentes = [f for f in prep.fragmentos if f.vigente]
+        filas += [{"documento": fuente.clave, "codigo": documento.codigo_documento if documento else fuente.clave,
+                   "titulo": documento.titulo if documento else fuente.archivo,
+                   "orden": f.orden, "paginas": f"{f.pagina_inicio}-{f.pagina_fin}", "seccion": f.seccion,
+                   "texto": f.texto, "edad_min_meses": f.edad_min_meses, "edad_max_meses": f.edad_max_meses,
+                   "poblacion": f.poblacion, "origen_rango": f.origen_rango, "rango_dudoso": f.rango_dudoso}
+                  for f in vigentes]
+        print(f"{fuente.clave}: {len(vigentes)} fragmentos vigentes, "
+              f"{sum(f.rango_dudoso for f in vigentes)} dudosos", flush=True)
+        for aviso in prep.avisos:
+            if aviso.startswith("grupos_etarios.yaml"):
+                print(f"  AVISO {aviso}", flush=True)
+    salida = Path(args.salida) if args.salida else config.dir_mediciones / "grupos_etarios.html"
+    salida.parent.mkdir(parents=True, exist_ok=True)
+    prefijos = {f.clave: f.prefijo_imagen for f in cargar_manifiesto(args.manifiesto) if f.prefijo_imagen}
+    salida.write_text(pagina_grupos(filas, salida.parent, prefijos), encoding="utf-8")
+    salida.with_suffix(".json").write_text(json.dumps(filas, ensure_ascii=False, indent=1), encoding="utf-8")
+    print(f"Página de revisión: {salida}")
+    return 0
+
+
 def cmd_trabajador(args, config: ConfigIndexador) -> int:
     indexador = _indexador(config, args.falsos)
     print(f"Trabajador en espera de trabajos PENDIENTE (cada {config.intervalo_trabajador_s:.0f} s)", flush=True)
@@ -221,6 +260,11 @@ def main(argv: list[str] | None = None) -> int:
     comunes(p, indexa=False)
     p.add_argument("--salida")
     p.set_defaults(func=cmd_verificar_valores)
+
+    p = sub.add_parser("grupos-etarios", help="página de revisión de los grupos etarios (no escribe en la base)")
+    comunes(p, indexa=False)
+    p.add_argument("--salida")
+    p.set_defaults(func=cmd_grupos_etarios)
 
     p = sub.add_parser("trabajador", help="toma trabajos PENDIENTE de conocimiento.trabajo_indexacion")
     comunes(p)

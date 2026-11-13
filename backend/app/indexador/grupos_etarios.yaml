@@ -1,0 +1,119 @@
+# Grupo etario de cada fragmento (parte C2). La recuperación lo usa para subir los
+# fragmentos cuyo rango incluye la edad del paciente y bajar los que la excluyen
+# (sin filtro duro). Un fragmento sin edad ni población aplica a todos (GENERAL).
+#
+# origen por documento:
+#   SECCION: el rango sale de los títulos de la sección del fragmento (último nivel,
+#            títulos contenidos y título de la tabla transcrita).
+#   TEXTO:   el rango sale del texto del fragmento; si el texto nombra más de un rango
+#            o varias poblaciones, el fragmento queda marcado como dudoso para revisión.
+#   GENERAL: todos los fragmentos del documento quedan GENERAL, sin rango y sin marca de
+#            dudoso (corrección manual de todo el documento).
+documentos:
+  rm251: SECCION
+  rm429: TEXTO
+  # Revisión de Brii (2026-11-12): guía de puntos de corte de hemoglobina sin
+  # recomendaciones específicas por edad. Una revisión de muestra mostró etiquetas
+  # ADOLESCENTE, GESTANTE y MUJER_EDAD_FERTIL sacadas de texto metodológico
+  # (fragmentos 14, 25, 30, 31, 47, 48, 51, 52, 55).
+  oms2024: GENERAL
+  oms2016: TEXTO
+
+# Correcciones manuales después de la revisión de la página grupos_etarios.html. Cada
+# entrada se aplica a los fragmentos del documento cuya sección o texto contiene el
+# texto indicado (sin mayúsculas ni tildes) y reemplaza el rango calculado.
+#   - documento: oms2016
+#     texto_contiene: "daily iron supplementation is recommended as a public health intervention in preschool"
+#     edad_min_meses: 24
+#     edad_max_meses: 59
+#     poblacion: NINO
+#     nota: "Recuadro de recomendación de 24 a 59 meses"
+manuales: []
+
+# Correcciones por fragmento, revisadas por Brii el 2026-11-12 en la página
+# grupos_etarios.html. id: documento y orden del fragmento en esa página. inicio: comienzo
+# del texto del fragmento (sin mayúsculas, tildes ni diferencias de espacios); si el
+# fragmento con ese orden ya no empieza así (cambió la fragmentación), la corrección no se
+# aplica y el indexador avisa. Con confirmado: true se conserva el rango calculado y solo
+# se quita la marca de dudoso; si no, poblacion (y edad_min_meses, edad_max_meses) lo
+# reemplazan. nota: solo informativa.
+fragmentos:
+  # Sin rango de edad: aplican a todos.
+  - id: rm429-005
+    inicio: "NTS 213 modificada por RM 429-2024/MINSA, numeral 6.1.1 A Tabla 4 5. Modificar"
+    poblacion: GENERAL
+    nota: "Calculado: 6 a 215 meses, NINO"
+  - id: rm429-011
+    inicio: "NTS 213 modificada por RM 429-2024/MINSA, numeral 6.1.2 A (Tablas 12 y 13)"
+    poblacion: GENERAL
+    nota: "Calculado: 0 a 215 meses, NINO"
+  - id: rm429-012
+    inicio: "NTS 213 modificada por RM 429-2024/MINSA, numeral 6.1.2 B 10. Modificar"
+    poblacion: GENERAL
+    nota: "Calculado: 144 a 215 meses, ADOLESCENTE"
+  - id: oms2016-001
+    inicio: "SCOPE AND PURPOSE This guideline provides global, evidence-informed"
+    poblacion: GENERAL
+    nota: "Calculado: 0 a 215 meses, NINO"
+  - id: oms2016-003
+    inicio: "Conversely, there are concerns that iron may produce adverse effects, including"
+    poblacion: GENERAL
+    nota: "Calculado: 4 a 155 meses, NINO"
+  - id: oms2016-005
+    inicio: "This study was terminated prematurely, based on a higher proportion of"
+    poblacion: GENERAL
+    nota: "Calculado: 0 a 155 meses, NINO"
+  - id: oms2016-006
+    inicio: "The reviews that limited the analysis to specific age ranges (4–23 months (81),"
+    poblacion: GENERAL
+    nota: "Calculado: 4 a 155 meses, NINO"
+  - id: oms2016-012
+    inicio: "For the most recent estimates, visit the WHO-hosted Vitamin and Mineral"
+    poblacion: GENERAL
+    nota: "Calculado: 0 a 215 meses, NINO"
+  - id: oms2016-014
+    inicio: "Oral iron interventions should not be given to children who do not have access"
+    poblacion: GENERAL
+    nota: "Calculado: 0 a 59 meses, NINO"
+
+  # Recomendación de 24 a 59 meses.
+  - id: oms2016-008
+    inicio: "The evidence for morbidity and developmental outcomes is weak but the"
+    edad_min_meses: 24
+    edad_max_meses: 59
+    poblacion: NINO
+    nota: "Calculado: 24 a 71 meses, NINO"
+
+  # Confirmados: conservan el rango calculado sin la marca de dudoso.
+  - id: rm251-038
+    inicio: "Tabla N° 10 Suplementación con hierro y ácido fólico en la adolescente y mujer"
+    confirmado: true
+    nota: "Calculado y confirmado: 144 a 215 meses, ADOLESCENTE"
+  - id: rm251-060
+    inicio: "4. Tratamiento de el/la adolescente y mujer en edad fértil (Tabla N° 18) - El"
+    confirmado: true
+    nota: "Calculado y confirmado: 144 a 215 meses, ADOLESCENTE"
+  - id: rm251-062
+    inicio: "Tabla N” 18 Tratamiento de anemia por deficiencia de hierro del/de la"
+    confirmado: true
+    nota: "Calculado y confirmado: 144 a 215 meses, ADOLESCENTE"
+  - id: rm429-003
+    inicio: "NTS 213 modificada por RM 429-2024/MINSA, numeral 5.4.1, 5.4.2, 5.4.4 y 5.4.5"
+    confirmado: true
+    nota: "Calculado y confirmado: sin límite de edad, GENERAL"
+  - id: rm429-007
+    inicio: "NTS 213 modificada por RM 429-2024/MINSA, numeral 6.1.1 B Tabla 8 7. Modificar"
+    confirmado: true
+    nota: "Calculado y confirmado: 24 a 59 meses, NINO"
+  - id: rm429-008
+    inicio: "NTS 213 modificada por RM 429-2024/MINSA, numeral 6.1.1 C, ítem 5 8. Modificar"
+    confirmado: true
+    nota: "Calculado y confirmado: 24 a 35 meses, NINO"
+  - id: oms2016-002
+    inicio: "Anaemia has been estimated to cause 68.4 million years lost to disability in"
+    confirmado: true
+    nota: "Calculado y confirmado: sin límite de edad, GENERAL"
+  - id: oms2016-025
+    inicio: "Participants of the guideline development group meetings participated in their"
+    confirmado: true
+    nota: "Calculado y confirmado: sin límite de edad, GENERAL"
