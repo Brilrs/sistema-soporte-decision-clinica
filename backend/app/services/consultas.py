@@ -39,15 +39,21 @@ from app.rag.parametros import ParametrosRecuperacion, parametros_recuperacion
 from app.rag.proteccion import serializar
 from app.rag.recuperacion import FILTRO_VECTORIAL, Servicios
 from app.rag.registro import cerrar_consulta_con_tiempos
-from app.rag.validacion import TAMIZAJE_NO_VIGENTE
+from app.rag.validacion import DATOS_FALTANTES, TAMIZAJE_NO_VIGENTE
 from app.rag.verificacion import ERROR, MENSAJE_NO_EVALUADA
+from app.services.decisiones import opciones_decision
 
 log = logging.getLogger(__name__)
 _FIN = object()
 
 
 class ErrorSolicitud(Exception):
-    """La consulta no se puede iniciar (tamizaje de otro paciente, sin tamizaje, consulta previa inválida)."""
+    """La consulta no se puede iniciar (tamizaje de otro paciente, sin tamizaje, consulta previa
+    inválida). codigo es el estado HTTP que corresponde: 422 o 409 (consulta ya reanudada)."""
+
+    def __init__(self, mensaje: str, codigo: int = 422):
+        super().__init__(mensaje)
+        self.codigo = codigo
 
 
 @dataclass(frozen=True)
@@ -70,6 +76,8 @@ class EntornoConsulta:
     limites: Limites
     parametros: ParametrosRecuperacion | None = None
     fecha_referencia: date | None = None
+    # Solo para las mediciones: versión del prompt en memoria (None usa VERSION_PROMPT).
+    version_prompt: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -180,11 +188,23 @@ def resolver_tamizaje(c: Connection, solicitud: SolicitudConsulta) -> str:
     return reciente
 
 
-def comprobar_consulta_previa(c: Connection, id_consulta_previa: str, id_tamizaje: str) -> None:
-    previa = c.execute(text("SELECT id_tamizaje::text, estado FROM asistencia.consulta "
-                            "WHERE id_consulta = CAST(:c AS uuid)"), {"c": id_consulta_previa}).first()
-    if previa is None or previa.id_tamizaje != id_tamizaje or previa.estado != TAMIZAJE_NO_VIGENTE:
-        raise ErrorSolicitud("La consulta previa no corresponde a un tamizaje no vigente de este paciente")
+ESTADOS_QUE_SE_REANUDAN = (TAMIZAJE_NO_VIGENTE, DATOS_FALTANTES)
+
+
+def comprobar_consulta_previa(c: Connection, id_consulta_previa: str, id_tamizaje: str,
+                              id_usuario: str | None = None) -> None:
+    """La consulta previa debe ser del mismo tamizaje (y del mismo profesional, si se
+    indica), haber terminado en TAMIZAJE_NO_VIGENTE o DATOS_FALTANTES y no haberse
+    reanudado antes."""
+    previa = c.execute(text(
+        """SELECT id_tamizaje::text, id_usuario::text, estado,
+                  EXISTS (SELECT 1 FROM asistencia.consulta s WHERE s.id_consulta_previa = q.id_consulta) AS reanudada
+             FROM asistencia.consulta q WHERE id_consulta = CAST(:c AS uuid)"""), {"c": id_consulta_previa}).first()
+    if (previa is None or previa.id_tamizaje != id_tamizaje or previa.estado not in ESTADOS_QUE_SE_REANUDAN
+            or (id_usuario is not None and previa.id_usuario != id_usuario)):
+        raise ErrorSolicitud("La consulta previa no corresponde a una consulta pendiente de este paciente")
+    if previa.reanudada:
+        raise ErrorSolicitud("La consulta previa ya se reanudó", 409)
 
 
 def preparar(solicitud: SolicitudConsulta, entorno: EntornoConsulta) -> str:
@@ -193,7 +213,7 @@ def preparar(solicitud: SolicitudConsulta, entorno: EntornoConsulta) -> str:
     with entorno.clinica.begin() as c:
         id_tamizaje = resolver_tamizaje(c, solicitud)
         if solicitud.id_consulta_previa:
-            comprobar_consulta_previa(c, solicitud.id_consulta_previa, id_tamizaje)
+            comprobar_consulta_previa(c, solicitud.id_consulta_previa, id_tamizaje, solicitud.id_usuario)
     return id_tamizaje
 
 
@@ -205,7 +225,8 @@ def _evento_fin(final: dict) -> dict:
     respuesta = final.get("respuesta")
     return {
         "tipo": "fin", "id_consulta": final["id_consulta"], "id_paciente": final["id_paciente"],
-        "estado": final["estado_final"], "mensaje": final.get("mensaje"),
+        "id_consulta_previa": final.get("id_consulta_previa"), "estado": final["estado_final"],
+        "mensaje": final.get("mensaje"), "idioma": final.get("idioma"),
         "datos_faltantes": [f["etiqueta"] for f in validacion.get("faltantes", [])],
         "vigencia": {"dias_transcurridos": validacion.get("dias_transcurridos"),
                      "dias_vigencia": validacion.get("dias_vigencia"),
@@ -215,7 +236,7 @@ def _evento_fin(final: dict) -> dict:
             campo: respuesta.get(campo) for campo in ("resumen", "recomendacion", "advertencias",
                                                       "factores_identificados")},
         "citas": final.get("citas", []), "intentos": len(final.get("intentos", [])),
-        "tiempos_ms": final.get("tiempos_ms"),
+        "opciones_decision": opciones_decision(final["estado_final"]), "tiempos_ms": final.get("tiempos_ms"),
     }
 
 
@@ -235,7 +256,8 @@ def ejecutar_en_hilo(solicitud: SolicitudConsulta, id_tamizaje: str, entorno: En
     (para las pruebas y las mediciones), ya sin el texto original ni las huellas."""
     ctx = Contexto(entorno.clinica, entorno.generacion, entorno.servicios, entorno.dominio, entorno.cliente,
                    entorno.limites, emitir, inicio, parametros=entorno.parametros,
-                   fecha_referencia=entorno.fecha_referencia, texto_consulta=solicitud.texto_consulta)
+                   fecha_referencia=entorno.fecha_referencia, version_prompt=entorno.version_prompt,
+                   texto_consulta=solicitud.texto_consulta)
     entrada = {"id_tamizaje": id_tamizaje, "id_paciente": solicitud.id_paciente, "id_usuario": solicitud.id_usuario,
                "confirma_tamizaje_no_vigente": solicitud.confirma_tamizaje_no_vigente,
                "id_consulta_previa": solicitud.id_consulta_previa}
@@ -246,35 +268,57 @@ def ejecutar_en_hilo(solicitud: SolicitudConsulta, id_tamizaje: str, entorno: En
         if ctx.id_consulta:
             _cerrar_con_error(ctx)
         ctx.evento({"tipo": "error", "id_consulta": ctx.id_consulta, "id_paciente": solicitud.id_paciente,
-                    "estado": ERROR, "mensaje": MENSAJE_NO_EVALUADA})
+                    "estado": ERROR, "mensaje": MENSAJE_NO_EVALUADA,
+                    "opciones_decision": opciones_decision(ERROR) if ctx.id_consulta else []})
     finally:
         ctx.texto_consulta = None
         ctx.huellas = None
     return ctx
 
 
-async def ejecutar_consulta(solicitud: SolicitudConsulta,
-                            entorno: EntornoConsulta | None = None) -> AsyncIterator[dict]:
-    """Generador asíncrono de eventos de una consulta. ErrorSolicitud sale antes del primer evento."""
+async def ejecutar_consulta(solicitud: SolicitudConsulta, entorno: EntornoConsulta | None = None,
+                            id_tamizaje: str | None = None) -> AsyncIterator[dict]:
+    """Generador asíncrono de eventos de una consulta. ErrorSolicitud sale antes del primer
+    evento (la API llama antes a preparar() y pasa id_tamizaje para responder 4xx sin abrir
+    el stream).
+
+    Si quien consume deja de leer (el cliente HTTP cerró la conexión), el grafo sigue en su
+    hilo hasta el final: la consulta queda con su estado real, sus intentos y su
+    auditoría, y las sesiones se cierran al terminar cada nodo. Los eventos que ya nadie
+    lee se descartan."""
     inicio = time.perf_counter()
     entorno = entorno or entorno_por_defecto()
-    id_tamizaje = await asyncio.to_thread(preparar, solicitud, entorno)
+    if id_tamizaje is None:
+        id_tamizaje = await asyncio.to_thread(preparar, solicitud, entorno)
     loop = asyncio.get_running_loop()
     cola: asyncio.Queue = asyncio.Queue()
+    sin_lector = threading.Event()
 
-    def emitir(evento: dict) -> None:
-        loop.call_soon_threadsafe(cola.put_nowait, evento)
+    def poner(elemento) -> None:
+        if sin_lector.is_set():
+            return
+        try:
+            loop.call_soon_threadsafe(cola.put_nowait, elemento)
+        except RuntimeError:  # el bucle de eventos ya se cerró
+            sin_lector.set()
 
     def trabajo() -> None:
         try:
-            ejecutar_en_hilo(solicitud, id_tamizaje, entorno, emitir, inicio)
+            ejecutar_en_hilo(solicitud, id_tamizaje, entorno, poner, inicio)
         finally:
-            loop.call_soon_threadsafe(cola.put_nowait, _FIN)
+            poner(_FIN)
 
     tarea = loop.run_in_executor(None, trabajo)
-    while (evento := await cola.get()) is not _FIN:
-        yield evento
-    await tarea
+    terminado = False
+    try:
+        while (evento := await cola.get()) is not _FIN:
+            yield evento
+        terminado = True
+        await tarea
+    finally:
+        if not terminado:
+            sin_lector.set()
+            log.info("El cliente dejó de leer la consulta; el grafo termina en segundo plano")
 
 
 async def eventos_de(solicitud: SolicitudConsulta, entorno: EntornoConsulta | None = None) -> list[dict]:

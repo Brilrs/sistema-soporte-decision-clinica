@@ -34,7 +34,7 @@ import time
 import threading
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from functools import lru_cache
 from typing import Any, TypedDict
@@ -119,6 +119,8 @@ class Contexto:
     inicio: float
     parametros: ParametrosRecuperacion | None = None
     fecha_referencia: date | None = None
+    # Versión del prompt solo para las mediciones (medir_consulta --versiones-prompt); None usa VERSION_PROMPT.
+    version_prompt: str | None = None
     texto_consulta: str | None = field(default=None, repr=False)
     huellas: HuellasPaciente | None = field(default=None, repr=False)
     id_consulta: str | None = None
@@ -322,6 +324,10 @@ def proteger(estado: Estado, ctx: Contexto) -> dict:
 def generar(estado: Estado, ctx: Contexto) -> dict:
     with _sesion(ctx, GENERACION) as c:
         config = gen.configuracion_generacion(c)
+    if ctx.version_prompt:
+        if ctx.version_prompt not in gen.VERSIONES_PROMPT:
+            raise ValueError(f"No hay prompt para la versión {ctx.version_prompt}")
+        config = replace(config, version_prompt=ctx.version_prompt)
     tiempos = dict(estado["tiempos_intento"])
     inicio = time.perf_counter()
     with _turno(ctx, LLM) as espera:
@@ -388,9 +394,13 @@ def verificar(estado: Estado, ctx: Contexto) -> dict:
     return cambios
 
 
+ETIQUETA_TRADUCCION = "Traducción de apoyo, no oficial"
+
+
 def _cita(cita: dict, solicitud) -> dict:
     f = solicitud.etiquetas[cita["etiqueta"]]
     return {"etiqueta": cita["etiqueta"], "extracto": cita["extracto"], "extracto_traducido": cita["extracto_traducido"],
+            "etiqueta_traduccion": ETIQUETA_TRADUCCION if cita["extracto_traducido"] else None,
             "fuente": f.codigo_documento, "documento": f.documento, "seccion": f.seccion,
             "pagina_inicio": f.pagina_inicio, "pagina_fin": f.pagina_fin, "idioma": f.idioma}
 
