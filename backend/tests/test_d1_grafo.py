@@ -166,7 +166,8 @@ def test_datos_faltantes_y_fuera_de_dominio_terminan_en_validar(entorno, consult
         eventos = _caso_e2e(entorno, consultas, super_engine, id_caso)
         assert [e["etapa"] for e in eventos if e["tipo"] == "etapa"] == ["validar", "salida"]
         fin = eventos[-1]
-        assert fin["estado"] == estado and fin["intentos"] == 0 and not fin["_cliente"].llamadas
+        assert fin["estado"] == estado and fin["numero_intentos"] == 0 and fin["intentos"] == []
+        assert not fin["_cliente"].llamadas and fin["verificacion"] is None and fin["modo_prueba"] is False
         assert not _intentos(super_engine, fin["id_consulta"])
     assert fin["mensaje"] == g.MENSAJE_FUERA_DE_DOMINIO
 

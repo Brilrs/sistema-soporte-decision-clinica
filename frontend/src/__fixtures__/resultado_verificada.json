@@ -1,0 +1,91 @@
+{
+  "id_consulta": "00000000-0000-4000-8000-000000000001",
+  "id_paciente": "00000000-0000-4000-8000-000000000002",
+  "id_tamizaje": "00000000-0000-4000-8000-000000000003",
+  "id_consulta_previa": null,
+  "estado": "VERIFICADA",
+  "mensaje": null,
+  "idioma": "es",
+  "texto_filtrado": "¿Qué recomienda la OMS sobre la suplementación con hierro en niños de 24 a 59 meses?",
+  "numero_intentos": 1,
+  "fecha_hora_inicio": "2026-10-20T10:00:00-05:00",
+  "fecha_hora_fin": "2026-10-20T10:00:00-05:00",
+  "latencia_total_ms": 100,
+  "datos_faltantes": [],
+  "vigencia": {
+    "dias_transcurridos": 6,
+    "dias_vigencia": 30,
+    "continua_con_tamizaje_no_vigente": false
+  },
+  "clasificacion": {
+    "categoria": "SIN_ANEMIA",
+    "nivel_riesgo": "BAJO",
+    "hb_ajustada_g_dl": 11.4,
+    "ajuste_hb_g_dl": 0.0,
+    "altitud_msnm": 355,
+    "requiere_derivacion": false
+  },
+  "recomendacion": {
+    "resumen": "Respuesta simulada a partir del fragmento citado.",
+    "recomendacion": [
+      {
+        "tipo": "PREVENCION",
+        "texto": "Seguir la indicación del fragmento citado.",
+        "citas": [
+          "F-05"
+        ]
+      }
+    ],
+    "advertencias": [],
+    "factores_identificados": []
+  },
+  "citas": [
+    {
+      "etiqueta": "F-05",
+      "extracto": "WHO (OMS) recommends daily iron supplementation (suplementación con hierro) with 30 mg elemental iron for children aged 24 to 59 months where anaemia prevalence is 40% or higher",
+      "extracto_traducido": "Traducción de apoyo simulada: WHO (OMS) recommends daily iron supplementation (suplementación con hierro) with 30 mg elemental iron for children aged 24 to 59 months where anaemia prevalence is 40% or higher",
+      "etiqueta_traduccion": "Traducción de apoyo, no oficial",
+      "fuente": "PRUEBA-C-OMS",
+      "documento": "Guía de prueba PRUEBA-C-OMS",
+      "seccion": "Sección 1",
+      "pagina_inicio": 1,
+      "pagina_fin": 1,
+      "idioma": "en",
+      "puntaje_reranker": 0.105
+    }
+  ],
+  "intentos": [
+    {
+      "numero": 1,
+      "tipo_busqueda": "INICIAL",
+      "candidatos_evaluados": 6,
+      "relevancia_maxima": 0.342,
+      "umbral_relevancia": 0.05,
+      "resultado": "APROBADO"
+    }
+  ],
+  "verificacion": {
+    "numero_intento": 1,
+    "valida_citas": true,
+    "valida_consistencia": true,
+    "valida_evidencia": true,
+    "relevancia_maxima": 0.342,
+    "umbral_relevancia": 0.05
+  },
+  "modo_prueba": true,
+  "decision": null,
+  "opciones_decision": [
+    {
+      "tipo": "ACEPTA_RECOMENDACION",
+      "nota_obligatoria": false
+    },
+    {
+      "tipo": "MODIFICA_RECOMENDACION",
+      "nota_obligatoria": true
+    },
+    {
+      "tipo": "CRITERIO_CLINICO_PROPIO",
+      "nota_obligatoria": false
+    }
+  ]
+}

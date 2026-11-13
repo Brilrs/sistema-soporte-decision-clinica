@@ -1,0 +1,64 @@
+{
+  "id_consulta": "00000000-0000-4000-8000-000000000001",
+  "id_paciente": "00000000-0000-4000-8000-000000000002",
+  "id_tamizaje": "00000000-0000-4000-8000-000000000003",
+  "id_consulta_previa": null,
+  "estado": "EVIDENCIA_INSUFICIENTE",
+  "mensaje": "Evidencia insuficiente: aplicar criterio clínico.",
+  "idioma": "es",
+  "texto_filtrado": "¿Cuántas horas hay que esperar entre el antiparasitario y el sulfato ferroso si se dan el mismo día?",
+  "numero_intentos": 2,
+  "fecha_hora_inicio": "2026-10-20T10:00:00-05:00",
+  "fecha_hora_fin": "2026-10-20T10:00:00-05:00",
+  "latencia_total_ms": 100,
+  "datos_faltantes": [],
+  "vigencia": {
+    "dias_transcurridos": 2,
+    "dias_vigencia": 30,
+    "continua_con_tamizaje_no_vigente": false
+  },
+  "clasificacion": {
+    "categoria": "ANEMIA_MODERADA",
+    "nivel_riesgo": "ALTO",
+    "hb_ajustada_g_dl": 8.9,
+    "ajuste_hb_g_dl": 0.0,
+    "altitud_msnm": 160,
+    "requiere_derivacion": false
+  },
+  "recomendacion": null,
+  "citas": [],
+  "intentos": [
+    {
+      "numero": 1,
+      "tipo_busqueda": "INICIAL",
+      "candidatos_evaluados": 6,
+      "relevancia_maxima": 0.237,
+      "umbral_relevancia": 0.05,
+      "resultado": "REINTENTO"
+    },
+    {
+      "numero": 2,
+      "tipo_busqueda": "AMPLIADA",
+      "candidatos_evaluados": 6,
+      "relevancia_maxima": 0.237,
+      "umbral_relevancia": 0.05,
+      "resultado": "EVIDENCIA_INSUFICIENTE"
+    }
+  ],
+  "verificacion": {
+    "numero_intento": 2,
+    "valida_citas": true,
+    "valida_consistencia": true,
+    "valida_evidencia": false,
+    "relevancia_maxima": 0.237,
+    "umbral_relevancia": 0.05
+  },
+  "modo_prueba": true,
+  "decision": null,
+  "opciones_decision": [
+    {
+      "tipo": "CRITERIO_CLINICO_PROPIO",
+      "nota_obligatoria": false
+    }
+  ]
+}

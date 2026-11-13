@@ -1,0 +1,35 @@
+{
+  "id_consulta": "00000000-0000-4000-8000-000000000001",
+  "id_paciente": "00000000-0000-4000-8000-000000000002",
+  "id_tamizaje": "00000000-0000-4000-8000-000000000003",
+  "id_consulta_previa": null,
+  "estado": "DATOS_FALTANTES",
+  "mensaje": "Faltan datos obligatorios del tamizaje: hemoglobina. Complete el registro para continuar.",
+  "idioma": "es",
+  "texto_filtrado": "¿Qué suplementación con hierro le corresponde?",
+  "numero_intentos": 0,
+  "fecha_hora_inicio": "2026-10-20T10:00:00-05:00",
+  "fecha_hora_fin": "2026-10-20T10:00:00-05:00",
+  "latencia_total_ms": 100,
+  "datos_faltantes": [
+    {
+      "campo": "hemoglobina_g_dl",
+      "etiqueta": "hemoglobina",
+      "mensaje": "La hemoglobina es necesaria para calcular la clasificación de anemia.",
+      "completado": false
+    }
+  ],
+  "vigencia": {
+    "dias_transcurridos": null,
+    "dias_vigencia": null,
+    "continua_con_tamizaje_no_vigente": false
+  },
+  "clasificacion": null,
+  "recomendacion": null,
+  "citas": [],
+  "intentos": [],
+  "verificacion": null,
+  "modo_prueba": false,
+  "decision": null,
+  "opciones_decision": []
+}

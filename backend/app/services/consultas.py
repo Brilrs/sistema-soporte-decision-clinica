@@ -32,7 +32,7 @@ from sqlalchemy import Connection, Engine, text
 
 from app.core.config import get_settings
 from app.rag import generacion as gen
-from app.rag.cliente_llm import ENTORNO_PRUEBAS, ClienteLLM, entorno_actual
+from app.rag.cliente_llm import ENTORNO_PRUEBAS, MODELO_FALSO, ClienteLLM, entorno_actual
 from app.rag.dominio import FiltroDominio
 from app.rag.grafo import Contexto, Limites, ejecutar_grafo, grafo, resumen_tiempos
 from app.rag.parametros import ParametrosRecuperacion, parametros_recuperacion
@@ -154,7 +154,11 @@ class ClienteNoDisponible:
 
 @lru_cache
 def _cliente_llm_por_defecto() -> ClienteLLM:
-    from app.rag.cliente_llm import ClienteAnthropic, ErrorAPI, ErrorEntornoPruebas
+    from app.rag.cliente_llm import APROBADA, ClienteAnthropic, ClienteFalso, ErrorAPI, ErrorEntornoPruebas
+    if get_settings().llm == "falso":
+        # Solo con CDSS_ENTORNO=desarrollo (lo garantiza Settings): resultados marcados modo_prueba.
+        log.warning("CDSS_LLM=falso: las consultas usan el cliente falso del modelo de lenguaje (modo de prueba)")
+        return ClienteFalso([APROBADA])
     try:
         return ClienteAnthropic()
     except (ErrorAPI, ErrorEntornoPruebas) as e:
@@ -235,9 +239,31 @@ def _evento_fin(final: dict) -> dict:
         "recomendacion": None if respuesta is None else {
             campo: respuesta.get(campo) for campo in ("resumen", "recomendacion", "advertencias",
                                                       "factores_identificados")},
-        "citas": final.get("citas", []), "intentos": len(final.get("intentos", [])),
+        "citas": final.get("citas", []), "numero_intentos": len(final.get("intentos", [])),
+        "intentos": [intento_publico(i) for i in final.get("intentos", [])],
+        "verificacion": verificacion_de(final.get("intentos", [])),
+        "modo_prueba": any(i.get("modelo") == MODELO_FALSO for i in final.get("intentos", [])),
         "opciones_decision": opciones_decision(final["estado_final"]), "tiempos_ms": final.get("tiempos_ms"),
     }
+
+
+CAMPOS_INTENTO = ("numero", "tipo_busqueda", "candidatos_evaluados", "relevancia_maxima", "umbral_relevancia",
+                  "resultado")
+CAMPOS_VERIFICACION = ("valida_citas", "valida_consistencia", "valida_evidencia", "relevancia_maxima",
+                       "umbral_relevancia")
+
+
+def intento_publico(intento: dict) -> dict:
+    """Lo que la interfaz muestra de un intento (M07, detalle de la búsqueda)."""
+    return {campo: intento.get(campo) for campo in CAMPOS_INTENTO}
+
+
+def verificacion_de(intentos: list[dict]) -> dict | None:
+    """Controles 6.1 a 6.3 y relevancia del intento que decide: el aprobado o, si no hay, el último."""
+    if not intentos:
+        return None
+    decisivo = next((i for i in intentos if i.get("resultado") == "APROBADO"), intentos[-1])
+    return {campo: decisivo.get(campo) for campo in CAMPOS_VERIFICACION} | {"numero_intento": decisivo["numero"]}
 
 
 def _cerrar_con_error(ctx: Contexto) -> None:

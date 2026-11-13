@@ -66,6 +66,8 @@ services:
       MAX_CONCURRENCIA_RERANKER: ${MAX_CONCURRENCIA_RERANKER:-}
       MAX_CONCURRENCIA_LLM: ${MAX_CONCURRENCIA_LLM:-4}
       CALENTAR_LLM: ${CALENTAR_LLM:-false}
+      # real (API de Anthropic) o falso (cliente falso, solo con CDSS_ENTORNO=desarrollo; marca modo_prueba)
+      CDSS_LLM: ${CDSS_LLM:-real}
       ANONYMIZED_TELEMETRY: "FALSE"
       CORS_ORIGENES: '["http://localhost:8080","http://localhost:5173"]'
     mem_limit: 512m

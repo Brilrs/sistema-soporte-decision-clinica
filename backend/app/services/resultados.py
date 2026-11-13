@@ -15,10 +15,12 @@ from sqlalchemy import Connection, text
 from sqlalchemy.orm import Session
 
 from app.rag import grafo as g
+from app.rag.cliente_llm import MODELO_FALSO
 from app.rag.generacion import interpretar
 from app.rag.parametros import leer_parametros
 from app.rag.validacion import DATOS_MINIMOS, TAMIZAJE_NO_VIGENTE, leer_clasificacion
 from app.rag.verificacion import EVIDENCIA_INSUFICIENTE, ERROR, MENSAJE_EVIDENCIA_INSUFICIENTE, MENSAJE_NO_EVALUADA
+from app.services.consultas import intento_publico, verificacion_de
 from app.services.decisiones import leer_decision, opciones_decision
 
 ETIQUETAS = {campo: etiqueta for campo, etiqueta, _ in DATOS_MINIMOS}
@@ -110,14 +112,17 @@ def parte_clinica(sesion: Session | Connection, f: FichaConsulta) -> dict:
     }
 
 
-_RESPUESTA = """
-    SELECT i.id_intento::text, i.respuesta_borrador
-      FROM asistencia.intento_generacion i
-     WHERE i.id_consulta = CAST(:c AS uuid) AND i.resultado = 'APROBADO'
+_INTENTOS = """
+    SELECT id_intento::text, numero_intento AS numero, tipo_busqueda, candidatos_evaluados, relevancia_maxima,
+           umbral_relevancia, resultado, valida_citas, valida_consistencia, valida_evidencia, modelo_llm,
+           respuesta_borrador
+      FROM asistencia.intento_generacion
+     WHERE id_consulta = CAST(:c AS uuid)
+     ORDER BY numero_intento
 """
 _CITAS = """
     SELECT r.etiqueta_cita, ce.texto_citado, ce.extracto_traducido, d.codigo_documento, d.titulo, d.idioma,
-           f.seccion, f.pagina_inicio, f.pagina_fin
+           f.seccion, f.pagina_inicio, f.pagina_fin, r.puntaje_reranker
       FROM asistencia.cita_evidencia ce
       JOIN asistencia.fragmento_recuperado r ON r.id_intento = ce.id_intento AND r.id_fragmento = ce.id_fragmento
       JOIN conocimiento.fragmento f ON f.id_fragmento = ce.id_fragmento
@@ -127,20 +132,64 @@ _CITAS = """
 """
 
 
+def _numero(valor) -> float | None:
+    return None if valor is None else float(valor)
+
+
 def parte_generacion(sesion: Session | Connection, id_consulta: str) -> dict:
-    """Con cdss_generacion: la recomendación aprobada y sus citas (vacías si no hay)."""
-    fila = sesion.execute(text(_RESPUESTA), {"c": id_consulta}).first()
+    """Con cdss_generacion: intentos (búsqueda y controles), verificación, modo de prueba y la
+    recomendación aprobada con sus citas (vacías si no hay)."""
+    filas = sesion.execute(text(_INTENTOS), {"c": id_consulta}).all()
+    intentos = [{"numero": f.numero, "tipo_busqueda": f.tipo_busqueda, "candidatos_evaluados": f.candidatos_evaluados,
+                 "relevancia_maxima": _numero(f.relevancia_maxima), "umbral_relevancia": _numero(f.umbral_relevancia),
+                 "resultado": f.resultado, "valida_citas": f.valida_citas,
+                 "valida_consistencia": f.valida_consistencia, "valida_evidencia": f.valida_evidencia}
+                for f in filas]
+    base = {"intentos": [intento_publico(i) for i in intentos], "verificacion": verificacion_de(intentos),
+            "modo_prueba": any(f.modelo_llm == MODELO_FALSO for f in filas), "recomendacion": None, "citas": []}
+    fila = next((f for f in filas if f.resultado == "APROBADO"), None)
     if fila is None:
-        return {"recomendacion": None, "citas": []}
+        return base
     respuesta, _ = interpretar(fila.respuesta_borrador or "")
     citas = [{"etiqueta": c.etiqueta_cita, "extracto": c.texto_citado, "extracto_traducido": c.extracto_traducido,
               "etiqueta_traduccion": g.ETIQUETA_TRADUCCION if c.extracto_traducido else None,
               "fuente": c.codigo_documento, "documento": c.titulo, "seccion": c.seccion,
-              "pagina_inicio": c.pagina_inicio, "pagina_fin": c.pagina_fin, "idioma": c.idioma}
+              "pagina_inicio": c.pagina_inicio, "pagina_fin": c.pagina_fin, "idioma": c.idioma,
+              "puntaje_reranker": _numero(c.puntaje_reranker)}
              for c in sesion.execute(text(_CITAS), {"i": fila.id_intento})]
     recomendacion = None if respuesta is None else {
         campo: respuesta.get(campo) for campo in ("resumen", "recomendacion", "advertencias", "factores_identificados")}
-    return {"recomendacion": recomendacion, "citas": citas}
+    return {**base, "recomendacion": recomendacion, "citas": citas}
+
+
+_LISTA = """
+    SELECT q.id_consulta::text, q.id_tamizaje::text, t.fecha_tamizaje, q.id_consulta_previa::text, q.estado,
+           q.texto_filtrado, q.idioma_respuesta AS idioma, q.fecha_hora_inicio, q.fecha_hora_fin, q.numero_intentos,
+           q.latencia_total_ms, q.confirma_tamizaje_no_vigente, c.nombre AS categoria, dc.tipo_decision
+      FROM asistencia.consulta q
+      JOIN clinico.tamizaje t ON t.id_tamizaje = q.id_tamizaje
+      LEFT JOIN clinico.resultado_clasificacion r ON r.id_tamizaje = q.id_tamizaje
+      LEFT JOIN configuracion.categoria_anemia c ON c.id_categoria = r.id_categoria
+      LEFT JOIN asistencia.decision_clinica dc ON dc.id_consulta = q.id_consulta
+     WHERE t.id_paciente = CAST(:p AS uuid) AND q.id_usuario = CAST(:u AS uuid)
+     ORDER BY q.fecha_hora_inicio DESC
+"""
+_MODO_PRUEBA = """
+    SELECT id_consulta::text FROM asistencia.intento_generacion
+     WHERE id_consulta = ANY(CAST(:ids AS uuid[])) AND modelo_llm = :m
+"""
+
+
+def consultas_del_paciente(clinica: Session | Connection, generacion: Session | Connection, id_paciente: str,
+                           id_usuario: str) -> list[dict]:
+    """Consultas del paciente hechas por el usuario (las de otros profesionales no se listan),
+    de la más reciente a la más antigua. La marca de prueba se lee con cdss_generacion."""
+    filas = [dict(f._mapping) for f in clinica.execute(text(_LISTA), {"p": id_paciente, "u": id_usuario})]
+    if not filas:
+        return []
+    de_prueba = set(generacion.execute(text(_MODO_PRUEBA), {"ids": [f["id_consulta"] for f in filas],
+                                                            "m": MODELO_FALSO}).scalars())
+    return [{**f, "modo_prueba": f["id_consulta"] in de_prueba} for f in filas]
 
 
 def completar_datos(sesion: Session | Connection, f: FichaConsulta, hemoglobina_g_dl, metodo_medicion: str | None

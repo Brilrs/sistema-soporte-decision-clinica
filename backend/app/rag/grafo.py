@@ -289,7 +289,7 @@ def recuperar(estado: Estado, ctx: Contexto) -> dict:
     tiempos["recuperacion"] = _ms(inicio) - espera["ms"]
     tiempos["espera_modelos"] += espera["ms"]
     return {"recuperacion": rec, "solicitud": None, "control": None, "generacion": None, "tiempos_intento": tiempos,
-            "_evento": {"tipo_busqueda": rec.tipo_busqueda, "relevancia_maxima": rec.relevancia_maxima,
+            "_evento": {"tipo_busqueda": rec.tipo_busqueda, "relevancia_maxima": _tres(rec.relevancia_maxima),
                         "suficiente": rec.suficiente, "seleccionados": len(rec.seleccionados)}}
 
 
@@ -313,9 +313,8 @@ def proteger(estado: Estado, ctx: Contexto) -> dict:
         registro.guardar_fragmentos(c, id_intento, rec, solicitud)
         registro.registrar_bloqueo(c, estado["id_consulta"], id_intento, control, solicitud.hash_sha256)
     ctx.intentos_registrados += 1
-    intento = {"numero": numero, "tipo_busqueda": rec.tipo_busqueda, "relevancia_maxima": rec.relevancia_maxima,
-               "resultado": decision.resultado_intento, "control_identificadores": False, "tiempos_ms": tiempos,
-               "motivos": [f"Solicitud bloqueada: {control.coincidencias} coincidencias"]}
+    intento = {**_busqueda(numero, rec, decision.resultado_intento), "control_identificadores": False,
+               "tiempos_ms": tiempos, "motivos": [f"Solicitud bloqueada: {control.coincidencias} coincidencias"]}
     return {"solicitud": solicitud, "control": control, "tiempos_intento": tiempos,
             "intentos": [*estado.get("intentos", []), intento], "estado_final": SOLICITUD_BLOQUEADA,
             "mensaje": MENSAJE_BLOQUEADA, "_evento": {"control_identificadores": False}}
@@ -338,6 +337,18 @@ def generar(estado: Estado, ctx: Contexto) -> dict:
             "_evento": {"generacion": g.estado, "stop_reason": g.fin}}
 
 
+def _tres(valor: float | None) -> float | None:
+    """Con 3 decimales, como se guarda en la base (NUMERIC(4,3)): el evento fin y el GET coinciden."""
+    return None if valor is None else round(float(valor), 3)
+
+
+def _busqueda(numero: int, rec, resultado: str) -> dict:
+    """Datos de la búsqueda de un intento (M07: detalle de la búsqueda)."""
+    return {"numero": numero, "tipo_busqueda": rec.tipo_busqueda, "candidatos_evaluados": rec.candidatos_evaluados,
+            "relevancia_maxima": _tres(rec.relevancia_maxima), "umbral_relevancia": _tres(rec.umbral_relevancia),
+            "resultado": resultado, "valida_citas": None, "valida_consistencia": None, "valida_evidencia": None}
+
+
 def _fragmentos_enviados(solicitud) -> list[dict]:
     return [{"etiqueta": e, "documento": f.codigo_documento, "seccion": f.seccion,
              "puntaje_reranker": f.puntaje_reranker, "texto_inicio": f.texto[:LARGO_INICIO_FRAGMENTO]}
@@ -356,8 +367,7 @@ def verificar(estado: Estado, ctx: Contexto) -> dict:
             id_intento = registro.guardar_intento(c, estado["id_consulta"], numero, rec, decision.resultado_intento,
                                                   None, valida_evidencia=False, tiempos_ms=tiempos)
             registro.guardar_fragmentos(c, id_intento, rec, None)
-            intento = {"numero": numero, "tipo_busqueda": rec.tipo_busqueda,
-                       "relevancia_maxima": rec.relevancia_maxima, "resultado": decision.resultado_intento,
+            intento = {**_busqueda(numero, rec, decision.resultado_intento), "valida_evidencia": False,
                        "tiempos_ms": tiempos, "motivos": ["6.3: ningún fragmento alcanza el umbral (sin llamar al modelo)"]}
         else:
             inicio, v = time.perf_counter(), None
@@ -371,8 +381,9 @@ def verificar(estado: Estado, ctx: Contexto) -> dict:
                                                   config.version_prompt, solicitud, control, g, v, tiempos_ms=tiempos)
             registro.guardar_fragmentos(c, id_intento, rec, solicitud)
             intento = {
-                "numero": numero, "tipo_busqueda": rec.tipo_busqueda, "relevancia_maxima": rec.relevancia_maxima,
-                "resultado": decision.resultado_intento, "control_identificadores": True,
+                **_busqueda(numero, rec, decision.resultado_intento), "control_identificadores": True,
+                "valida_citas": v.valida_citas if v else None, "valida_consistencia": v.valida_consistencia if v else None,
+                "valida_evidencia": v.valida_evidencia if v else None,
                 "hash_solicitud": solicitud.hash_sha256, "generacion": g.estado, "stop_reason": g.fin,
                 "modelo": g.modelo, "version_prompt": config.version_prompt, "tokens_entrada": g.tokens_entrada,
                 "tokens_salida": g.tokens_salida, "tokens_razonamiento": g.tokens_razonamiento,
@@ -401,6 +412,7 @@ def _cita(cita: dict, solicitud) -> dict:
     f = solicitud.etiquetas[cita["etiqueta"]]
     return {"etiqueta": cita["etiqueta"], "extracto": cita["extracto"], "extracto_traducido": cita["extracto_traducido"],
             "etiqueta_traduccion": ETIQUETA_TRADUCCION if cita["extracto_traducido"] else None,
+            "puntaje_reranker": _tres(f.puntaje_reranker),
             "fuente": f.codigo_documento, "documento": f.documento, "seccion": f.seccion,
             "pagina_inicio": f.pagina_inicio, "pagina_fin": f.pagina_fin, "idioma": f.idioma}
 

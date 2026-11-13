@@ -1,8 +1,10 @@
-# Contrato de la API de consultas (parte D2)
+# Contrato de la API de consultas (partes D2 y E0)
 
 Formato de las rutas de consultas clínicas, para la interfaz (parte E). OpenAPI lo refleja en
 `/docs` y `/openapi.json`. El NDJSON aparece como `EventoConsulta`, con discriminador `tipo`.
-Código: `backend/app/api/routes/consultas.py`.
+Código: `backend/app/api/routes/consultas.py`. Ejemplos reales de cada estado, generados por las
+pruebas con el cliente falso, en `frontend/src/__fixtures__` (`consulta_<estado>.ndjson` y
+`resultado_<estado>.json`).
 
 ## Reglas comunes
 
@@ -19,7 +21,12 @@ Código: `backend/app/api/routes/consultas.py`.
   errores de validación del cuerpo siguen el formato de Sprint 1 (422).
 - **Auditoría** (sin texto clínico; solo ids, estados y tipos): CONSULTA_INICIADA,
   CONSULTA_PROCESADA (al cerrar, desde el grafo), CONSULTA_VISTA, TAMIZAJE_COMPLETADO,
-  DECISION_REGISTRADA, ACCESO_DENEGADO_CONSULTA y SOLICITUD_BLOQUEADA.
+  DECISION_REGISTRADA, CONSULTAS_LISTADAS, ACCESO_DENEGADO_CONSULTA y SOLICITUD_BLOQUEADA.
+- **Modo de prueba:** con `CDSS_LLM=falso` (solo se acepta con `CDSS_ENTORNO=desarrollo`; en otro
+  entorno el backend no arranca) las consultas usan el cliente falso del modelo de lenguaje, sin
+  costo. Toda consulta cuya respuesta generó el cliente falso trae `modo_prueba: true` en el evento
+  `fin`, en el resultado guardado y en la lista; la interfaz debe mostrarlo. Una consulta que no
+  llegó a generar (por ejemplo DATOS_FALTANTES) trae `false`.
 
 ## Estados finales de una consulta
 
@@ -114,7 +121,10 @@ Los campos que no corresponden al nodo no vienen.
 | `clasificacion` | objeto o null | `categoria`, `nivel_riesgo`, `hb_ajustada_g_dl`, `ajuste_hb_g_dl`, `altitud_msnm`, `requiere_derivacion` |
 | `recomendacion` | objeto o null | Solo VERIFICADA: `resumen`, `recomendacion` (pasos con `tipo`, `texto` y `citas`, una lista de etiquetas F-xx), `advertencias`, `factores_identificados` |
 | `citas` | lista | Ver «Cita» |
-| `intentos` | entero | Intentos registrados (0 a 2) |
+| `numero_intentos` | entero | Intentos registrados (0 a 2) |
+| `intentos` | lista | Ver «Intento»; vacía si no hubo búsqueda (DATOS_FALTANTES, TAMIZAJE_NO_VIGENTE, FUERA_DE_DOMINIO) |
+| `verificacion` | objeto o null | Ver «Verificación»; null si no hubo intentos |
+| `modo_prueba` | booleano | Respuesta generada por el cliente falso (ver «Reglas comunes») |
 | `opciones_decision` | lista | `{tipo, nota_obligatoria}` |
 | `tiempos_ms` | objeto | `total_ms`, `primer_evento_ms`, `por_nodo`, `etapas`, `espera_ms` |
 | `transcurrido_ms` | entero | |
@@ -146,6 +156,37 @@ Se emite ante una falla inesperada. La consulta queda en ERROR.
 | `seccion` | texto o null | Ruta de secciones |
 | `pagina_inicio`, `pagina_fin` | entero o null | Páginas del PDF |
 | `idioma` | `"es"` o `"en"` | Idioma del fragmento |
+| `puntaje_reranker` | decimal o null | Relevancia del fragmento según el reranker, de 0 a 1, con 3 decimales (columna «Relevancia» de M05) |
+
+### Intento
+
+Detalle de la búsqueda de cada intento (M07), en orden.
+
+| Campo | Tipo | Descripción |
+| --- | --- | --- |
+| `numero` | 1 o 2 | |
+| `tipo_busqueda` | `"INICIAL"` o `"AMPLIADA"` | La ampliada usa sinónimos y equivalentes en inglés |
+| `candidatos_evaluados` | entero | Fragmentos que evaluó el reranker (`CANDIDATOS_RERANKER`, hoy 8) |
+| `relevancia_maxima` | decimal o null | Mayor puntaje del reranker en el intento, con 3 decimales |
+| `umbral_relevancia` | decimal | `UMBRAL_RELEVANCIA` aplicado (hoy 0,15) |
+| `resultado` | APROBADO, REINTENTO, EVIDENCIA_INSUFICIENTE o ERROR | Decisión de la Tabla 10 para ese intento |
+
+### Verificación
+
+Controles del intento que decide: el aprobado o, si no hay, el último.
+
+| Campo | Tipo | Descripción |
+| --- | --- | --- |
+| `numero_intento` | 1 o 2 | Intento al que corresponden los controles |
+| `valida_citas` | booleano o null | 6.1: etiquetas y extractos de las citas |
+| `valida_consistencia` | booleano o null | 6.2: clasificación, derivación y dosis |
+| `valida_evidencia` | booleano o null | 6.3: suficiencia de la evidencia |
+| `relevancia_maxima` | decimal o null | |
+| `umbral_relevancia` | decimal | |
+
+Un control vale null si no se llegó a ejecutar: por ejemplo, 6.1 y 6.2 cuando ningún fragmento
+alcanzó el umbral, o los tres cuando la solicitud se bloqueó o la API falló. Las advertencias del
+modelo no se verifican contra las fuentes; solo las citas (ver `docs/mediciones_sprint2.md`, D2).
 
 ### Ejemplo (consulta verificada, recortado)
 
@@ -158,7 +199,7 @@ Se emite ante una falla inesperada. La consulta queda en ERROR.
 {"tipo":"etapa","etapa":"generar","intento":1,"ms":7407,"id_consulta":"7c1e…","generacion":"RESPUESTA","stop_reason":"end_turn","transcurrido_ms":11575}
 {"tipo":"etapa","etapa":"verificar","intento":1,"ms":32,"id_consulta":"7c1e…","resultado":"APROBADO","siguiente":null,"estado_final":"VERIFICADA","transcurrido_ms":11608}
 {"tipo":"etapa","etapa":"salida","intento":1,"ms":9,"id_consulta":"7c1e…","estado_final":"VERIFICADA","transcurrido_ms":11618}
-{"tipo":"fin","id_consulta":"7c1e…","estado":"VERIFICADA","idioma":"es","recomendacion":{…},"citas":[…],"opciones_decision":[…],"transcurrido_ms":11619}
+{"tipo":"fin","id_consulta":"7c1e…","estado":"VERIFICADA","idioma":"es","recomendacion":{…},"citas":[…],"numero_intentos":1,"intentos":[…],"verificacion":{…},"modo_prueba":false,"opciones_decision":[…],"transcurrido_ms":11619}
 ```
 
 Si el cliente cierra la conexión a mitad del stream, la consulta sigue en el servidor hasta su
@@ -181,9 +222,41 @@ Campos:
 - **Tiempos:** `numero_intentos`, `fecha_hora_inicio`, `fecha_hora_fin` y `latencia_total_ms`.
 - **Contexto clínico:** `datos_faltantes` (lista de `{campo, etiqueta, mensaje, completado}`),
   `vigencia` y `clasificacion`.
-- **Respuesta:** `recomendacion` y `citas`, con el mismo formato que el evento `fin`.
+- **Respuesta:** `recomendacion`, `citas`, `intentos`, `verificacion` y `modo_prueba`, con el
+  mismo formato que el evento `fin` (los decimales coinciden: 3 decimales en ambos).
 - **Decisión:** `decision` (`{id_decision, id_usuario, tipo_decision, nota, fecha_registro}` o
   null) y `opciones_decision`.
+
+## GET /api/pacientes/{id_paciente}/consultas
+
+Consultas del paciente hechas por el usuario autenticado, de la más reciente a la más antigua
+(M04, «Consultas previas»; M08, evaluaciones). Las de otros profesionales no se listan. El
+historial del paciente (`GET /api/pacientes/{id}/historial`) trae la misma lista en `consultas`
+(vacía si el rol no tiene REALIZAR_CONSULTA).
+
+| Código | Caso |
+| --- | --- |
+| 200 | Lista (puede estar vacía) |
+| 403 | Rol sin REALIZAR_CONSULTA (Administrador) |
+| 404 | El paciente no existe |
+
+Cada elemento (`ConsultaListada`):
+
+| Campo | Tipo | Descripción |
+| --- | --- | --- |
+| `id_consulta`, `id_tamizaje` | UUID | |
+| `fecha_tamizaje` | fecha | Tamizaje usado |
+| `id_consulta_previa` | UUID o null | Consulta que esta reanuda |
+| `estado` | estado final o EN_PROCESO | |
+| `texto_filtrado` | texto o null | Pregunta tras el filtro de identificadores |
+| `idioma` | `"es"` o `"en"` | |
+| `fecha_hora_inicio`, `fecha_hora_fin` | fecha y hora | |
+| `numero_intentos` | entero | |
+| `latencia_total_ms` | entero o null | |
+| `confirma_tamizaje_no_vigente` | booleano | |
+| `categoria` | texto o null | Clasificación del tamizaje |
+| `tipo_decision` | tipo o null | Decisión registrada, si la hay |
+| `modo_prueba` | booleano | |
 
 ## POST /api/consultas/{id_consulta}/datos-faltantes
 

@@ -1,0 +1,35 @@
+{
+  "id_consulta": "00000000-0000-4000-8000-000000000001",
+  "id_paciente": "00000000-0000-4000-8000-000000000002",
+  "id_tamizaje": "00000000-0000-4000-8000-000000000003",
+  "id_consulta_previa": null,
+  "estado": "TAMIZAJE_NO_VIGENTE",
+  "mensaje": "El tamizaje tiene 84 días y supera el plazo de vigencia de 30 días. Registre un tamizaje nuevo o confirme que desea continuar con el disponible.",
+  "idioma": "es",
+  "texto_filtrado": "¿Qué tratamiento con hierro le corresponde por su anemia y cada cuánto se controla la hemoglobina?",
+  "numero_intentos": 0,
+  "fecha_hora_inicio": "2026-10-20T10:00:00-05:00",
+  "fecha_hora_fin": "2026-10-20T10:00:00-05:00",
+  "latencia_total_ms": 100,
+  "datos_faltantes": [],
+  "vigencia": {
+    "dias_transcurridos": 84,
+    "dias_vigencia": 30,
+    "continua_con_tamizaje_no_vigente": false
+  },
+  "clasificacion": {
+    "categoria": "ANEMIA_LEVE",
+    "nivel_riesgo": "MODERADO",
+    "hb_ajustada_g_dl": 10.4,
+    "ajuste_hb_g_dl": 0.0,
+    "altitud_msnm": 160,
+    "requiere_derivacion": false
+  },
+  "recomendacion": null,
+  "citas": [],
+  "intentos": [],
+  "verificacion": null,
+  "modo_prueba": false,
+  "decision": null,
+  "opciones_decision": []
+}
