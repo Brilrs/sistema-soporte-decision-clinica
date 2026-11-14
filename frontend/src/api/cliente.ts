@@ -39,6 +39,25 @@ export function cabecerasCon(opciones: RequestInit = {}): Headers {
   return cabeceras;
 }
 
+// Sesión vencida o no válida: cualquier llamada que envió el token y recibió 401 lo borra y
+// avisa a los suscriptores (AuthContext cierra la sesión en pantalla). Un 401 sin token, como
+// el de usuario o contraseña incorrectos en el login, no avisa.
+type Oyente = () => void;
+const oyentesSesion = new Set<Oyente>();
+
+export function alExpirarSesion(oyente: Oyente): () => void {
+  oyentesSesion.add(oyente);
+  return () => {
+    oyentesSesion.delete(oyente);
+  };
+}
+
+export function revisarSesion(respuesta: Response, cabeceras: Headers): void {
+  if (respuesta.status !== 401 || !cabeceras.has("Authorization")) return;
+  guardarToken(null);
+  oyentesSesion.forEach((o) => o());
+}
+
 // ErrorApi con el «detail» del backend (texto en español) o un mensaje genérico.
 export async function errorDeRespuesta(respuesta: Response): Promise<ErrorApi> {
   let mensaje = "No se pudo completar la operación";
@@ -52,7 +71,9 @@ export async function errorDeRespuesta(respuesta: Response): Promise<ErrorApi> {
 }
 
 export async function api<T>(ruta: string, opciones: RequestInit = {}): Promise<T> {
-  const respuesta = await fetch(ruta, { ...opciones, headers: cabecerasCon(opciones) });
+  const cabeceras = cabecerasCon(opciones);
+  const respuesta = await fetch(ruta, { ...opciones, headers: cabeceras });
+  revisarSesion(respuesta, cabeceras);
   if (!respuesta.ok) throw await errorDeRespuesta(respuesta);
   return respuesta.json() as Promise<T>;
 }

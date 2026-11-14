@@ -13,6 +13,8 @@ export default function PanelPacientes({ modo = "panel" }: { modo?: "panel" | "h
   const { tienePermiso } = useAuth();
   const navegar = useNavigate();
   const puedeRegistrar = tienePermiso("REGISTRAR_PACIENTE") && modo === "panel";
+  // En el panel, «Abrir paciente» abre la consulta clínica (M04); en el historial de consultas, M08.
+  const abrirConsulta = tienePermiso("REALIZAR_CONSULTA") && modo === "panel";
   const [texto, setTexto] = useState("");
   const [busqueda, setBusqueda] = useState<PacienteListado[] | null>(null);
   const [recientes, setRecientes] = useState<PacienteListado[] | null>(null);
@@ -92,11 +94,12 @@ export default function PanelPacientes({ modo = "panel" }: { modo?: "panel" | "h
           {busqueda && <button className="boton boton--neutro boton--chico" onClick={limpiar}>Ver recientes</button>}
         </div>
         {busqueda
-          ? <TablaPacientes pacientes={busqueda} puedeRegistrar={puedeRegistrar}
+          ? <TablaPacientes pacientes={busqueda} puedeRegistrar={puedeRegistrar} abrirConsulta={abrirConsulta}
                             vacio="No se encontró ningún paciente. Revise el DNI, el N.° de historia clínica o el nombre." />
           : recientes === null
             ? <p className="vacio">Cargando…</p>
-            : <TablaPacientes pacientes={recientes} puedeRegistrar={puedeRegistrar} vacio="Aún no hay pacientes registrados." />}
+            : <TablaPacientes pacientes={recientes} puedeRegistrar={puedeRegistrar} abrirConsulta={abrirConsulta}
+                              vacio="Aún no hay pacientes registrados." />}
       </div>
     </section>
   );

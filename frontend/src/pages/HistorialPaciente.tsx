@@ -16,6 +16,7 @@ export default function HistorialPaciente() {
   const ubicacion = useLocation();
   const { tienePermiso } = useAuth();
   const puedeRegistrar = tienePermiso("REGISTRAR_PACIENTE");
+  const puedeConsultar = tienePermiso("REALIZAR_CONSULTA");
   const [ficha, setFicha] = useState<Ficha | null>(null);
   const [historial, setHistorial] = useState<Historial | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +59,9 @@ export default function HistorialPaciente() {
               </button>
             </>
           )}
-          <button className="boton boton--secundario" disabled title="Disponible en el Sprint 2">Nueva consulta</button>
+          {puedeConsultar && (
+            <button className="boton boton--secundario" onClick={() => navegar(`/pacientes/${id}/consulta`)}>Nueva consulta</button>
+          )}
         </div>
       </div>
 
