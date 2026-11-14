@@ -4,7 +4,7 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ErrorApi, useAuth } from "../auth/AuthContext";
 
 export default function Login() {
-  const { usuario, iniciarSesion } = useAuth();
+  const { usuario, iniciarSesion, avisoSesion } = useAuth();
   const navegar = useNavigate();
   const ubicacion = useLocation();
   const [nombreUsuario, setNombreUsuario] = useState("");
@@ -47,6 +47,7 @@ export default function Login() {
         <form className="login__form" onSubmit={enviar} noValidate>
           <h2>Iniciar sesión</h2>
           <p className="texto-tenue">Ingrese con su usuario institucional</p>
+          {avisoSesion && !error && <p className="alerta alerta--aviso" role="status">{avisoSesion}</p>}
 
           <label htmlFor="usuario">Usuario</label>
           <input id="usuario" autoComplete="username" value={nombreUsuario}

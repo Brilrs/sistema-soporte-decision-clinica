@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
 import Layout from "./components/Layout";
+import ConsultaClinica from "./pages/ConsultaClinica";
 import EditarPaciente from "./pages/EditarPaciente";
 import EnConstruccion from "./pages/EnConstruccion";
 import GestionUsuarios from "./pages/GestionUsuarios";
@@ -10,6 +11,7 @@ import Login from "./pages/Login";
 import NuevoTamizaje from "./pages/NuevoTamizaje";
 import PanelPacientes from "./pages/PanelPacientes";
 import RegistroPaciente from "./pages/RegistroPaciente";
+import ResultadoProvisional from "./pages/ResultadoProvisional";
 
 function Protegida({ children }: { children: JSX.Element }) {
   const { usuario, cargando } = useAuth();
@@ -28,6 +30,7 @@ function ConPermiso({ permisos, children }: { permisos: string[]; children: JSX.
 // Lectura de pacientes: quien los registra o realiza consultas (incluida la coordinación CRED).
 const LEER_PACIENTES = ["REGISTRAR_PACIENTE", "REALIZAR_CONSULTA"];
 const REGISTRAR = ["REGISTRAR_PACIENTE"];
+const CONSULTAR = ["REALIZAR_CONSULTA"];
 
 export default function App() {
   return (
@@ -40,6 +43,8 @@ export default function App() {
         <Route path="pacientes/:id/historial" element={<ConPermiso permisos={LEER_PACIENTES}><HistorialPaciente /></ConPermiso>} />
         <Route path="pacientes/:id/tamizajes/nuevo" element={<ConPermiso permisos={REGISTRAR}><NuevoTamizaje /></ConPermiso>} />
         <Route path="pacientes/:id/editar" element={<ConPermiso permisos={REGISTRAR}><EditarPaciente /></ConPermiso>} />
+        <Route path="pacientes/:id/consulta" element={<ConPermiso permisos={CONSULTAR}><ConsultaClinica /></ConPermiso>} />
+        <Route path="consultas/:id" element={<ConPermiso permisos={CONSULTAR}><ResultadoProvisional /></ConPermiso>} />
         <Route path="consultas" element={<ConPermiso permisos={LEER_PACIENTES}><PanelPacientes modo="historial" /></ConPermiso>} />
         <Route path="reportes" element={<EnConstruccion titulo="Reportes" pantalla="M09 Reporte exportable" sprint={3} />} />
         <Route path="admin/usuarios" element={<ConPermiso permisos={["ADMINISTRAR_USUARIOS"]}><GestionUsuarios /></ConPermiso>} />

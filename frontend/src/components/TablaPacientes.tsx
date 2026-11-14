@@ -4,10 +4,13 @@ import type { PacienteListado } from "../api/pacientes";
 import { VACIO, decimal, edad, fechaRelativa } from "../utilidades/formato";
 import { EtiquetaClasificacion, EtiquetaVigencia } from "./Etiquetas";
 
-export default function TablaPacientes({ pacientes, puedeRegistrar, vacio }: {
+// «Abrir» lleva a la consulta clínica (M04) si se indica abrirConsulta (panel de pacientes y rol
+// que realiza consultas); si no, al historial del paciente (M08).
+export default function TablaPacientes({ pacientes, puedeRegistrar, vacio, abrirConsulta = false }: {
   pacientes: PacienteListado[];
   puedeRegistrar: boolean;
   vacio: string;
+  abrirConsulta?: boolean;
 }) {
   const navegar = useNavigate();
   if (pacientes.length === 0) return <p className="vacio">{vacio}</p>;
@@ -43,7 +46,9 @@ export default function TablaPacientes({ pacientes, puedeRegistrar, vacio }: {
                 <td>
                   <div className="tabla__acciones">
                     <button className="boton boton--secundario boton--chico"
-                            onClick={() => navegar(`/pacientes/${p.id_paciente}/historial`)}>Abrir</button>
+                            onClick={() => navegar(`/pacientes/${p.id_paciente}/${abrirConsulta ? "consulta" : "historial"}`)}>
+                      Abrir
+                    </button>
                     {puedeRegistrar && (
                       <button className="boton boton--neutro boton--chico"
                               onClick={() => navegar(`/pacientes/${p.id_paciente}/tamizajes/nuevo`)}>+ Tamizaje</button>

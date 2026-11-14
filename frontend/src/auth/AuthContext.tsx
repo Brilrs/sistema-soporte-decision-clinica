@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import { api, ErrorApi, guardarToken, leerToken } from "../api/cliente";
+import { alExpirarSesion, api, ErrorApi, guardarToken, leerToken } from "../api/cliente";
 
 export type Usuario = {
   id_usuario: string;
@@ -16,6 +16,8 @@ type EstadoAuth = {
   cargando: boolean;
   iniciarSesion: (usuario: string, contrasena: string) => Promise<void>;
   cerrarSesion: () => void;
+  // Motivo del último cierre automático (sesión vencida); lo muestra el login.
+  avisoSesion: string | null;
   tienePermiso: (codigo: string) => boolean;
 };
 
@@ -24,6 +26,18 @@ const AuthContext = createContext<EstadoAuth | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [cargando, setCargando] = useState(true);
+  const [avisoSesion, setAvisoSesion] = useState<string | null>(null);
+
+  // Cualquier llamada que envió el token y recibe 401 (incluido el lector NDJSON) cierra la
+  // sesión en pantalla: Protegida redirige al login, que muestra el aviso.
+  useEffect(
+    () =>
+      alExpirarSesion(() => {
+        setAvisoSesion("Su sesión expiró o ya no es válida. Inicie sesión nuevamente.");
+        setUsuario(null);
+      }),
+    [],
+  );
 
   // Al recargar la página se recupera la sesión si el token sigue vigente.
   useEffect(() => {
@@ -43,18 +57,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       body: JSON.stringify({ usuario: nombreUsuario, contrasena }),
     });
     guardarToken(datos.token);
+    setAvisoSesion(null);
     setUsuario(datos.usuario);
   }, []);
 
   const cerrarSesion = useCallback(() => {
     guardarToken(null);
+    setAvisoSesion(null);
     setUsuario(null);
   }, []);
 
   const tienePermiso = useCallback((codigo: string) => !!usuario?.permisos.includes(codigo), [usuario]);
 
   return (
-    <AuthContext.Provider value={{ usuario, cargando, iniciarSesion, cerrarSesion, tienePermiso }}>
+    <AuthContext.Provider value={{ usuario, cargando, iniciarSesion, cerrarSesion, avisoSesion, tienePermiso }}>
       {children}
     </AuthContext.Provider>
   );

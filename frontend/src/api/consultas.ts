@@ -1,6 +1,6 @@
 // Consultas clínicas (Sprint 2, parte E1): lector del NDJSON por etapas y llamadas JSON.
 // Contrato: docs/contrato_consultas.md. Tipos: ./tipos_consulta.ts.
-import { api, cabecerasCon, errorDeRespuesta, guardarToken } from "./cliente";
+import { api, cabecerasCon, errorDeRespuesta, revisarSesion } from "./cliente";
 import {
   esEventoConocido,
   esEventoFinal,
@@ -84,7 +84,7 @@ function leerTrozo(
  * ignoran) y termina con el evento final («fin» o «error»), que también es el valor de retorno.
  *
  * - Respuesta distinta de 200 antes del stream: ErrorApi con el «detail» del backend. Un 401
- *   además borra el token de la sesión.
+ *   además cierra la sesión (revisarSesion).
  * - Stream sin evento final, línea inválida, plazo agotado o cancelación: ErrorConsulta, con el
  *   id_consulta si ya llegó.
  */
@@ -116,18 +116,15 @@ export async function* leerStreamConsulta(
 
   try {
     const opciones: RequestInit = { method: "POST", body: JSON.stringify(cuerpo) };
+    const cabeceras = cabecerasCon({ ...opciones, headers: { Accept: "application/x-ndjson" } });
     let respuesta: Response;
     try {
-      respuesta = await fetch(ruta, {
-        ...opciones,
-        headers: cabecerasCon({ ...opciones, headers: { Accept: "application/x-ndjson" } }),
-        signal: controlador.signal,
-      });
+      respuesta = await fetch(ruta, { ...opciones, headers: cabeceras, signal: controlador.signal });
     } catch (e) {
       throw traducir(e);
     }
     if (respuesta.status !== 200) {
-      if (respuesta.status === 401) guardarToken(null);
+      revisarSesion(respuesta, cabeceras);
       throw await errorDeRespuesta(respuesta);
     }
     respondio = true;

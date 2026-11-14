@@ -97,3 +97,20 @@ export function siNo(valor: boolean | null | undefined): string {
 export function iniciales(nombre: string): string {
   return nombre.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase();
 }
+
+// Estados de una consulta clínica (contrato de consultas, Sprint 2).
+export const ESTADOS_CONSULTA: Record<string, string> = {
+  VERIFICADA: "Verificada",
+  EVIDENCIA_INSUFICIENTE: "Evidencia insuficiente",
+  ERROR: "No se pudo evaluar",
+  DATOS_FALTANTES: "Datos faltantes",
+  TAMIZAJE_NO_VIGENTE: "Tamizaje no vigente",
+  FUERA_DE_DOMINIO: "Fuera del alcance",
+  SOLICITUD_BLOQUEADA: "Solicitud bloqueada",
+  EN_PROCESO: "En proceso",
+};
+
+// Milisegundos como segundos con un decimal y coma («5,1 s»).
+export function segundos(ms: number): string {
+  return `${decimal(Math.max(ms, 0) / 1000)} s`;
+}
