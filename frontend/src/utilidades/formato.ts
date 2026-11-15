@@ -59,7 +59,15 @@ export function edad(meses: number | null | undefined): string {
   return `${meses} ${meses === 1 ? "mes" : "meses"}`;
 }
 
-// Decimales con coma, como se escriben en Perú.
+// Edad que usó el sistema (al tamizaje) y, si ya cambió, la de hoy entre paréntesis. Sin el
+// tamizaje en el historial, queda la edad actual.
+export function edadCabecera(edadTamizaje: number | null, edadActual: number): string {
+  if (edadTamizaje === null) return edad(edadActual);
+  if (edadTamizaje === edadActual) return edad(edadTamizaje);
+  return `${edad(edadTamizaje)} al tamizaje (hoy ${edad(edadActual)})`;
+}
+
+// Decimales según es-PE (CLDR usa punto decimal: «9.8»), igual en toda la aplicación.
 export function decimal(valor: string | number | null | undefined, decimales = 1): string {
   if (valor === null || valor === undefined || valor === "") return VACIO;
   return Number(valor).toLocaleString("es-PE", { minimumFractionDigits: decimales, maximumFractionDigits: decimales });
@@ -110,7 +118,26 @@ export const ESTADOS_CONSULTA: Record<string, string> = {
   EN_PROCESO: "En proceso",
 };
 
-// Milisegundos como segundos con un decimal y coma («5,1 s»).
+// Milisegundos como segundos con un decimal («5.1 s»).
 export function segundos(ms: number): string {
   return `${decimal(Math.max(ms, 0) / 1000)} s`;
 }
+
+// Niveles de riesgo de la clasificación (catálogo configuracion.categoria_anemia).
+export const NIVELES_RIESGO: Record<string, string> = {
+  BAJO: "Bajo",
+  MODERADO: "Moderado",
+  ALTO: "Alto",
+  MUY_ALTO: "Muy alto",
+  SIN_CLASIFICACION: "Sin clasificación",
+};
+
+// Tipos de paso de la recomendación (esquema_respuesta.json del backend).
+export const TIPOS_PASO: Record<string, string> = {
+  PREVENCION: "Prevención",
+  TRATAMIENTO: "Tratamiento",
+  DERIVACION: "Derivación",
+  SEGUIMIENTO: "Seguimiento",
+  CONSEJERIA: "Consejería",
+  OTRO: "Otro",
+};

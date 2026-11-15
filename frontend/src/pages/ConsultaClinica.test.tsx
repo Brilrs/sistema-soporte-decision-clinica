@@ -8,7 +8,8 @@ import { ESTADOS_FINALES, type EstadoFinal } from "../api/tipos_consulta";
 import { AuthProvider } from "../auth/AuthContext";
 import { decimal } from "../utilidades/formato";
 import { ETAPAS } from "../consulta/avance";
-import { EJEMPLO_CONSULTA, SUGERENCIA_FUERA_DE_DOMINIO } from "./ConsultaClinica";
+import { EJEMPLO_CONSULTA } from "./ConsultaClinica";
+import { SUGERENCIA_FUERA_DE_DOMINIO } from "../consulta/textos";
 import {
   GET_RESULTADO,
   ID_CONSULTA,
@@ -115,9 +116,9 @@ describe("M04 · Consulta clínica", () => {
 
     stream.enviar(...lineas.slice(5));
     stream.cerrar();
-    expect(await screen.findByText("Resultado: se construye en E3.")).toBeInTheDocument();
-    expect(screen.getByTestId("estado-resultado")).toHaveTextContent("Verificada");
-    expect(screen.getByText(`Consulta ${ID_CONSULTA}`)).toBeInTheDocument();
+    // M05 se muestra con el evento fin y el GET completa la pregunta.
+    expect(await screen.findByRole("heading", { name: "Recomendación clínica" })).toBeInTheDocument();
+    expect(screen.getByText(resultadoFixture("VERIFICADA").recomendacion!.resumen)).toBeInTheDocument();
   });
 
   it("marca el segundo intento con búsqueda ampliada", async () => {
@@ -184,8 +185,8 @@ describe("M04 · Consulta clínica", () => {
     await escribirYEnviar();
     const fin = JSON.parse(lineas[lineas.length - 1]);
     if (estado === "VERIFICADA" || estado === "EVIDENCIA_INSUFICIENTE") {
-      expect(await screen.findByText("Resultado: se construye en E3.")).toBeInTheDocument();
-      expect(screen.getByTestId("estado-resultado").parentElement).toHaveTextContent(`(${estado})`);
+      const titulo = estado === "VERIFICADA" ? "Recomendación clínica" : "Estado de la consulta";
+      expect(await screen.findByRole("heading", { name: titulo })).toBeInTheDocument();
       expect(screen.getByText(/MODO DE PRUEBA: respuesta no clínica/)).toBeInTheDocument(); // modo_prueba en el fixture
     } else {
       const alerta = await screen.findByText(fin.mensaje);
@@ -291,8 +292,7 @@ describe("M04 · Consulta clínica", () => {
     expect(f.mock.calls.filter(([r]) => r === `/api/consultas/${ID_CONSULTA}`)).toHaveLength(31);
     vi.useRealTimers();
     fireEvent.click(screen.getByRole("button", { name: "Ver resultado" }));
-    expect(await screen.findByText("Resultado: se construye en E3.")).toBeInTheDocument();
-    expect(screen.getByTestId("estado-resultado")).toHaveTextContent("En proceso");
+    expect(await screen.findByRole("heading", { name: "En proceso" })).toBeInTheDocument();
   });
 
   it("un 401 del stream cierra la sesión en pantalla", async () => {

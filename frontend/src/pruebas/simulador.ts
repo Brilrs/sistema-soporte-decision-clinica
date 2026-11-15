@@ -29,6 +29,9 @@ export function resultadoFixture(estado: EstadoFinal): ResultadoConsulta {
 // Id de las consultas de los fixtures (UUID normalizado).
 export const ID_CONSULTA = "00000000-0000-4000-8000-000000000001";
 export const ID_PACIENTE = "p-0001";
+// Paciente y tamizaje de los resultados de los fixtures (resultado_*.json).
+export const ID_PACIENTE_FIXTURE = "00000000-0000-4000-8000-000000000002";
+export const ID_TAMIZAJE_FIXTURE = "00000000-0000-4000-8000-000000000003";
 
 export function respuestaJson(estado: number, datos: unknown): Response {
   return new Response(JSON.stringify(datos), { status: estado, headers: { "Content-Type": "application/json" } });
@@ -144,6 +147,15 @@ export const HISTORIAL: Historial = {
   consultas: [],
 };
 
+// Ficha e historial del paciente de los fixtures, para M05.
+export const FICHA_FIXTURE: Ficha = { ...FICHA, id_paciente: ID_PACIENTE_FIXTURE, nombres_apellidos: "Paciente Ficticio Dos", numero_hc: "HC-PRUEBA-2" };
+export const HISTORIAL_FIXTURE: Historial = {
+  id_paciente: ID_PACIENTE_FIXTURE,
+  tamizajes: [tamizaje({ id_tamizaje: ID_TAMIZAJE_FIXTURE, hemoglobina_g_dl: "11.4" })],
+  franjas: [],
+  consultas: [],
+};
+
 // ---------------------------------------------------------------------------
 // fetch falso
 // ---------------------------------------------------------------------------
@@ -157,6 +169,8 @@ export function simularBackend(rutas: Record<string, Manejador> = {}) {
     [`GET /api/pacientes/${ID_PACIENTE}`]: () => respuestaJson(200, FICHA),
     [`GET /api/pacientes/${ID_PACIENTE}/historial`]: () => respuestaJson(200, HISTORIAL),
     [`GET /api/pacientes/${ID_PACIENTE}/consultas`]: () => respuestaJson(200, []),
+    [`GET /api/pacientes/${ID_PACIENTE_FIXTURE}`]: () => respuestaJson(200, FICHA_FIXTURE),
+    [`GET /api/pacientes/${ID_PACIENTE_FIXTURE}/historial`]: () => respuestaJson(200, HISTORIAL_FIXTURE),
   };
   const todas = { ...base, ...rutas };
   const fetchFalso = vi.fn(async (ruta: RequestInfo | URL, init?: RequestInit) => {
