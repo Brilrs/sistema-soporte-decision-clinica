@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import { ErrorApi, mensajeError } from "../api/cliente";
 import { consultasApi, ErrorConsulta, recuperarResultado } from "../api/consultas";
-import type { ConsultaEntrada, EstadoFinal, EventoConsulta, EventoFinal, ResultadoConsulta } from "../api/tipos_consulta";
+import type { ConsultaEntrada, EstadoFinal, EventoConsulta, EventoFin, EventoFinal, ResultadoConsulta } from "../api/tipos_consulta";
 import { AVANCE_INICIAL, avanzar, type Avance } from "./avance";
 
 export type Fase =
@@ -20,6 +20,8 @@ export type Desenlace = {
   id_consulta: string | null;
   mensaje: string | null;
   modo_prueba: boolean;
+  // Evento fin completo, si llegó por el stream (M05 lo muestra sin esperar el GET).
+  fin: EventoFin | null;
 };
 
 export type EstadoConsultaEnCurso = {
@@ -81,11 +83,12 @@ function reductor(s: EstadoConsultaEnCurso, a: Accion): EstadoConsultaEnCurso {
 }
 
 function desdeEvento(e: EventoFinal): Desenlace {
-  return { estado: e.estado, id_consulta: e.id_consulta, mensaje: e.mensaje, modo_prueba: e.tipo === "fin" && e.modo_prueba };
+  return { estado: e.estado, id_consulta: e.id_consulta, mensaje: e.mensaje, modo_prueba: e.tipo === "fin" && e.modo_prueba,
+           fin: e.tipo === "fin" ? e : null };
 }
 
 function desdeResultado(r: ResultadoConsulta): Desenlace {
-  return { estado: r.estado as EstadoFinal, id_consulta: r.id_consulta, mensaje: r.mensaje, modo_prueba: r.modo_prueba };
+  return { estado: r.estado as EstadoFinal, id_consulta: r.id_consulta, mensaje: r.mensaje, modo_prueba: r.modo_prueba, fin: null };
 }
 
 export const MENSAJE_SIN_ID =

@@ -12,8 +12,9 @@ import { useAuth } from "../auth/AuthContext";
 import AvanceConsulta from "../components/AvanceConsulta";
 import AvisoModoPrueba from "../components/AvisoModoPrueba";
 import ContextoSesion from "../components/ContextoSesion";
+import MensajeDesenlace from "../components/MensajeDesenlace";
 import Migas from "../components/Migas";
-import { useConsulta, type Desenlace } from "../consulta/useConsulta";
+import { useConsulta } from "../consulta/useConsulta";
 import { SEXOS, decimal, edad, iniciales } from "../utilidades/formato";
 
 export const LARGO_MAXIMO_CONSULTA = 2000;
@@ -21,46 +22,10 @@ export const LARGO_MAXIMO_CONSULTA = 2000;
 // Estados que abren la pantalla de resultado; los demás se informan en M04.
 const CON_RESULTADO: EstadoFinal[] = ["VERIFICADA", "EVIDENCIA_INSUFICIENTE"];
 
-const TITULOS: Record<EstadoFinal, string> = {
-  VERIFICADA: "Respuesta verificada",
-  EVIDENCIA_INSUFICIENTE: "Evidencia insuficiente",
-  ERROR: "No se pudo evaluar la consulta",
-  DATOS_FALTANTES: "Faltan datos del tamizaje",
-  TAMIZAJE_NO_VIGENTE: "El tamizaje no está vigente",
-  FUERA_DE_DOMINIO: "Consulta fuera del alcance del sistema",
-  SOLICITUD_BLOQUEADA: "Solicitud bloqueada para proteger los datos del paciente",
-};
-
-const MENSAJES_POR_DEFECTO: Record<EstadoFinal, string> = {
-  VERIFICADA: "",
-  EVIDENCIA_INSUFICIENTE: "",
-  ERROR: "No se pudo evaluar la consulta. Aplique su criterio clínico.",
-  DATOS_FALTANTES: "Complete el registro del tamizaje para continuar.",
-  TAMIZAJE_NO_VIGENTE: "Registre un tamizaje nuevo para continuar.",
-  FUERA_DE_DOMINIO: "El sistema responde sobre la anemia en niños de 0 a 59 meses.",
-  SOLICITUD_BLOQUEADA: "Reformule la consulta sin nombres, documentos ni números de contacto.",
-};
-
-// El filtro de dominio evalúa solo la pregunta, sin los datos del paciente: las preguntas
-// genéricas («¿Cómo lo manejo?») suelen quedar fuera. Ver docs/cambios_respecto_al_OE2.md.
-export const SUGERENCIA_FUERA_DE_DOMINIO =
-  "Si su pregunta es sobre este paciente, reformúlela mencionando el tema, por ejemplo hierro, hemoglobina, anemia o derivación.";
-
 export const EJEMPLO_CONSULTA = "Ejemplo: ¿Qué dosis de hierro le corresponde y cada cuánto controlo la hemoglobina?";
 
 const MENSAJE_CANCELADA =
   "Se canceló la espera. La consulta puede terminar igual en el servidor y quedar registrada en sus consultas previas de este paciente.";
-
-function MensajeDesenlace({ desenlace }: { desenlace: Desenlace }) {
-  const grave = desenlace.estado === "ERROR" || desenlace.estado === "SOLICITUD_BLOQUEADA";
-  return (
-    <div className={`desenlace ${grave ? "desenlace--error" : "desenlace--aviso"}`} role="alert">
-      <strong>{TITULOS[desenlace.estado]}</strong>
-      <p>{desenlace.mensaje || MENSAJES_POR_DEFECTO[desenlace.estado]}</p>
-      {desenlace.estado === "FUERA_DE_DOMINIO" && <p className="desenlace__sugerencia">{SUGERENCIA_FUERA_DE_DOMINIO}</p>}
-    </div>
-  );
-}
 
 export default function ConsultaClinica() {
   const { id = "" } = useParams();
@@ -105,7 +70,8 @@ export default function ConsultaClinica() {
     if (fase === "cancelada") cargarConsultas();
     if (fase !== "terminada" || !desenlace) return;
     if (desenlace.id_consulta && CON_RESULTADO.includes(desenlace.estado)) {
-      navegar(`/consultas/${desenlace.id_consulta}`, { state: { desenlace } });
+      // El evento fin permite mostrar M05 de inmediato; M05 completa los datos con el GET.
+      navegar(`/consultas/${desenlace.id_consulta}`, { state: { fin: desenlace.fin } });
       return;
     }
     cargarConsultas();
@@ -177,7 +143,7 @@ export default function ConsultaClinica() {
             {fase === "terminada" && desenlace && !CON_RESULTADO.includes(desenlace.estado) && (
               <>
                 {desenlace.modo_prueba && <AvisoModoPrueba />}
-                <MensajeDesenlace desenlace={desenlace} />
+                <MensajeDesenlace estado={desenlace.estado} mensaje={desenlace.mensaje} />
               </>
             )}
             {fase === "cancelada" && <p className="alerta alerta--aviso" role="status">{MENSAJE_CANCELADA}</p>}

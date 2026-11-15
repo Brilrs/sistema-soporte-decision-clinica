@@ -11,7 +11,7 @@ import Login from "./pages/Login";
 import NuevoTamizaje from "./pages/NuevoTamizaje";
 import PanelPacientes from "./pages/PanelPacientes";
 import RegistroPaciente from "./pages/RegistroPaciente";
-import ResultadoProvisional from "./pages/ResultadoProvisional";
+import ResultadoConsulta from "./pages/ResultadoConsulta";
 
 function Protegida({ children }: { children: JSX.Element }) {
   const { usuario, cargando } = useAuth();
@@ -44,7 +44,7 @@ export default function App() {
         <Route path="pacientes/:id/tamizajes/nuevo" element={<ConPermiso permisos={REGISTRAR}><NuevoTamizaje /></ConPermiso>} />
         <Route path="pacientes/:id/editar" element={<ConPermiso permisos={REGISTRAR}><EditarPaciente /></ConPermiso>} />
         <Route path="pacientes/:id/consulta" element={<ConPermiso permisos={CONSULTAR}><ConsultaClinica /></ConPermiso>} />
-        <Route path="consultas/:id" element={<ConPermiso permisos={CONSULTAR}><ResultadoProvisional /></ConPermiso>} />
+        <Route path="consultas/:id" element={<ConPermiso permisos={CONSULTAR}><ResultadoConsulta /></ConPermiso>} />
         <Route path="consultas" element={<ConPermiso permisos={LEER_PACIENTES}><PanelPacientes modo="historial" /></ConPermiso>} />
         <Route path="reportes" element={<EnConstruccion titulo="Reportes" pantalla="M09 Reporte exportable" sprint={3} />} />
         <Route path="admin/usuarios" element={<ConPermiso permisos={["ADMINISTRAR_USUARIOS"]}><GestionUsuarios /></ConPermiso>} />

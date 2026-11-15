@@ -291,3 +291,100 @@ input:disabled, input[readonly] { background: var(--gris-100); color: var(--gris
   .burbuja { max-width: 100%; }
   .ficha-cabecera .acciones { justify-content: flex-start; }
 }
+
+/* Sprint 2 · Resultado de la consulta (M05) */
+.resultado .aviso-modo-prueba { margin-top: 1rem; }
+.resultado__cabecera .resultado__pregunta { flex-basis: 100%; margin: .25rem 0 0; padding: .6rem .9rem; background: var(--gris-100);
+  border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.resultado__pregunta-rotulo { display: block; font-size: .75rem; color: var(--gris-700); margin-bottom: .15rem; }
+.resultado__pregunta .texto-tenue { color: var(--gris-700); }
+.resultado__cuerpo { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3.4fr); gap: 0 1.25rem; align-items: start;
+  grid-template-areas: "riesgo reco" "verif reco" "factores reco"; grid-template-rows: auto auto 1fr; }
+.resultado__cuerpo .tarjeta { max-width: none; }
+.resultado__riesgo { grid-area: riesgo; }
+.resultado__recomendacion { grid-area: reco; }
+.resultado__verificacion { grid-area: verif; }
+.resultado__factores { grid-area: factores; }
+.resultado__factores ul { margin: 0; padding-left: 1.2rem; }
+.resultado__otro { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 0 1.25rem; align-items: start; }
+.resultado__otro .tarjeta { max-width: none; }
+.resultado__faltantes { margin: .75rem 0 0; }
+
+.riesgo { border-left: 6px solid var(--gris-300); }
+.riesgo--BAJO { border-left-color: var(--verde); }
+.riesgo--MODERADO { border-left-color: var(--ambar); }
+.riesgo--ALTO, .riesgo--MUY_ALTO { border-left-color: var(--rojo); }
+.riesgo__titulo { font-size: .85rem; font-weight: 400; color: var(--gris-500); margin: 0; }
+.riesgo__nivel { font-size: 2rem; font-weight: 800; margin: .1rem 0 .4rem; letter-spacing: .01em; color: var(--gris-900); }
+.riesgo--BAJO .riesgo__nivel { color: var(--verde); }
+.riesgo--MODERADO .riesgo__nivel { color: var(--ambar); }
+.riesgo--ALTO .riesgo__nivel, .riesgo--MUY_ALTO .riesgo__nivel { color: var(--rojo); }
+.riesgo__datos { margin: .8rem 0 0; display: grid; gap: .35rem; font-size: .9rem; }
+.riesgo__datos div { display: flex; gap: .4rem; flex-wrap: wrap; }
+.riesgo__datos dt { color: var(--gris-700); }
+.riesgo__datos dt::after { content: ":"; }
+.riesgo__datos dd { margin: 0; font-weight: 700; }
+.riesgo__derivacion { margin: .8rem 0 0; font-size: .9rem; font-weight: 600; color: var(--gris-700); }
+.riesgo__derivacion--si { background: var(--rojo-50); color: var(--rojo); border-radius: 8px; padding: .5rem .7rem; }
+.riesgo__norma { font-size: .8rem; color: var(--gris-500); margin: .6rem 0 0; }
+
+.recomendacion__resumen { margin: 0 0 .8rem; line-height: 1.55; }
+.recomendacion__pasos { margin: 0; padding-left: 1.4rem; display: grid; gap: .6rem; line-height: 1.55; }
+.recomendacion__citas { display: inline-flex; gap: .3rem; margin-left: .35rem; flex-wrap: wrap; }
+.recomendacion__advertencias { background: var(--ambar-50); color: var(--ambar); border-radius: 8px; padding: .6rem .9rem; margin-top: 1rem; }
+.recomendacion__advertencias h3 { font-size: .95rem; margin: 0 0 .3rem; }
+.recomendacion__advertencias ul { margin: 0; padding-left: 1.2rem; }
+.resultado__recomendacion h3 { margin-top: 1.25rem; }
+.etiqueta--paso { background: var(--gris-100); color: var(--gris-700); font-size: .72rem; letter-spacing: .03em; text-transform: uppercase; }
+.etiqueta--paso-TRATAMIENTO { background: var(--azul-50); color: var(--azul-700); }
+.etiqueta--paso-DERIVACION { background: var(--rojo-50); color: var(--rojo); }
+.etiqueta--paso-SEGUIMIENTO { background: var(--turquesa-50); color: var(--turquesa); }
+.etiqueta--paso-PREVENCION, .etiqueta--paso-CONSEJERIA { background: var(--verde-50); color: var(--verde); }
+.cita-enlace { display: inline-block; background: var(--azul-50); color: var(--azul-700); border-radius: 6px; padding: .05rem .4rem;
+  font-size: .8rem; font-weight: 700; text-decoration: none; white-space: nowrap; }
+a.cita-enlace:hover { text-decoration: underline; }
+a.cita-enlace:focus-visible { outline: 2px solid var(--azul-600); outline-offset: 1px; }
+.cita-enlace--sin-fuente { background: var(--gris-100); color: var(--gris-700); }
+.resultado__aviso-decision { margin: 1rem 0 0; padding: .5rem .8rem; border-left: 4px solid var(--azul-700); background: var(--azul-50);
+  color: var(--azul-900); font-weight: 600; font-size: .9rem; }
+
+.tabla-citas__contenedor { border: 1px solid var(--gris-100); border-radius: 8px; }
+.tabla-citas__contenedor:focus-visible { outline: 2px solid var(--azul-600); }
+.tabla-citas { min-width: 640px; }
+.tabla-citas th[scope="row"], .tabla-citas td { vertical-align: top; }
+.tabla-citas th[scope="row"] { padding: .55rem .4rem; border-bottom: 1px solid var(--gris-100); }
+.tabla-citas tbody tr:focus { outline: 2px solid var(--azul-600); outline-offset: -2px; }
+.tabla-citas__fila--resaltada td, .tabla-citas__fila--resaltada th { background: var(--azul-50); }
+.cita__extracto { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .88rem; line-height: 1.45; color: var(--gris-900); }
+.cita__traduccion { margin-top: .5rem; padding-top: .45rem; border-top: 1px dashed var(--gris-300); }
+.cita__traduccion-etiqueta { display: inline-block; font-size: .72rem; font-weight: 700; color: var(--ambar); background: var(--ambar-50);
+  border-radius: 999px; padding: .05rem .5rem; }
+.cita__traduccion-texto { margin: .3rem 0 0; font-size: .85rem; color: var(--gris-700); white-space: pre-wrap; overflow-wrap: anywhere; }
+.tabla-citas__fuente { font-size: .85rem; min-width: 12rem; }
+.tabla-citas__fuente > * { display: block; }
+.tabla-citas__relevancia { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.verificacion { list-style: none; padding: 0; margin: 0; display: grid; gap: .7rem; }
+.verificacion__control { display: flex; gap: .7rem; align-items: flex-start; font-size: .92rem; }
+.verificacion__icono { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; }
+.verificacion__control--cumplido .verificacion__icono { background: var(--verde-50); color: var(--verde); }
+.verificacion__control--no_cumplido .verificacion__icono { background: var(--rojo-50); color: var(--rojo); }
+.verificacion__control--no_ejecutado .verificacion__icono { background: var(--gris-100); color: var(--gris-700); }
+.verificacion__control--cumplido .verificacion__estado { color: var(--verde); font-weight: 700; }
+.verificacion__control--no_cumplido .verificacion__estado { color: var(--rojo); font-weight: 700; }
+.verificacion__control--no_ejecutado .verificacion__estado { color: var(--gris-700); font-weight: 700; }
+.verificacion__detalle { margin: .15rem 0 0; color: var(--gris-700); font-size: .85rem; }
+.verificacion__pie { font-size: .8rem; color: var(--gris-500); margin: .9rem 0 0; }
+
+.resultado__decisiones { display: flex; flex-wrap: wrap; gap: .75rem 1.5rem; margin-top: 1.25rem; padding-top: 1rem;
+  border-top: 1px solid var(--gris-100); }
+.resultado__decisiones > div { display: flex; flex-direction: column; gap: .25rem; }
+.resultado__nota { font-size: .78rem; color: var(--gris-500); }
+
+@media (max-width: 1100px) {
+  .resultado__cuerpo { grid-template-columns: 1fr; grid-template-areas: "riesgo" "reco" "verif" "factores"; grid-template-rows: none; }
+  .resultado__otro { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .riesgo__nivel { font-size: 1.6rem; }
+}
