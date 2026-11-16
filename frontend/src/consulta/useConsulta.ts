@@ -1,9 +1,20 @@
-// Estado de una consulta en curso (M04): lee el NDJSON, sigue el avance, recupera el resultado
-// tras un corte y cancela al desmontar la pantalla.
+// Estado de una consulta en curso (M04, M06 y M15): lee el NDJSON, sigue el avance, recupera el
+// resultado tras un corte y cancela al desmontar la pantalla. La misma lógica sirve para la
+// consulta nueva, la reanudación con datos faltantes y la continuación con un tamizaje vencido.
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import { ErrorApi, mensajeError } from "../api/cliente";
 import { consultasApi, ErrorConsulta, recuperarResultado } from "../api/consultas";
-import type { ConsultaEntrada, EstadoFinal, EventoConsulta, EventoFin, EventoFinal, ResultadoConsulta } from "../api/tipos_consulta";
+import type {
+  ClasificacionConsulta,
+  ConsultaEntrada,
+  DatosFaltantesEntrada,
+  EstadoFinal,
+  EventoConsulta,
+  EventoFin,
+  EventoFinal,
+  ResultadoConsulta,
+  Vigencia,
+} from "../api/tipos_consulta";
 import { AVANCE_INICIAL, avanzar, type Avance } from "./avance";
 
 export type Fase =
@@ -22,6 +33,10 @@ export type Desenlace = {
   modo_prueba: boolean;
   // Evento fin completo, si llegó por el stream (M05 lo muestra sin esperar el GET).
   fin: EventoFin | null;
+  // Para M06, M15 y el resumen de los estados sin recomendación.
+  datos_faltantes: string[]; // etiquetas pendientes (por ejemplo «hemoglobina»)
+  vigencia: Vigencia | null;
+  clasificacion: ClasificacionConsulta | null;
 };
 
 export type EstadoConsultaEnCurso = {
@@ -83,13 +98,18 @@ function reductor(s: EstadoConsultaEnCurso, a: Accion): EstadoConsultaEnCurso {
 }
 
 function desdeEvento(e: EventoFinal): Desenlace {
-  return { estado: e.estado, id_consulta: e.id_consulta, mensaje: e.mensaje, modo_prueba: e.tipo === "fin" && e.modo_prueba,
-           fin: e.tipo === "fin" ? e : null };
+  const fin = e.tipo === "fin" ? e : null;
+  return { estado: e.estado, id_consulta: e.id_consulta, mensaje: e.mensaje, modo_prueba: !!fin?.modo_prueba, fin,
+           datos_faltantes: fin?.datos_faltantes ?? [], vigencia: fin?.vigencia ?? null, clasificacion: fin?.clasificacion ?? null };
 }
 
 function desdeResultado(r: ResultadoConsulta): Desenlace {
-  return { estado: r.estado as EstadoFinal, id_consulta: r.id_consulta, mensaje: r.mensaje, modo_prueba: r.modo_prueba, fin: null };
+  return { estado: r.estado as EstadoFinal, id_consulta: r.id_consulta, mensaje: r.mensaje, modo_prueba: r.modo_prueba, fin: null,
+           datos_faltantes: r.datos_faltantes.filter((d) => !d.completado).map((d) => d.etiqueta),
+           vigencia: r.vigencia, clasificacion: r.clasificacion };
 }
+
+type AbrirStream = (senal: AbortSignal) => AsyncGenerator<EventoConsulta, EventoFinal, void>;
 
 export const MENSAJE_SIN_ID =
   "Se interrumpió la conexión antes de que la consulta quedara registrada. Revise su conexión y envíe la consulta de nuevo.";
@@ -108,8 +128,8 @@ export function useConsulta(idPaciente: string) {
     [idPaciente],
   );
 
-  const enviar = useCallback(
-    async (entrada: ConsultaEntrada) => {
+  const ejecutar = useCallback(
+    async (abrir: AbrirStream) => {
       control.current?.abort();
       const c = new AbortController();
       control.current = c;
@@ -119,7 +139,7 @@ export function useConsulta(idPaciente: string) {
       let idConsulta: string | null = null;
       try {
         let final: EventoFinal | null = null;
-        for await (const evento of consultasApi.consultar(idPaciente, entrada, { senal: c.signal })) {
+        for await (const evento of abrir(c.signal)) {
           if (!vigente()) return;
           if ("id_consulta" in evento && evento.id_consulta) idConsulta ??= evento.id_consulta;
           despachar({ tipo: "evento", evento });
@@ -161,10 +181,23 @@ export function useConsulta(idPaciente: string) {
         }
       }
     },
-    [idPaciente],
+    [],
+  );
+
+  // POST /api/pacientes/{id}/consultas: consulta nueva o continuación con un tamizaje vencido (M15).
+  const enviar = useCallback(
+    (entrada: ConsultaEntrada) => ejecutar((senal) => consultasApi.consultar(idPaciente, entrada, { senal })),
+    [ejecutar, idPaciente],
+  );
+
+  // POST /api/consultas/{id}/datos-faltantes: completa la hemoglobina y reanuda (M06).
+  const completarDatos = useCallback(
+    (idConsulta: string, datos: DatosFaltantesEntrada) =>
+      ejecutar((senal) => consultasApi.completarDatosFaltantes(idConsulta, datos, { senal })),
+    [ejecutar],
   );
 
   const cancelar = useCallback(() => control.current?.abort(), []);
 
-  return { estado, enviar, cancelar };
+  return { estado, enviar, completarDatos, cancelar };
 }

@@ -1,7 +1,9 @@
 // M14 · Nuevo tamizaje de un paciente registrado (HU18). Los datos permanentes se muestran
 // en solo lectura; el tamizaje anterior se conserva en el historial y no se reemplaza.
+// Si se llega desde la consulta (M04 o la ventana M15), al guardar o cancelar vuelve a la
+// consulta del paciente con la pregunta conservada; desde otro lugar vuelve al historial.
 import { useEffect, useState, type FormEvent } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { mensajeError } from "../api/cliente";
 import { pacientesApi, type Ficha, type TamizajeHistorial, type VistaPrevia } from "../api/pacientes";
 import { useCatalogos } from "../api/useCatalogos";
@@ -16,9 +18,13 @@ import { BotonesGuardar } from "./RegistroPaciente";
 
 const ESPERA_VISTA_PREVIA_MS = 500;
 
+// location.state cuando M14 se abre desde la consulta.
+export type EstadoM14 = { volverAConsulta?: { pregunta: string } } | null;
+
 export default function NuevoTamizaje() {
   const { id = "" } = useParams();
   const navegar = useNavigate();
+  const volverAConsulta = (useLocation().state as EstadoM14)?.volverAConsulta;
   const { tienePermiso } = useAuth();
   const { sintomas, error: errorCatalogos } = useCatalogos();
   const [ficha, setFicha] = useState<Ficha | null>(null);
@@ -64,7 +70,12 @@ export default function NuevoTamizaje() {
     setEnviando(true);
     try {
       const r = await pacientesApi.nuevoTamizaje(id, aEntradaTamizaje(tamizaje));
-      navegar(`/pacientes/${id}/historial`, { replace: true, state: { aviso: `Tamizaje registrado. ${avisoClasificacion(r)}` } });
+      const aviso = `Tamizaje registrado. ${avisoClasificacion(r)}`;
+      if (volverAConsulta) {
+        navegar(`/pacientes/${id}/consulta`, { replace: true, state: { pregunta: volverAConsulta.pregunta, aviso } });
+      } else {
+        navegar(`/pacientes/${id}/historial`, { replace: true, state: { aviso } });
+      }
     } catch (err) {
       setError(mensajeError(err));
       setEnviando(false);
@@ -131,8 +142,13 @@ export default function NuevoTamizaje() {
           </div>
 
           {error && <p className="alerta alerta--error" role="alert">{error}</p>}
+          {volverAConsulta && (
+            <p className="texto-tenue" style={{ marginTop: "1rem" }}>Al guardar volverá a la consulta clínica con su pregunta.</p>
+          )}
           <BotonesGuardar enviando={enviando} habilitado={!!tamizaje.fecha_tamizaje}
-                          cancelar={() => navegar(`/pacientes/${id}/historial`)} />
+                          cancelar={() => volverAConsulta
+                            ? navegar(`/pacientes/${id}/consulta`, { state: { pregunta: volverAConsulta.pregunta } })
+                            : navegar(`/pacientes/${id}/historial`)} />
         </div>
       </form>
     </section>

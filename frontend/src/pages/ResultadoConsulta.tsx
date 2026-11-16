@@ -2,24 +2,28 @@
 // Llega desde M04 con el evento fin (se muestra de inmediato) o al recargar la página; en ambos
 // casos el GET /api/consultas/{id} completa los datos (pregunta, fecha, decisión). Si la consulta
 // sigue EN_PROCESO (por ejemplo, desde «Ver resultado» de M04), consulta el GET cada 2 s hasta
-// 60 s. Los estados que no son VERIFICADA se resumen aquí; sus pantallas finales (M06, M07 y
-// M15) son de las partes E4 y E5.
-import { useCallback, useEffect, useState } from "react";
+// 60 s. Los demás estados se resumen en una columna con la clasificación y la acción para seguir;
+// DATOS_FALTANTES abre la ventana M06 y TAMIZAJE_NO_VIGENTE la M15 si la consulta aún no se
+// reanudó (parte E4). EVIDENCIA_INSUFICIENTE tendrá su pantalla M07 en la parte E5.
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { ErrorApi, mensajeError } from "../api/cliente";
 import { ErrorConsulta, consultasApi, recuperarResultado } from "../api/consultas";
-import { pacientesApi, type Ficha, type Historial } from "../api/pacientes";
-import type { EstadoFinal, EventoFin, ResultadoConsulta as Resultado } from "../api/tipos_consulta";
+import { pacientesApi, type Ficha, type Historial, type TamizajeHistorial } from "../api/pacientes";
+import type { ConsultaListada, EstadoFinal, EventoFin, ResultadoConsulta as Resultado } from "../api/tipos_consulta";
 import { useAuth } from "../auth/AuthContext";
 import AvisoModoPrueba from "../components/AvisoModoPrueba";
-import MensajeDesenlace from "../components/MensajeDesenlace";
 import Migas from "../components/Migas";
+import VentanaDatosFaltantes from "../components/consulta/VentanaDatosFaltantes";
+import VentanaTamizajeNoVigente from "../components/consulta/VentanaTamizajeNoVigente";
+import EstadoSinRecomendacion from "../components/resultado/EstadoSinRecomendacion";
 import { idCita } from "../components/resultado/EnlaceCita";
 import RecomendacionClinica from "../components/resultado/RecomendacionClinica";
 import RiesgoClasificacion from "../components/resultado/RiesgoClasificacion";
 import TablaCitas from "../components/resultado/TablaCitas";
 import VerificacionRespuesta from "../components/resultado/VerificacionRespuesta";
 import { AVISO_DECISION } from "../consulta/textos";
+import type { EstadoM04 } from "./ConsultaClinica";
 import { SEXOS, edadCabecera, fechaHora, iniciales } from "../utilidades/formato";
 
 // El evento fin no trae la pregunta, la fecha ni la decisión: quedan vacías hasta el GET.
@@ -53,7 +57,14 @@ export function desdeFin(fin: EventoFin): Resultado {
 type ErrorCarga = { mensaje: string; codigo: number | null };
 type Recuperacion = "no" | "en_curso" | "agotada";
 
-export default function ResultadoConsulta() {
+// Una instancia por consulta: al pasar a la consulta reanudada (desde M06 o M15) se vuelve a
+// montar con el evento fin de la nueva.
+export default function ResultadoConsultaRuta() {
+  const { id = "" } = useParams();
+  return <ResultadoConsulta key={id} />;
+}
+
+function ResultadoConsulta() {
   const { id = "" } = useParams();
   const ubicacion = useLocation();
   const fin = (ubicacion.state as { fin?: EventoFin | null } | null)?.fin;
@@ -142,7 +153,8 @@ export default function ResultadoConsulta() {
         <Verificada resultado={resultado} hbObservada={tamizaje?.hemoglobina_g_dl ?? null}
                     resaltada={resaltada} irACita={irACita} />
       ) : (
-        <OtroEstado resultado={resultado} estado={resultado.estado} hbObservada={tamizaje?.hemoglobina_g_dl ?? null} />
+        <OtroEstado resultado={resultado} estado={resultado.estado} tamizaje={tamizaje}
+                    ultimoTamizaje={historial?.tamizajes[0] ?? null} />
       )}
     </section>
   );
@@ -252,33 +264,91 @@ function Decisiones() {
   );
 }
 
-type PropsOtro = { resultado: Resultado; estado: EstadoFinal; hbObservada: string | number | null };
+type PropsOtro = {
+  resultado: Resultado;
+  estado: EstadoFinal;
+  tamizaje: TamizajeHistorial | null; // el de la consulta, cuando ya cargó el historial
+  ultimoTamizaje: TamizajeHistorial | null;
+};
 
-function OtroEstado({ resultado, estado, hbObservada }: PropsOtro) {
+// Estados con ventana: se abre sola una vez si la consulta todavía se puede reanudar.
+const CON_VENTANA: EstadoFinal[] = ["DATOS_FALTANTES", "TAMIZAJE_NO_VIGENTE"];
+
+function OtroEstado({ resultado, estado, tamizaje, ultimoTamizaje }: PropsOtro) {
   const navegar = useNavigate();
   const { tienePermiso } = useAuth();
+  // undefined: aún no se sabe; null: no se reanudó.
+  const [reanudacion, setReanudacion] = useState<ConsultaListada | null | undefined>(undefined);
+  const [ventana, setVentana] = useState(false);
+  const abierta = useRef(false);
+  const boton = useRef<HTMLButtonElement>(null);
   const faltantes = resultado.datos_faltantes.filter((d) => !d.completado);
+  const conVentana = CON_VENTANA.includes(estado);
+  const pregunta = resultado.texto_filtrado ?? "";
+
+  // ¿Ya se reanudó? La consulta nueva lleva id_consulta_previa igual a esta.
+  useEffect(() => {
+    if (!conVentana) return;
+    let vigente = true;
+    consultasApi
+      .listar(resultado.id_paciente)
+      .then((lista) => vigente && setReanudacion(lista.find((c) => c.id_consulta_previa === resultado.id_consulta) ?? null))
+      .catch(() => vigente && setReanudacion(null));
+    return () => {
+      vigente = false;
+    };
+  }, [conVentana, resultado.id_paciente, resultado.id_consulta]);
+
+  // M15 reenvía la pregunta guardada: espera al GET si se llegó solo con el evento fin.
+  const pendiente =
+    conVentana && reanudacion === null &&
+    (estado === "DATOS_FALTANTES" ? faltantes.length > 0 : !!pregunta);
+  useEffect(() => {
+    if (pendiente && !abierta.current) {
+      abierta.current = true;
+      setVentana(true);
+    }
+  }, [pendiente]);
+
+  const aM04 = (state: EstadoM04) => navegar(`/pacientes/${resultado.id_paciente}/consulta`, { state });
+  const accion = (texto: string, alPulsar: () => void) => (
+    <button ref={boton} type="button" className="boton boton--secundario boton--auto" onClick={alPulsar}>{texto}</button>
+  );
+  let acciones;
+  if (estado === "ERROR") acciones = accion("Reintentar", () => aM04({ pregunta }));
+  else if (estado === "FUERA_DE_DOMINIO") acciones = accion("Reformular la pregunta", () => aM04({ pregunta }));
+  else if (estado === "SOLICITUD_BLOQUEADA") acciones = accion("Reformular la consulta", () => aM04(null));
+  else if (pendiente && estado === "DATOS_FALTANTES") acciones = accion("Completar datos", () => setVentana(true));
+  else if (pendiente && estado === "TAMIZAJE_NO_VIGENTE") acciones = accion("Revisar el tamizaje", () => setVentana(true));
+
   return (
-    <div className="resultado__otro">
-      <section className="tarjeta tarjeta--ancha" aria-labelledby="titulo-estado">
-        <h2 id="titulo-estado">Estado de la consulta</h2>
-        <MensajeDesenlace estado={estado} mensaje={resultado.mensaje} />
+    <>
+      <EstadoSinRecomendacion estado={estado} mensaje={resultado.mensaje} clasificacion={resultado.clasificacion}
+                              hbObservada={tamizaje?.hemoglobina_g_dl ?? null} acciones={acciones}>
         {estado === "DATOS_FALTANTES" && faltantes.length > 0 && (
           <ul className="resultado__faltantes">
             {faltantes.map((d) => <li key={d.campo}>{d.mensaje || d.etiqueta}</li>)}
           </ul>
         )}
-        <p className="resultado__aviso-decision" role="note">{AVISO_DECISION}</p>
-        {estado === "TAMIZAJE_NO_VIGENTE" && tienePermiso("REGISTRAR_PACIENTE") && (
-          <div className="acciones acciones--izquierda">
-            <button className="boton boton--secundario boton--auto"
-                    onClick={() => navegar(`/pacientes/${resultado.id_paciente}/tamizajes/nuevo`)}>+ Nuevo tamizaje</button>
-          </div>
+        {reanudacion && (
+          <p className="resultado__reanudada">
+            Esta consulta ya se reanudó. <Link to={`/consultas/${reanudacion.id_consulta}`}>Ver la consulta reanudada</Link>
+          </p>
         )}
-      </section>
-      {resultado.clasificacion && (
-        <RiesgoClasificacion clasificacion={resultado.clasificacion} hbObservada={hbObservada} />
+      </EstadoSinRecomendacion>
+
+      {ventana && estado === "DATOS_FALTANTES" && (
+        <VentanaDatosFaltantes idPaciente={resultado.id_paciente} idConsulta={resultado.id_consulta}
+                               faltantes={faltantes} tamizaje={tamizaje ?? ultimoTamizaje}
+                               alCerrar={() => setVentana(false)} focoAlCerrar={boton} />
       )}
-    </div>
+      {ventana && estado === "TAMIZAJE_NO_VIGENTE" && (
+        <VentanaTamizajeNoVigente idPaciente={resultado.id_paciente} idConsultaPrevia={resultado.id_consulta}
+                                  pregunta={pregunta} idTamizaje={resultado.id_tamizaje || null}
+                                  tamizaje={tamizaje ?? ultimoTamizaje} vigencia={resultado.vigencia}
+                                  puedeRegistrar={tienePermiso("REGISTRAR_PACIENTE")}
+                                  alCerrar={() => setVentana(false)} focoAlCerrar={boton} />
+      )}
+    </>
   );
 }

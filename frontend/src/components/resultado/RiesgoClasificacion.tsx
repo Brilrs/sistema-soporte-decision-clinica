@@ -3,13 +3,30 @@
 import type { ClasificacionConsulta } from "../../api/tipos_consulta";
 import { CATEGORIAS, NIVELES_RIESGO, decimal } from "../../utilidades/formato";
 
-type Props = { clasificacion: ClasificacionConsulta | null; hbObservada: string | number | null };
+type Props = {
+  clasificacion: ClasificacionConsulta | null;
+  hbObservada: string | number | null;
+  // En los estados sin recomendación: «Clasificación del paciente» con su rótulo, y nivel de
+  // encabezado según la pantalla (h3 dentro de la consulta de M04).
+  titulo?: string;
+  rotulo?: string;
+  nivel?: 2 | 3;
+};
 
-export default function RiesgoClasificacion({ clasificacion: c, hbObservada }: Props) {
+const NIVEL = "Nivel de riesgo";
+
+export default function RiesgoClasificacion({ clasificacion: c, hbObservada, titulo = NIVEL, rotulo, nivel = 2 }: Props) {
+  const H = nivel === 3 ? "h3" : "h2";
+  const encabezado = (
+    <>
+      <H id="titulo-riesgo" className={titulo === NIVEL ? "riesgo__titulo" : "riesgo__titulo riesgo__titulo--seccion"}>{titulo}</H>
+      {rotulo && <p className="riesgo__rotulo">{rotulo}</p>}
+    </>
+  );
   if (!c) {
     return (
       <section className="tarjeta resultado__riesgo riesgo" aria-labelledby="titulo-riesgo">
-        <h2 id="titulo-riesgo">Nivel de riesgo</h2>
+        {encabezado}
         <p className="texto-tenue">El sistema no calculó la clasificación para este tamizaje.</p>
       </section>
     );
@@ -17,7 +34,8 @@ export default function RiesgoClasificacion({ clasificacion: c, hbObservada }: P
   const conAjuste = c.ajuste_hb_g_dl !== 0;
   return (
     <section className={`tarjeta resultado__riesgo riesgo riesgo--${c.nivel_riesgo}`} aria-labelledby="titulo-riesgo">
-      <h2 id="titulo-riesgo" className="riesgo__titulo">Nivel de riesgo</h2>
+      {encabezado}
+      {titulo !== NIVEL && <p className="riesgo__etiqueta-nivel">{NIVEL}</p>}
       <p className="riesgo__nivel">{(NIVELES_RIESGO[c.nivel_riesgo] ?? c.nivel_riesgo).toUpperCase()}</p>
       <span className={`etiqueta etiqueta--${c.categoria}`}>{CATEGORIAS[c.categoria] ?? c.categoria}</span>
       <dl className="riesgo__datos">

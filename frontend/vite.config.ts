@@ -16,5 +16,8 @@ export default defineConfig({
     include: ["src/**/*.test.{ts,tsx}"],
     restoreMocks: true,
     unstubGlobals: true,
+    // Solo la lectura de la hoja como texto (?raw) en src/estilos.test.ts (reglas contra desbordes); el resto de
+    // los .css sigue vacío en las pruebas.
+    css: { include: [/estilos\.css\?raw/] },
   },
 });
