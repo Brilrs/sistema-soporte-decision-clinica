@@ -1,5 +1,5 @@
 // Textos de los estados finales de una consulta, compartidos por M04 (consulta) y M05 (resultado).
-import type { EstadoFinal } from "../api/tipos_consulta";
+import type { EstadoFinal, TipoDecision } from "../api/tipos_consulta";
 
 export const TITULOS_ESTADO: Record<EstadoFinal, string> = {
   VERIFICADA: "Respuesta verificada",
@@ -35,10 +35,50 @@ export const COMO_REFORMULAR_BLOQUEADA =
   "Escriba la pregunta de nuevo sin datos personales. El sistema ya conoce los datos del paciente; por ejemplo: " +
   "«¿Qué dosis de hierro le corresponde?».";
 
+// M07: el mensaje del backend («Evidencia insuficiente: aplicar criterio clínico.») repite el título.
+export const MENSAJE_EVIDENCIA_INSUFICIENTE =
+  "El sistema no encontró evidencia suficiente en las guías clínicas vigentes para responder esta consulta con " +
+  "respaldo documental, por eso no genera una recomendación. Aplique su criterio clínico.";
+
 export const MENSAJES_PROPIOS: Partial<Record<EstadoFinal, string>> = {
   ERROR: MENSAJE_ERROR,
   SOLICITUD_BLOQUEADA: MENSAJE_BLOQUEADA,
+  EVIDENCIA_INSUFICIENTE: MENSAJE_EVIDENCIA_INSUFICIENTE,
 };
+
+// M07, «Qué puede hacer» (panel derecho del mockup, aquí dentro de la tarjeta del estado).
+export const QUE_PUEDE_HACER_EVIDENCIA = [
+  "Reformular la pregunta con términos más específicos.",
+  "Consultar otras fuentes, como la ficha técnica del medicamento o el servicio de farmacia.",
+  "Registrar su decisión clínica; quedará en el historial del paciente.",
+];
+// asistencia.v_consultas_sin_evidencia reúne estas consultas para el administrador (M11).
+export const NOTA_EVIDENCIA_ADMINISTRADOR =
+  "Esta consulta queda registrada para que el administrador evalúe incorporar nuevas guías a la base de conocimiento.";
+
+// Decisión clínica (POST /api/consultas/{id}/decision). Las opciones de cada estado y si la nota
+// es obligatoria vienen en opciones_decision; aquí solo los textos.
+export const TIPOS_DECISION: Record<TipoDecision, { etiqueta: string; ayuda: string }> = {
+  ACEPTA_RECOMENDACION: {
+    etiqueta: "Acepta la recomendación",
+    ayuda: "Aplicará la recomendación tal como la propone el sistema.",
+  },
+  MODIFICA_RECOMENDACION: {
+    etiqueta: "Modifica la recomendación",
+    ayuda: "Aplicará la recomendación con cambios; describa en la nota la conducta que adoptará.",
+  },
+  CRITERIO_CLINICO_PROPIO: {
+    etiqueta: "Aplica su criterio clínico",
+    ayuda: "Decide la conducta sin seguir una recomendación del sistema.",
+  },
+};
+// Mismo límite que el backend (app/services/decisiones.py, LARGO_MAXIMO_NOTA).
+export const LARGO_MAXIMO_NOTA = 1000;
+export const AVISO_NOTA_PRIVACIDAD =
+  "No escriba nombres, DNI, historia clínica ni teléfonos en la nota: describa solo la conducta clínica.";
+export const AVISO_DECISION_DEFINITIVA = "Esta decisión no se puede modificar ni registrar de nuevo.";
+export const SIN_PERMISO_DECISION =
+  "Su rol no permite registrar decisiones clínicas. La registra el profesional que realizó la consulta.";
 
 export const ROTULO_CLASIFICACION = "Calculada por reglas a partir del tamizaje, no por el modelo.";
 

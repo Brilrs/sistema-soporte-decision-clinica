@@ -26,7 +26,10 @@ pruebas con el cliente falso, en `frontend/src/__fixtures__` (`consulta_<estado>
   entorno el backend no arranca) las consultas usan el cliente falso del modelo de lenguaje, sin
   costo. Toda consulta cuya respuesta generó el cliente falso trae `modo_prueba: true` en el evento
   `fin`, en el resultado guardado y en la lista; la interfaz debe mostrarlo. Una consulta que no
-  llegó a generar (por ejemplo DATOS_FALTANTES) trae `false`.
+  llegó a generar (por ejemplo DATOS_FALTANTES) trae `false`. Con `CDSS_LLM_FALSO_MODO` (`normal`,
+  `evidencia_insuficiente` o `error`, solo en desarrollo y con `CDSS_LLM=falso`) el cliente falso
+  provoca VERIFICADA, EVIDENCIA_INSUFICIENTE (dos intentos, con la búsqueda ampliada) o ERROR por
+  el camino normal de la consulta; los eventos y el resultado tienen el mismo formato.
 
 ## Estados finales de una consulta
 
@@ -83,7 +86,7 @@ Se emite cuando un nodo termina.
 | --- | --- | --- |
 | `tipo` | `"etapa"` | |
 | `etapa` | validar, clasificar, normalizar, recuperar, proteger, generar, verificar o salida | Nodo que terminó |
-| `intento` | entero o null | 1 o 2 desde normalizar |
+| `intento` | entero o null | Intento al que pertenece la etapa: 1 o 2 desde normalizar, null antes. El «verificar» que decide un reintento lleva el número del intento que verificó, no el del siguiente |
 | `ms` | entero | Duración del nodo |
 | `transcurrido_ms` | entero | Desde que el servidor recibió la consulta |
 | `id_consulta` | UUID | Presente desde validar, que registra la consulta |
@@ -294,3 +297,5 @@ decisión por consulta.
 | 422 | Falta la nota obligatoria o el cuerpo no es válido |
 
 La auditoría (DECISION_REGISTRADA) guarda el tipo y si hubo nota, nunca su texto.
+
+La nota se guarda sin los espacios del inicio y del final (vacía equivale a null) y no pasa por el filtro de identificadores de la consulta: la interfaz pide no escribir nombres, DNI, historia clínica ni teléfonos y muestra la nota tal como la devuelve el 201. El 201 trae `id_usuario`, no el nombre de quien decidió; como solo el profesional de la consulta puede verla y registrarla, la interfaz muestra el nombre del usuario de la sesión.

@@ -152,13 +152,28 @@ class ClienteNoDisponible:
         raise ErrorAPI(self.motivo)
 
 
+def modos_del_cliente_falso(modo: str) -> list[str]:
+    """CDSS_LLM_FALSO_MODO -> modos del cliente falso (el último se repite en cada llamada).
+
+    - normal: respuesta aprobada (VERIFICADA).
+    - evidencia_insuficiente: el modelo declara la evidencia insuficiente en cada llamada; la
+      verificación falla 6.3, reintenta con la búsqueda ampliada y termina en EVIDENCIA_INSUFICIENTE.
+    - error: el modelo rechaza la solicitud (stop_reason refusal), que termina en ERROR sin
+      reintento (fila 45). No se usa el error de la API porque ese intento se registra con el
+      modelo de la configuración y el resultado perdería la marca modo_prueba."""
+    from app.rag.cliente_llm import APROBADA, EVIDENCIA_INSUFICIENTE, RECHAZO
+    return {"normal": [APROBADA], "evidencia_insuficiente": [EVIDENCIA_INSUFICIENTE], "error": [RECHAZO]}[modo]
+
+
 @lru_cache
 def _cliente_llm_por_defecto() -> ClienteLLM:
-    from app.rag.cliente_llm import APROBADA, ClienteAnthropic, ClienteFalso, ErrorAPI, ErrorEntornoPruebas
-    if get_settings().llm == "falso":
+    from app.rag.cliente_llm import ClienteAnthropic, ClienteFalso, ErrorAPI, ErrorEntornoPruebas
+    configuracion = get_settings()
+    if configuracion.llm == "falso":
         # Solo con CDSS_ENTORNO=desarrollo (lo garantiza Settings): resultados marcados modo_prueba.
-        log.warning("CDSS_LLM=falso: las consultas usan el cliente falso del modelo de lenguaje (modo de prueba)")
-        return ClienteFalso([APROBADA])
+        log.warning("CDSS_LLM=falso: las consultas usan el cliente falso del modelo de lenguaje (modo de prueba, "
+                    "CDSS_LLM_FALSO_MODO=%s)", configuracion.llm_falso_modo)
+        return ClienteFalso(modos_del_cliente_falso(configuracion.llm_falso_modo))
     try:
         return ClienteAnthropic()
     except (ErrorAPI, ErrorEntornoPruebas) as e:

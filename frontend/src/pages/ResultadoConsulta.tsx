@@ -4,25 +4,29 @@
 // sigue EN_PROCESO (por ejemplo, desde «Ver resultado» de M04), consulta el GET cada 2 s hasta
 // 60 s. Los demás estados se resumen en una columna con la clasificación y la acción para seguir;
 // DATOS_FALTANTES abre la ventana M06 y TAMIZAJE_NO_VIGENTE la M15 si la consulta aún no se
-// reanudó (parte E4). EVIDENCIA_INSUFICIENTE tendrá su pantalla M07 en la parte E5.
-import { useCallback, useEffect, useRef, useState } from "react";
+// reanudó (parte E4). EVIDENCIA_INSUFICIENTE es la pantalla M07 (parte E5), con el detalle de la
+// búsqueda. VERIFICADA, EVIDENCIA_INSUFICIENTE y ERROR ofrecen «Registrar decisión clínica» según
+// opciones_decision; la decisión registrada se muestra con los datos del 201 o del GET.
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { ErrorApi, mensajeError } from "../api/cliente";
 import { ErrorConsulta, consultasApi, recuperarResultado } from "../api/consultas";
 import { pacientesApi, type Ficha, type Historial, type TamizajeHistorial } from "../api/pacientes";
-import type { ConsultaListada, EstadoFinal, EventoFin, ResultadoConsulta as Resultado } from "../api/tipos_consulta";
+import type { ConsultaListada, Decision, EstadoFinal, EventoFin, ResultadoConsulta as Resultado } from "../api/tipos_consulta";
 import { useAuth } from "../auth/AuthContext";
 import AvisoModoPrueba from "../components/AvisoModoPrueba";
 import Migas from "../components/Migas";
 import VentanaDatosFaltantes from "../components/consulta/VentanaDatosFaltantes";
 import VentanaTamizajeNoVigente from "../components/consulta/VentanaTamizajeNoVigente";
+import DecisionClinica from "../components/resultado/DecisionClinica";
+import DetalleBusqueda from "../components/resultado/DetalleBusqueda";
 import EstadoSinRecomendacion from "../components/resultado/EstadoSinRecomendacion";
 import { idCita } from "../components/resultado/EnlaceCita";
 import RecomendacionClinica from "../components/resultado/RecomendacionClinica";
 import RiesgoClasificacion from "../components/resultado/RiesgoClasificacion";
 import TablaCitas from "../components/resultado/TablaCitas";
 import VerificacionRespuesta from "../components/resultado/VerificacionRespuesta";
-import { AVISO_DECISION } from "../consulta/textos";
+import { AVISO_DECISION, NOTA_EVIDENCIA_ADMINISTRADOR, QUE_PUEDE_HACER_EVIDENCIA } from "../consulta/textos";
 import type { EstadoM04 } from "./ConsultaClinica";
 import { SEXOS, edadCabecera, fechaHora, iniciales } from "../utilidades/formato";
 
@@ -55,6 +59,8 @@ export function desdeFin(fin: EventoFin): Resultado {
 }
 
 type ErrorCarga = { mensaje: string; codigo: number | null };
+// Estado de navegación de M05: el evento fin (desde M04) y, desde el ERROR de M04, abrir la decisión.
+export type EstadoM05 = { fin?: EventoFin | null; abrirDecision?: boolean };
 type Recuperacion = "no" | "en_curso" | "agotada";
 
 // Una instancia por consulta: al pasar a la consulta reanudada (desde M06 o M15) se vuelve a
@@ -67,7 +73,8 @@ export default function ResultadoConsultaRuta() {
 function ResultadoConsulta() {
   const { id = "" } = useParams();
   const ubicacion = useLocation();
-  const fin = (ubicacion.state as { fin?: EventoFin | null } | null)?.fin;
+  const navegacion = ubicacion.state as EstadoM05 | null;
+  const fin = navegacion?.fin;
   const [resultado, setResultado] = useState<Resultado | null>(() => (fin && fin.id_consulta === id ? desdeFin(fin) : null));
   const [error, setError] = useState<ErrorCarga | null>(null);
   const [recuperacion, setRecuperacion] = useState<Recuperacion>("no");
@@ -113,6 +120,16 @@ function ResultadoConsulta() {
     pacientesApi.historial(idPaciente).then(setHistorial).catch(() => setHistorial(null));
   }, [idPaciente]);
 
+  // La decisión registrada (201) se muestra sin esperar al GET; al recargar la trae el GET.
+  const alDecidir = useCallback((decision: Decision) => {
+    setResultado((r) => (r ? { ...r, decision, opciones_decision: [] } : r));
+  }, []);
+  const recargar = useCallback(() => setReintento((n) => n + 1), []);
+  const decisionDe = (r: Resultado) => (
+    <DecisionClinica idConsulta={r.id_consulta} decision={r.decision} opciones={r.opciones_decision}
+                     alRegistrar={alDecidir} alConflicto={recargar} abrirAlCargar={!!navegacion?.abrirDecision} />
+  );
+
   const irACita = useCallback((etiqueta: string) => {
     const fila = document.getElementById(idCita(etiqueta));
     if (!fila) return;
@@ -151,10 +168,11 @@ function ResultadoConsulta() {
         <EnProceso recuperacion={recuperacion} reintentar={() => setReintento((n) => n + 1)} />
       ) : resultado.estado === "VERIFICADA" ? (
         <Verificada resultado={resultado} hbObservada={tamizaje?.hemoglobina_g_dl ?? null}
-                    resaltada={resaltada} irACita={irACita} />
+                    resaltada={resaltada} irACita={irACita} decision={decisionDe(resultado)} />
       ) : (
         <OtroEstado resultado={resultado} estado={resultado.estado} tamizaje={tamizaje}
-                    ultimoTamizaje={historial?.tamizajes[0] ?? null} />
+                    ultimoTamizaje={historial?.tamizajes[0] ?? null} decision={decisionDe(resultado)}
+                    resaltada={resaltada} />
       )}
     </section>
   );
@@ -210,9 +228,10 @@ type PropsVerificada = {
   hbObservada: string | number | null;
   resaltada: string | null;
   irACita: (etiqueta: string) => void;
+  decision: ReactNode;
 };
 
-function Verificada({ resultado, hbObservada, resaltada, irACita }: PropsVerificada) {
+function Verificada({ resultado, hbObservada, resaltada, irACita, decision }: PropsVerificada) {
   const r = resultado.recomendacion;
   const factores = r?.factores_identificados ?? [];
   return (
@@ -226,7 +245,7 @@ function Verificada({ resultado, hbObservada, resaltada, irACita }: PropsVerific
         <p className="resultado__aviso-decision" role="note">{AVISO_DECISION}</p>
         <h3>Evidencias citadas</h3>
         <TablaCitas citas={resultado.citas} resaltada={resaltada} />
-        <Decisiones />
+        <Decisiones decision={decision} />
       </section>
 
       <VerificacionRespuesta verificacion={resultado.verificacion} intentos={resultado.intentos}
@@ -244,16 +263,11 @@ function Verificada({ resultado, hbObservada, resaltada, irACita }: PropsVerific
   );
 }
 
-// «Registrar decisión clínica» se construye en la parte E5; «Exportar reporte» en el Sprint 3.
-function Decisiones() {
+// «Registrar decisión clínica» (parte E5) y «Exportar reporte» (Sprint 3).
+function Decisiones({ decision }: { decision: ReactNode }) {
   return (
     <div className="resultado__decisiones">
-      <div>
-        <button type="button" className="boton boton--secundario boton--auto" disabled aria-describedby="nota-decision">
-          Registrar decisión clínica
-        </button>
-        <span id="nota-decision" className="resultado__nota">disponible en la siguiente parte</span>
-      </div>
+      <div className="resultado__decision">{decision}</div>
       <div>
         <button type="button" className="boton boton--neutro boton--auto" disabled aria-describedby="nota-exportar">
           Exportar reporte
@@ -269,12 +283,14 @@ type PropsOtro = {
   estado: EstadoFinal;
   tamizaje: TamizajeHistorial | null; // el de la consulta, cuando ya cargó el historial
   ultimoTamizaje: TamizajeHistorial | null;
+  decision: ReactNode;
+  resaltada: string | null;
 };
 
 // Estados con ventana: se abre sola una vez si la consulta todavía se puede reanudar.
 const CON_VENTANA: EstadoFinal[] = ["DATOS_FALTANTES", "TAMIZAJE_NO_VIGENTE"];
 
-function OtroEstado({ resultado, estado, tamizaje, ultimoTamizaje }: PropsOtro) {
+function OtroEstado({ resultado, estado, tamizaje, ultimoTamizaje, decision, resaltada }: PropsOtro) {
   const navegar = useNavigate();
   const { tienePermiso } = useAuth();
   // undefined: aún no se sabe; null: no se reanudó.
@@ -285,6 +301,7 @@ function OtroEstado({ resultado, estado, tamizaje, ultimoTamizaje }: PropsOtro) 
   const faltantes = resultado.datos_faltantes.filter((d) => !d.completado);
   const conVentana = CON_VENTANA.includes(estado);
   const pregunta = resultado.texto_filtrado ?? "";
+  const conDecision = !!resultado.decision || resultado.opciones_decision.length > 0;
 
   // ¿Ya se reanudó? La consulta nueva lleva id_consulta_previa igual a esta.
   useEffect(() => {
@@ -316,6 +333,7 @@ function OtroEstado({ resultado, estado, tamizaje, ultimoTamizaje }: PropsOtro) 
   );
   let acciones;
   if (estado === "ERROR") acciones = accion("Reintentar", () => aM04({ pregunta }));
+  else if (estado === "EVIDENCIA_INSUFICIENTE") acciones = accion("Reformular la consulta", () => aM04({ pregunta }));
   else if (estado === "FUERA_DE_DOMINIO") acciones = accion("Reformular la pregunta", () => aM04({ pregunta }));
   else if (estado === "SOLICITUD_BLOQUEADA") acciones = accion("Reformular la consulta", () => aM04(null));
   else if (pendiente && estado === "DATOS_FALTANTES") acciones = accion("Completar datos", () => setVentana(true));
@@ -324,7 +342,11 @@ function OtroEstado({ resultado, estado, tamizaje, ultimoTamizaje }: PropsOtro) 
   return (
     <>
       <EstadoSinRecomendacion estado={estado} mensaje={resultado.mensaje} clasificacion={resultado.clasificacion}
-                              hbObservada={tamizaje?.hemoglobina_g_dl ?? null} acciones={acciones}>
+                              hbObservada={tamizaje?.hemoglobina_g_dl ?? null} acciones={acciones}
+                              decision={conDecision ? decision : undefined}
+                              complementos={estado === "EVIDENCIA_INSUFICIENTE" &&
+                                <ComplementosEvidencia resultado={resultado} resaltada={resaltada} />}>
+        {estado === "EVIDENCIA_INSUFICIENTE" && <EvidenciaInsuficiente resultado={resultado} />}
         {estado === "DATOS_FALTANTES" && faltantes.length > 0 && (
           <ul className="resultado__faltantes">
             {faltantes.map((d) => <li key={d.campo}>{d.mensaje || d.etiqueta}</li>)}
@@ -348,6 +370,39 @@ function OtroEstado({ resultado, estado, tamizaje, ultimoTamizaje }: PropsOtro) 
                                   tamizaje={tamizaje ?? ultimoTamizaje} vigencia={resultado.vigencia}
                                   puedeRegistrar={tienePermiso("REGISTRAR_PACIENTE")}
                                   alCerrar={() => setVentana(false)} focoAlCerrar={boton} />
+      )}
+    </>
+  );
+}
+
+// M07: qué hacer y el detalle de la búsqueda, dentro de la tarjeta del estado.
+function EvidenciaInsuficiente({ resultado }: { resultado: Resultado }) {
+  return (
+    <>
+      <h3 className="estado-consulta__subtitulo">Qué puede hacer</h3>
+      <ul className="estado-consulta__lista">
+        {QUE_PUEDE_HACER_EVIDENCIA.map((t) => <li key={t}>{t}</li>)}
+      </ul>
+      <p className="resultado__nota">{NOTA_EVIDENCIA_ADMINISTRADOR}</p>
+      <DetalleBusqueda intentos={resultado.intentos} />
+    </>
+  );
+}
+
+// Lo que la respuesta haya traído, sin completar nada: la verificación del intento que decide y,
+// si las hubiera, las citas.
+function ComplementosEvidencia({ resultado, resaltada }: { resultado: Resultado; resaltada: string | null }) {
+  return (
+    <>
+      {resultado.verificacion && (
+        <VerificacionRespuesta verificacion={resultado.verificacion} intentos={resultado.intentos}
+                               citas={resultado.citas.length} latenciaMs={resultado.latencia_total_ms} />
+      )}
+      {resultado.citas.length > 0 && (
+        <section className="tarjeta" aria-labelledby="titulo-citas-evidencia">
+          <h2 id="titulo-citas-evidencia">Evidencias citadas</h2>
+          <TablaCitas citas={resultado.citas} resaltada={resaltada} />
+        </section>
       )}
     </>
   );

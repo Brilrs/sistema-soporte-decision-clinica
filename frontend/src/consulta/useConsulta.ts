@@ -12,6 +12,7 @@ import type {
   EventoConsulta,
   EventoFin,
   EventoFinal,
+  OpcionDecision,
   ResultadoConsulta,
   Vigencia,
 } from "../api/tipos_consulta";
@@ -37,6 +38,8 @@ export type Desenlace = {
   datos_faltantes: string[]; // etiquetas pendientes (por ejemplo «hemoglobina»)
   vigencia: Vigencia | null;
   clasificacion: ClasificacionConsulta | null;
+  // Tipos de decisión que admite (ERROR desde M04 abre la decisión en M05).
+  opciones_decision: OpcionDecision[];
 };
 
 export type EstadoConsultaEnCurso = {
@@ -100,13 +103,14 @@ function reductor(s: EstadoConsultaEnCurso, a: Accion): EstadoConsultaEnCurso {
 function desdeEvento(e: EventoFinal): Desenlace {
   const fin = e.tipo === "fin" ? e : null;
   return { estado: e.estado, id_consulta: e.id_consulta, mensaje: e.mensaje, modo_prueba: !!fin?.modo_prueba, fin,
-           datos_faltantes: fin?.datos_faltantes ?? [], vigencia: fin?.vigencia ?? null, clasificacion: fin?.clasificacion ?? null };
+           datos_faltantes: fin?.datos_faltantes ?? [], vigencia: fin?.vigencia ?? null, clasificacion: fin?.clasificacion ?? null,
+           opciones_decision: e.opciones_decision ?? [] };
 }
 
 function desdeResultado(r: ResultadoConsulta): Desenlace {
   return { estado: r.estado as EstadoFinal, id_consulta: r.id_consulta, mensaje: r.mensaje, modo_prueba: r.modo_prueba, fin: null,
            datos_faltantes: r.datos_faltantes.filter((d) => !d.completado).map((d) => d.etiqueta),
-           vigencia: r.vigencia, clasificacion: r.clasificacion };
+           vigencia: r.vigencia, clasificacion: r.clasificacion, opciones_decision: r.opciones_decision ?? [] };
 }
 
 type AbrirStream = (senal: AbortSignal) => AsyncGenerator<EventoConsulta, EventoFinal, void>;

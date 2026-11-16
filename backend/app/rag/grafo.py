@@ -203,7 +203,11 @@ def _nodo(nombre: str, funcion: Callable[[Estado, Contexto], dict]) -> Callable:
         cambios = funcion(estado, ctx)
         resumen = cambios.pop("_evento", {})
         ms = _ms(inicio)
-        intento = cambios.get("numero_intento", estado.get("numero_intento"))
+        # El intento al que pertenece el nodo es el que tenía al empezar: «verificar» devuelve ya el
+        # número del siguiente cuando decide reintentar. Solo «normalizar» lo fija por primera vez.
+        intento = estado.get("numero_intento")
+        if intento is None:
+            intento = cambios.get("numero_intento")
         ctx.etapas.append({"nodo": nombre, "intento": intento, "ms": ms})
         ctx.evento({"tipo": "etapa", "etapa": nombre, "intento": intento, "ms": ms,
                     "id_consulta": ctx.id_consulta, **resumen})

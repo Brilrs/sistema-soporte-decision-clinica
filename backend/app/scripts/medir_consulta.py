@@ -86,6 +86,13 @@ def detalle_intentos(motor, id_consulta: str) -> list[dict]:
     return salida
 
 
+def modo_falso_configurado() -> str | None:
+    """CDSS_LLM_FALSO_MODO distinto de normal, si lo hay (--llm real no lo admite)."""
+    from app.core.config import get_settings
+    modo = get_settings().llm_falso_modo
+    return None if modo == "normal" else modo
+
+
 def cliente_de_corrida(caso: dict, llm: str):
     """Con --llm real, siempre el cliente de la API de Anthropic, aunque CDSS_LLM=falso."""
     from app.rag.cliente_llm import ClienteFalso
@@ -251,6 +258,8 @@ def main(argv: list[str] | None = None) -> int:
             p.error("--llm real exige --confirmo-datos-sinteticos")
         if not os.environ.get("ANTHROPIC_API_KEY"):
             p.error("--llm real exige ANTHROPIC_API_KEY")
+        if modo_falso_configurado():
+            p.error(f"--llm real no admite CDSS_LLM_FALSO_MODO={modo_falso_configurado()}: quite la variable o use normal")
     from app.rag.generacion import VERSIONES_PROMPT
     versiones = a.versiones_prompt.split(",") if a.versiones_prompt else [None]
     desconocidas = [v for v in versiones if v is not None and v not in VERSIONES_PROMPT]

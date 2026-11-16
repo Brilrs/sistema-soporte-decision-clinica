@@ -97,9 +97,8 @@ describe("M05 · Resultado de la consulta (VERIFICADA)", () => {
     expect(screen.getByText(/MODO DE PRUEBA: respuesta no clínica/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Volver al paciente" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Nueva consulta" })).toBeEnabled();
-    const decision = screen.getByRole("button", { name: "Registrar decisión clínica" });
-    expect(decision).toBeDisabled();
-    expect(decision).toHaveAccessibleDescription("disponible en la siguiente parte");
+    // E5: habilitado según opciones_decision (las pruebas de la ventana están en DecisionClinica.test.tsx).
+    expect(screen.getByRole("button", { name: "Registrar decisión clínica" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Exportar reporte" })).toBeDisabled();
   });
 
@@ -307,6 +306,7 @@ describe("M05 · estados sin recomendación al recargar", () => {
     SOLICITUD_BLOQUEADA: "Reformular la consulta",
     DATOS_FALTANTES: "Completar datos",
     TAMIZAJE_NO_VIGENTE: "Revisar el tamizaje",
+    EVIDENCIA_INSUFICIENTE: "Reformular la consulta",
   };
 
   it.each(OTROS)("%s: estado a ancho completo, clasificación debajo y su acción", async (estado) => {

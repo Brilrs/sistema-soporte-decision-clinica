@@ -1,7 +1,8 @@
 """Parte E0 (backend para las pantallas de la parte E), con modelos falsos y el cliente falso
 del modelo de lenguaje (nunca la API real): lista de consultas del paciente y el historial
 (M08), verificación, intentos y relevancia por cita en el evento fin y en el resultado
-guardado, el modo de LLM falso (CDSS_LLM=falso) y su marca modo_prueba."""
+guardado, el modo de LLM falso (CDSS_LLM=falso), sus modos para provocar estados
+(CDSS_LLM_FALSO_MODO) y la marca modo_prueba."""
 import pytest
 from pydantic import ValidationError
 from sqlalchemy import text
@@ -152,3 +153,98 @@ def test_medir_consulta_con_llm_real_nunca_usa_el_cliente_falso(monkeypatch):
     monkeypatch.setattr(prueba_punta_a_punta, "ClienteAnthropic", lambda: ClienteFalso())
     with pytest.raises(RuntimeError, match="no puede usar el cliente falso"):
         medir_consulta.cliente_de_corrida(_caso("a"), "real")
+
+
+# ---------------------------------------------------------------------------
+# CDSS_LLM_FALSO_MODO: estados provocados por el cliente falso (solo desarrollo)
+# ---------------------------------------------------------------------------
+def _configuracion(monkeypatch, entorno_app="desarrollo", llm=None, modo=None):
+    from app.core.config import Settings
+    monkeypatch.setenv("CDSS_ENTORNO", entorno_app)
+    for variable, valor in (("CDSS_LLM", llm), ("CDSS_LLM_FALSO_MODO", modo)):
+        if valor is None:
+            monkeypatch.delenv(variable, raising=False)
+        else:
+            monkeypatch.setenv(variable, valor)
+    return Settings()
+
+
+@pytest.mark.parametrize("modo", ["evidencia_insuficiente", "error"])
+@pytest.mark.parametrize("entorno_app", ["pruebas", "produccion", "staging"])
+def test_modo_falso_se_rechaza_fuera_de_desarrollo(monkeypatch, entorno_app, modo):
+    with pytest.raises(ValidationError, match=f"CDSS_LLM_FALSO_MODO={modo} solo se admite con CDSS_ENTORNO=desarrollo"):
+        _configuracion(monkeypatch, entorno_app, llm="real", modo=modo)
+    # Con CDSS_LLM=falso el arranque también falla (por CDSS_LLM=falso, con su propio mensaje).
+    with pytest.raises(ValidationError, match="solo se admite con CDSS_ENTORNO=desarrollo"):
+        _configuracion(monkeypatch, entorno_app, llm="falso", modo=modo)
+
+
+@pytest.mark.parametrize("modo", ["evidencia_insuficiente", "error"])
+@pytest.mark.parametrize("llm", [None, "real"])
+def test_modo_falso_exige_cdss_llm_falso(monkeypatch, llm, modo):
+    with pytest.raises(ValidationError, match=f"CDSS_LLM_FALSO_MODO={modo} exige CDSS_LLM=falso"):
+        _configuracion(monkeypatch, llm=llm, modo=modo)
+
+
+def test_modo_normal_es_neutro_y_los_valores_desconocidos_se_rechazan(monkeypatch):
+    # docker-compose.yml pasa normal siempre: no impide arrancar con el modelo real ni fuera de desarrollo.
+    assert _configuracion(monkeypatch, "produccion", llm="real", modo="normal").llm_falso_modo == "normal"
+    assert _configuracion(monkeypatch, llm=None, modo=None).llm_falso_modo == "normal"
+    assert _configuracion(monkeypatch, llm="falso", modo="").llm_falso_modo == "normal"
+    assert _configuracion(monkeypatch, llm="falso", modo="error").llm_falso_modo == "error"
+    with pytest.raises(ValidationError):
+        _configuracion(monkeypatch, llm="falso", modo="aprobada")
+
+
+@pytest.mark.parametrize("modo, estado, intentos, mensaje", [
+    ("normal", "VERIFICADA", [("INICIAL", "APROBADO")], None),
+    # El modelo declara la evidencia insuficiente: 6.3 falla, reintenta con la búsqueda ampliada.
+    ("evidencia_insuficiente", "EVIDENCIA_INSUFICIENTE",
+     [("INICIAL", "REINTENTO"), ("AMPLIADA", "EVIDENCIA_INSUFICIENTE")], "MENSAJE_EVIDENCIA_INSUFICIENTE"),
+    # Rechazo del modelo: ERROR sin reintento (fila 45).
+    ("error", "ERROR", [("INICIAL", "ERROR")], "MENSAJE_NO_EVALUADA"),
+])
+def test_cada_modo_falso_provoca_su_estado_por_el_camino_normal(monkeypatch, cliente_http, cabeceras, consultas_d2,
+                                                                 super_engine, usar_entorno, modo, estado, intentos,
+                                                                 mensaje):
+    from app.rag import verificacion
+    configuracion = _configuracion(monkeypatch, llm="falso", modo=modo)
+    monkeypatch.setattr(srv, "get_settings", lambda: configuracion)
+    srv._cliente_llm_por_defecto.cache_clear()
+    try:
+        cliente = srv._cliente_llm_por_defecto()
+    finally:
+        srv._cliente_llm_por_defecto.cache_clear()
+    assert isinstance(cliente, ClienteFalso) and cliente.modos == srv.modos_del_cliente_falso(modo)
+    usar_entorno(cliente=cliente)
+    caso = _caso("b")
+    id_paciente, id_tamizaje, _ = _ids(super_engine, caso)
+    eventos = _consultar(cliente_http, cabeceras, consultas_d2, id_paciente, _cuerpo(caso, id_tamizaje=id_tamizaje))[1]
+    fin = eventos[-1]
+    assert fin["tipo"] == "fin" and fin["estado"] == estado
+    assert fin["mensaje"] == (getattr(verificacion, mensaje) if mensaje else None)
+    assert [(i["tipo_busqueda"], i["resultado"]) for i in fin["intentos"]] == intentos
+    assert fin["modo_prueba"] is True and len(cliente.llamadas) == len(intentos)
+    # Mismo recorrido que un caso real: con la búsqueda ampliada vuelve a recuperar.
+    etapas = [(e["etapa"], e["intento"]) for e in eventos if e["tipo"] == "etapa"]
+    assert etapas.count(("recuperar", 2)) == (1 if modo == "evidencia_insuficiente" else 0)
+    guardado = cliente_http.get(f"/api/consultas/{fin['id_consulta']}", headers=cabeceras("med.salazar")).json()
+    assert (guardado["estado"], guardado["modo_prueba"]) == (estado, True)
+    assert [(i["tipo_busqueda"], i["resultado"]) for i in guardado["intentos"]] == intentos
+    assert guardado["opciones_decision"] == fin["opciones_decision"]
+
+
+@pytest.mark.parametrize("modo", ["evidencia_insuficiente", "error"])
+def test_medir_consulta_con_llm_real_no_admite_ningun_modo_falso(monkeypatch, modo, capsys):
+    from app.scripts import medir_consulta
+    configuracion = _configuracion(monkeypatch, llm="falso", modo=modo)
+    monkeypatch.setattr("app.core.config.get_settings", lambda: configuracion)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "clave-ficticia-que-no-se-usa")
+    assert medir_consulta.modo_falso_configurado() == modo
+    with pytest.raises(SystemExit):
+        medir_consulta.main(["--llm", "real", "--confirmo-datos-sinteticos"])
+    assert f"--llm real no admite CDSS_LLM_FALSO_MODO={modo}" in capsys.readouterr().err
+    # Con normal no hay modo falso que rechazar.
+    normal = _configuracion(monkeypatch, llm="falso", modo="normal")
+    monkeypatch.setattr("app.core.config.get_settings", lambda: normal)
+    assert medir_consulta.modo_falso_configurado() is None

@@ -68,6 +68,9 @@ services:
       CALENTAR_LLM: ${CALENTAR_LLM:-false}
       # real (API de Anthropic) o falso (cliente falso, solo con CDSS_ENTORNO=desarrollo; marca modo_prueba)
       CDSS_LLM: ${CDSS_LLM:-real}
+      # Con CDSS_LLM=falso: normal, evidencia_insuficiente o error (estado que provoca el cliente falso).
+      # Otro valor que normal exige CDSS_LLM=falso y CDSS_ENTORNO=desarrollo, o el backend no arranca.
+      CDSS_LLM_FALSO_MODO: ${CDSS_LLM_FALSO_MODO:-normal}
       ANONYMIZED_TELEMETRY: "FALSE"
       CORS_ORIGENES: '["http://localhost:8080","http://localhost:5173"]'
     mem_limit: 512m
