@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/cliente";
 import { useAuth } from "../auth/AuthContext";
+import { useTituloPagina } from "../utilidades/useTituloPagina";
 
 type Salud = Record<string, string>;
 
@@ -13,6 +14,7 @@ const NOMBRES: Record<string, string> = {
 };
 
 export default function Inicio() {
+  useTituloPagina("Inicio");
   const { usuario } = useAuth();
   const [salud, setSalud] = useState<Salud | null>(null);
 

@@ -1,16 +1,19 @@
-// M08 · Historial del paciente (HU04): evolución de la hemoglobina y tamizajes registrados.
-// Las evaluaciones de consultas clínicas se agregan en el Sprint 2.
+// M08 · Historial del paciente (HU04): evolución de la hemoglobina, tamizajes registrados y las
+// evaluaciones (consultas clínicas) del usuario autenticado, que llegan en el mismo historial.
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { mensajeError } from "../api/cliente";
 import { pacientesApi, type Ficha, type Historial } from "../api/pacientes";
 import { useAuth } from "../auth/AuthContext";
 import { EtiquetaClasificacion, EtiquetaVigencia } from "../components/Etiquetas";
+import EvaluacionesRealizadas from "../components/EvaluacionesRealizadas";
 import GraficoHemoglobina from "../components/GraficoHemoglobina";
 import Migas from "../components/Migas";
 import { EDADES_GESTACIONALES, METODOS, SEXOS, decimal, edad, fecha, iniciales, siNo } from "../utilidades/formato";
+import { useTituloPagina } from "../utilidades/useTituloPagina";
 
 export default function HistorialPaciente() {
+  useTituloPagina("Historial del paciente");
   const { id = "" } = useParams();
   const navegar = useNavigate();
   const ubicacion = useLocation();
@@ -87,8 +90,8 @@ export default function HistorialPaciente() {
           {historial.tamizajes.length === 0
             ? <p className="vacio">El paciente aún no tiene tamizajes.</p>
             : (
-              <div className="tabla-contenedor">
-                <table className="tabla">
+              <div className="tabla-contenedor tamizajes__tabla" tabIndex={0} role="region" aria-label="Tamizajes registrados">
+                <table className="tabla tabla--compacta">
                   <thead>
                     <tr><th>Fecha</th><th>Edad</th><th>Hb</th><th>Hb ajustada</th><th>Clasificación</th><th>Síntomas</th><th>Profesional</th></tr>
                   </thead>
@@ -102,7 +105,7 @@ export default function HistorialPaciente() {
                         <td title={t.motivo_sin_clasificacion ?? undefined}>
                           <EtiquetaClasificacion categoria={t.clasificacion?.categoria ?? null} />
                         </td>
-                        <td>{t.sintomas.length ? t.sintomas.map((s) => s.detalle ? `${s.nombre} (${s.detalle})` : s.nombre).join(", ") : "Ninguno"}</td>
+                        <td className="tamizajes__sintomas">{t.sintomas.length ? t.sintomas.map((s) => s.detalle ? `${s.nombre} (${s.detalle})` : s.nombre).join(", ") : "Ninguno"}</td>
                         <td>{t.profesional}</td>
                       </tr>
                     ))}
@@ -110,10 +113,11 @@ export default function HistorialPaciente() {
                 </table>
               </div>
             )}
-          <h2 style={{ marginTop: "1.5rem" }}>Evaluaciones realizadas</h2>
-          <p className="vacio">Las evaluaciones de las consultas clínicas estarán disponibles en el Sprint 2.</p>
         </div>
       </div>
+
+      <EvaluacionesRealizadas consultas={historial.consultas ?? []} tamizajes={historial.tamizajes}
+                              realizaConsultas={puedeConsultar} />
     </section>
   );
 }

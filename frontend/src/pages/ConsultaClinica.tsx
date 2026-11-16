@@ -20,6 +20,7 @@ import VentanaTamizajeNoVigente from "../components/consulta/VentanaTamizajeNoVi
 import EstadoSinRecomendacion from "../components/resultado/EstadoSinRecomendacion";
 import { useConsulta } from "../consulta/useConsulta";
 import { SEXOS, decimal, edad, iniciales } from "../utilidades/formato";
+import { useTituloPagina } from "../utilidades/useTituloPagina";
 
 export const LARGO_MAXIMO_CONSULTA = 2000;
 
@@ -35,6 +36,7 @@ const MENSAJE_CANCELADA =
   "Se canceló la espera. La consulta puede terminar igual en el servidor y quedar registrada en sus consultas previas de este paciente.";
 
 export default function ConsultaClinica() {
+  useTituloPagina("Consulta clínica");
   const { id = "" } = useParams();
   const navegar = useNavigate();
   const llegada = useLocation().state as EstadoM04;

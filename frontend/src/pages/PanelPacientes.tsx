@@ -1,5 +1,7 @@
 // M02 · Panel de pacientes (HU02, HU04, HU18). En modo «historial» es el buscador de
-// «Historial de consultas»: sin indicadores ni registro, abre el historial del paciente (M08).
+// «Historial de consultas»: sin indicadores ni registro, abre el historial del paciente (M08),
+// donde están sus consultas. El contrato no tiene una lista de las consultas del usuario de todos
+// los pacientes (solo por paciente), por eso esta página busca pacientes y no consultas.
 // La búsqueda se envía por POST y el texto no se guarda en la URL ni en el navegador.
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
@@ -8,13 +10,16 @@ import { pacientesApi, type Indicadores, type PacienteListado } from "../api/pac
 import { useAuth } from "../auth/AuthContext";
 import TablaPacientes from "../components/TablaPacientes";
 import TarjetaIndicador from "../components/TarjetaIndicador";
+import { useTituloPagina } from "../utilidades/useTituloPagina";
 
 export default function PanelPacientes({ modo = "panel" }: { modo?: "panel" | "historial" }) {
+  useTituloPagina(modo === "panel" ? "Pacientes" : "Historial de consultas");
   const { tienePermiso } = useAuth();
   const navegar = useNavigate();
   const puedeRegistrar = tienePermiso("REGISTRAR_PACIENTE") && modo === "panel";
   // En el panel, «Abrir paciente» abre la consulta clínica (M04); en el historial de consultas, M08.
   const abrirConsulta = tienePermiso("REALIZAR_CONSULTA") && modo === "panel";
+  const textoAbrir = modo === "panel" ? "Abrir" : "Ver historial";
   const [texto, setTexto] = useState("");
   const [busqueda, setBusqueda] = useState<PacienteListado[] | null>(null);
   const [recientes, setRecientes] = useState<PacienteListado[] | null>(null);
@@ -58,7 +63,7 @@ export default function PanelPacientes({ modo = "panel" }: { modo?: "panel" | "h
       <p className="texto-tenue">
         {modo === "panel"
           ? "Busque un paciente, registre uno nuevo o agregue el tamizaje de un nuevo control"
-          : "Busque un paciente para revisar la evolución de su hemoglobina y sus evaluaciones"}
+          : "Busque un paciente para ver la evolución de su hemoglobina y las consultas clínicas que usted le realizó"}
       </p>
 
       <form className="tarjeta tarjeta--ancha buscador" onSubmit={buscar} role="search">
@@ -94,11 +99,11 @@ export default function PanelPacientes({ modo = "panel" }: { modo?: "panel" | "h
           {busqueda && <button className="boton boton--neutro boton--chico" onClick={limpiar}>Ver recientes</button>}
         </div>
         {busqueda
-          ? <TablaPacientes pacientes={busqueda} puedeRegistrar={puedeRegistrar} abrirConsulta={abrirConsulta}
+          ? <TablaPacientes pacientes={busqueda} puedeRegistrar={puedeRegistrar} abrirConsulta={abrirConsulta} textoAbrir={textoAbrir}
                             vacio="No se encontró ningún paciente. Revise el DNI, el N.° de historia clínica o el nombre." />
           : recientes === null
             ? <p className="vacio">Cargando…</p>
-            : <TablaPacientes pacientes={recientes} puedeRegistrar={puedeRegistrar} abrirConsulta={abrirConsulta}
+            : <TablaPacientes pacientes={recientes} puedeRegistrar={puedeRegistrar} abrirConsulta={abrirConsulta} textoAbrir={textoAbrir}
                               vacio="Aún no hay pacientes registrados." />}
       </div>
     </section>

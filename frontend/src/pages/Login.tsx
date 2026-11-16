@@ -2,8 +2,10 @@
 import { useState, type FormEvent } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ErrorApi, useAuth } from "../auth/AuthContext";
+import { useTituloPagina } from "../utilidades/useTituloPagina";
 
 export default function Login() {
+  useTituloPagina("Iniciar sesión");
   const { usuario, iniciarSesion, avisoSesion } = useAuth();
   const navegar = useNavigate();
   const ubicacion = useLocation();

@@ -108,7 +108,7 @@ export default function FormularioTamizaje({ valor, cambiar, sintomas, fechaNaci
         </div>
         <div>
           <label htmlFor="hb">Hemoglobina (g/dL)<Ob /></label>
-          <input id="hb" inputMode="decimal" placeholder="Ej.: 10,6" value={valor.hemoglobina_g_dl}
+          <input id="hb" inputMode="decimal" placeholder="Ej.: 10.6" value={valor.hemoglobina_g_dl}
                  onChange={(e) => cambiar({ hemoglobina_g_dl: e.target.value })} />
           <Anterior texto={anterior?.hemoglobina_g_dl
             ? `${decimal(anterior.hemoglobina_g_dl)} · ${fecha(anterior.fecha_tamizaje)}` : null} />

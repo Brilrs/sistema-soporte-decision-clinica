@@ -1,8 +1,9 @@
 // M14 · Nuevo tamizaje de un paciente registrado (HU18). Los datos permanentes se muestran
 // en solo lectura; el tamizaje anterior se conserva en el historial y no se reemplaza.
 // Si se llega desde la consulta (M04 o la ventana M15), al guardar o cancelar vuelve a la
-// consulta del paciente con la pregunta conservada; desde otro lugar vuelve al historial.
-import { useEffect, useState, type FormEvent } from "react";
+// consulta del paciente con la pregunta conservada; desde otro lugar, «Guardar» vuelve al
+// historial y «Guardar y evaluar» abre la consulta clínica (M04) con el aviso de la clasificación.
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { mensajeError } from "../api/cliente";
 import { pacientesApi, type Ficha, type TamizajeHistorial, type VistaPrevia } from "../api/pacientes";
@@ -15,6 +16,7 @@ import Migas from "../components/Migas";
 import { EDADES_GESTACIONALES, SEXOS, decimal, fecha, fechaHora, leerDecimal, siNo } from "../utilidades/formato";
 import { avisoClasificacion } from "./avisos";
 import { BotonesGuardar } from "./RegistroPaciente";
+import { useTituloPagina } from "../utilidades/useTituloPagina";
 
 const ESPERA_VISTA_PREVIA_MS = 500;
 
@@ -22,6 +24,7 @@ const ESPERA_VISTA_PREVIA_MS = 500;
 export type EstadoM14 = { volverAConsulta?: { pregunta: string } } | null;
 
 export default function NuevoTamizaje() {
+  useTituloPagina("Nuevo tamizaje");
   const { id = "" } = useParams();
   const navegar = useNavigate();
   const volverAConsulta = (useLocation().state as EstadoM14)?.volverAConsulta;
@@ -33,6 +36,8 @@ export default function NuevoTamizaje() {
   const [previa, setPrevia] = useState<VistaPrevia | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const evaluar = useRef(false);
+  const puedeEvaluar = tienePermiso("REALIZAR_CONSULTA");
 
   useEffect(() => {
     Promise.all([pacientesApi.ficha(id), pacientesApi.historial(id)])
@@ -73,6 +78,8 @@ export default function NuevoTamizaje() {
       const aviso = `Tamizaje registrado. ${avisoClasificacion(r)}`;
       if (volverAConsulta) {
         navegar(`/pacientes/${id}/consulta`, { replace: true, state: { pregunta: volverAConsulta.pregunta, aviso } });
+      } else if (evaluar.current && puedeEvaluar) {
+        navegar(`/pacientes/${id}/consulta`, { replace: true, state: { aviso } });
       } else {
         navegar(`/pacientes/${id}/historial`, { replace: true, state: { aviso } });
       }
@@ -97,16 +104,19 @@ export default function NuevoTamizaje() {
       <form className="formulario" onSubmit={guardar} noValidate style={{ marginTop: "1.25rem" }}>
         <div className="tarjeta">
           <h2>Datos permanentes<span className="etiqueta etiqueta--privado">solo lectura</span></h2>
+          {/* Tres listas válidas (dl > div > dt/dd): la rejilla de dos columnas no puede ir anidada en otra div. */}
           <dl className="solo-lectura">
             <dt>Paciente</dt><dd>{ficha.nombres_apellidos}</dd>
-            <div className="rejilla rejilla--2">
-              <div><dt>HC</dt><dd>{ficha.numero_hc}</dd></div>
-              <div><dt>Sexo</dt><dd>{SEXOS[ficha.sexo]}</dd></div>
-              <div><dt>Fecha de nacimiento</dt><dd>{fecha(ficha.fecha_nacimiento)}</dd></div>
-              <div><dt>Edad gestacional</dt><dd>{EDADES_GESTACIONALES[ficha.edad_gestacional_nacer]}</dd></div>
-              <div><dt>Distrito</dt><dd>{ficha.distrito}, {ficha.provincia}</dd></div>
-              <div><dt>Altitud (m.s.n.m.)</dt><dd>{ficha.altitud_msnm}</dd></div>
-            </div>
+          </dl>
+          <dl className="solo-lectura rejilla rejilla--2">
+            <div><dt>HC</dt><dd>{ficha.numero_hc}</dd></div>
+            <div><dt>Sexo</dt><dd>{SEXOS[ficha.sexo]}</dd></div>
+            <div><dt>Fecha de nacimiento</dt><dd>{fecha(ficha.fecha_nacimiento)}</dd></div>
+            <div><dt>Edad gestacional</dt><dd>{EDADES_GESTACIONALES[ficha.edad_gestacional_nacer]}</dd></div>
+            <div><dt>Distrito</dt><dd>{ficha.distrito}, {ficha.provincia}</dd></div>
+            <div><dt>Altitud (m.s.n.m.)</dt><dd>{ficha.altitud_msnm}</dd></div>
+          </dl>
+          <dl className="solo-lectura">
             <dt>Bajo peso al nacer</dt><dd>{siNo(ficha.bajo_peso_nacer)}</dd>
           </dl>
           <p className="anterior" style={{ marginTop: "1rem" }}>
@@ -146,6 +156,7 @@ export default function NuevoTamizaje() {
             <p className="texto-tenue" style={{ marginTop: "1rem" }}>Al guardar volverá a la consulta clínica con su pregunta.</p>
           )}
           <BotonesGuardar enviando={enviando} habilitado={!!tamizaje.fecha_tamizaje}
+                          alElegir={puedeEvaluar && !volverAConsulta ? (e) => (evaluar.current = e) : undefined}
                           cancelar={() => volverAConsulta
                             ? navegar(`/pacientes/${id}/consulta`, { state: { pregunta: volverAConsulta.pregunta } })
                             : navegar(`/pacientes/${id}/historial`)} />

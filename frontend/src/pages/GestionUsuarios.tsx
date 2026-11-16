@@ -7,6 +7,7 @@ import { usuariosApi, type RolesYPermisos, type UsuarioCambios, type UsuarioCuen
 import { useAuth } from "../auth/AuthContext";
 import AvisoContrasena from "../components/AvisoContrasena";
 import { momentoRelativo } from "../utilidades/formato";
+import { useTituloPagina } from "../utilidades/useTituloPagina";
 
 // Textos cortos de los permisos (como en el prototipo); si llega uno nuevo se usa su descripción.
 const PERMISOS: Record<string, string> = {
@@ -42,6 +43,7 @@ function formDesde(u: UsuarioCuenta): Form {
 }
 
 export default function GestionUsuarios() {
+  useTituloPagina("Usuarios");
   const { usuario: yo } = useAuth();
   const [usuarios, setUsuarios] = useState<UsuarioCuenta[] | null>(null);
   const [catalogo, setCatalogo] = useState<RolesYPermisos | null>(null);
