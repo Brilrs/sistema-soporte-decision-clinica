@@ -215,6 +215,28 @@ def test_un_solo_reintento_segun_la_tabla_10(entorno, consultas, super_engine, m
         assert etapas.count("proteger") == 2
 
 
+@pytest.mark.parametrize("modos, etapas_esperadas", [
+    # 6.1 en el primer intento: regenera con la misma recuperación.
+    ([CITA_INVENTADA, APROBADA],
+     [("validar", None), ("clasificar", None), ("normalizar", 1), ("recuperar", 1), ("proteger", 1),
+      ("generar", 1), ("verificar", 1), ("proteger", 2), ("generar", 2), ("verificar", 2), ("salida", 2)]),
+    # 6.3 en el primer intento: vuelve a recuperar con la búsqueda ampliada.
+    ([EVIDENCIA_INSUFICIENTE, APROBADA],
+     [("validar", None), ("clasificar", None), ("normalizar", 1), ("recuperar", 1), ("proteger", 1),
+      ("generar", 1), ("verificar", 1), ("recuperar", 2), ("proteger", 2), ("generar", 2), ("verificar", 2),
+      ("salida", 2)]),
+])
+def test_cada_evento_lleva_el_intento_al_que_pertenece(entorno, consultas, super_engine, modos,  # noqa: F811
+                                                       etapas_esperadas):
+    """El «verificar» que decide el reintento pertenece al intento 1, aunque el estado ya pase al 2."""
+    eventos = _ejecutar(entorno, consultas, _solicitud(super_engine, _caso("b")), modos)
+    assert [(e["etapa"], e["intento"]) for e in eventos if e["tipo"] == "etapa"] == etapas_esperadas
+    fin = eventos[-1]
+    assert fin["estado"] == "VERIFICADA" and [i["numero"] for i in fin["intentos"]] == [1, 2]
+    # Las etapas guardadas en tiempos_ms (se resumen antes de «salida») coinciden con los eventos.
+    assert [(e["nodo"], e["intento"]) for e in fin["tiempos_ms"]["etapas"]] == etapas_esperadas[:-1]
+
+
 def test_sin_fragmentos_sobre_el_umbral_pasa_de_recuperar_a_verificar(entorno, consultas, super_engine):  # noqa: F811
     entorno = replace(entorno, parametros=replace(entorno.parametros, umbral_relevancia=0.99))
     eventos = _ejecutar(entorno, consultas, _solicitud(super_engine, _caso("b")))

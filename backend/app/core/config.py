@@ -49,13 +49,30 @@ class Settings(BaseSettings):
     # falso, sin costo, para revisar la interfaz). falso solo se acepta con
     # CDSS_ENTORNO=desarrollo; en otro entorno la configuración no carga y el backend no arranca.
     llm: Literal["real", "falso"] = Field("real", alias="CDSS_LLM")
+    # Con CDSS_LLM=falso, estado que provoca el cliente falso por el camino normal del grafo:
+    # normal (respuesta aprobada), evidencia_insuficiente (6.3 en los dos intentos, con la
+    # búsqueda ampliada) o error (rechazo del modelo, ERROR sin reintento). normal es el valor
+    # neutro: docker-compose.yml lo pasa siempre. Otro valor exige CDSS_LLM=falso y desarrollo.
+    llm_falso_modo: Literal["normal", "evidencia_insuficiente", "error"] = Field("normal", alias="CDSS_LLM_FALSO_MODO")
 
     @model_validator(mode="after")
     def _llm_falso_solo_en_desarrollo(self):
         if self.llm == "falso" and self.entorno != "desarrollo":
             raise ValueError(f"CDSS_LLM=falso solo se admite con CDSS_ENTORNO=desarrollo (entorno actual: "
                              f"{self.entorno}). Use CDSS_LLM=real o quite la variable.")
+        if self.llm_falso_modo != "normal":
+            if self.entorno != "desarrollo":
+                raise ValueError(f"CDSS_LLM_FALSO_MODO={self.llm_falso_modo} solo se admite con CDSS_ENTORNO=desarrollo "
+                                 f"(entorno actual: {self.entorno}). Quite la variable o use normal.")
+            if self.llm != "falso":
+                raise ValueError(f"CDSS_LLM_FALSO_MODO={self.llm_falso_modo} exige CDSS_LLM=falso (valor actual: "
+                                 f"{self.llm}). Defina CDSS_LLM=falso o quite CDSS_LLM_FALSO_MODO.")
         return self
+
+    @field_validator("llm_falso_modo", mode="before")
+    @classmethod
+    def _modo_vacio_es_normal(cls, valor):
+        return "normal" if isinstance(valor, str) and not valor.strip() else valor
 
     @field_validator("max_concurrencia_reranker", mode="before")
     @classmethod

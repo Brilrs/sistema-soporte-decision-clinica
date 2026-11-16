@@ -169,6 +169,10 @@ export default function ConsultaClinica() {
                   estado={resumen.estado} mensaje={resumen.mensaje} nivel={3}
                   clasificacion={resumen.clasificacion} hbObservada={ultimo?.hemoglobina_g_dl ?? null}
                   acciones={<AccionesEstado estado={resumen.estado} hayId={!!resumen.id_consulta}
+                                            decidir={resumen.id_consulta && resumen.opciones_decision.length > 0 &&
+                                                     tienePermiso("REALIZAR_CONSULTA")
+                                              ? () => navegar(`/consultas/${resumen.id_consulta}`, { state: { abrirDecision: true } })
+                                              : null}
                                             reintentar={() => volverAEscribir(pregunta ?? "")}
                                             reformular={() => volverAEscribir("")}
                                             abrirDatos={() => setVentana("datos")}
@@ -229,17 +233,23 @@ type PropsAcciones = {
   reformular: () => void;
   abrirDatos: () => void;
   abrirVigencia: () => void;
+  decidir: (() => void) | null; // ERROR: «Registrar decisión clínica» abre M05 con la ventana
 };
 
 // Acción para seguir según el estado. ERROR y FUERA_DE_DOMINIO devuelven la pregunta al campo;
 // tras un bloqueo el campo queda vacío, porque la pregunta tenía un dato del paciente.
-function AccionesEstado({ estado, hayId, reintentar, reformular, abrirDatos, abrirVigencia }: PropsAcciones) {
+function AccionesEstado({ estado, hayId, reintentar, reformular, abrirDatos, abrirVigencia, decidir }: PropsAcciones) {
   const boton = (texto: string, accion: () => void) => (
     <button type="button" className="boton boton--secundario boton--auto" onClick={accion}>{texto}</button>
   );
   switch (estado) {
     case "ERROR":
-      return boton("Reintentar", reintentar);
+      return (
+        <>
+          {boton("Reintentar", reintentar)}
+          {decidir && boton("Registrar decisión clínica", decidir)}
+        </>
+      );
     case "FUERA_DE_DOMINIO":
       return boton("Reformular la pregunta", reintentar);
     case "SOLICITUD_BLOQUEADA":
