@@ -14,7 +14,9 @@ export const ETAPAS: Etapa[] = [
   { clave: "verificar", texto: "Verificando citas y consistencia", nodos: ["verificar"] },
 ];
 
-export type EstadoEtapa = "pendiente" | "en_curso" | "lista";
+// omitida: la consulta terminó antes de llegar a la etapa (por ejemplo, fuera de dominio en el
+// paso 1), así que no se ejecutó.
+export type EstadoEtapa = "pendiente" | "en_curso" | "lista" | "omitida";
 
 export type Avance = {
   hechos: Nodo[]; // nodos terminados en el intento actual
@@ -61,11 +63,12 @@ export function avanzar(a: Avance, e: EventoConsulta): Avance {
 }
 
 // Una etapa está lista cuando terminaron todos sus nodos; la primera que no lo está queda en
-// curso mientras la consulta siga activa.
-export function estadosEtapas(a: Avance, activa: boolean): EstadoEtapa[] {
+// curso mientras la consulta siga activa. Con «detenida» (llegó un estado final), las que no
+// se completaron quedan como omitidas en vez de pendientes.
+export function estadosEtapas(a: Avance, activa: boolean, detenida = false): EstadoEtapa[] {
   const listas = ETAPAS.map((et) => et.nodos.every((n) => a.hechos.includes(n)));
   const enCurso = activa && !a.terminado ? listas.indexOf(false) : -1;
-  return listas.map((lista, i) => (lista ? "lista" : i === enCurso ? "en_curso" : "pendiente"));
+  return listas.map((lista, i) => (lista ? "lista" : i === enCurso ? "en_curso" : detenida ? "omitida" : "pendiente"));
 }
 
 export const RECURSOS: Record<EventoEnCola["recurso"], string> = {

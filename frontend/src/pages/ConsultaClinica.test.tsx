@@ -9,7 +9,8 @@ import { AuthProvider } from "../auth/AuthContext";
 import { decimal } from "../utilidades/formato";
 import { ETAPAS } from "../consulta/avance";
 import { EJEMPLO_CONSULTA } from "./ConsultaClinica";
-import { SUGERENCIA_FUERA_DE_DOMINIO } from "../consulta/textos";
+import { MENSAJE_ERROR, SUGERENCIA_FUERA_DE_DOMINIO } from "../consulta/textos";
+import { textoDesenlace } from "../components/MensajeDesenlace";
 import {
   GET_RESULTADO,
   ID_CONSULTA,
@@ -189,11 +190,13 @@ describe("M04 · Consulta clínica", () => {
       expect(await screen.findByRole("heading", { name: titulo })).toBeInTheDocument();
       expect(screen.getByText(/MODO DE PRUEBA: respuesta no clínica/)).toBeInTheDocument(); // modo_prueba en el fixture
     } else {
-      const alerta = await screen.findByText(fin.mensaje);
+      const alerta = await screen.findByText(textoDesenlace(estado, fin.mensaje)!);
       expect(alerta.closest(".desenlace")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Enviar" })).toBeDisabled(); // sin texto, pero ya no en curso
       expect(screen.queryByText(/MODO DE PRUEBA/)).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Cancelar" })).not.toBeInTheDocument();
+      // La tarjeta de avance ya no ofrece «Cancelar» (las ventanas M06 y M15 tienen el suyo).
+      expect(within(document.querySelector(".avance") as HTMLElement).queryByRole("button", { name: "Cancelar" }))
+        .not.toBeInTheDocument();
     }
   });
 
@@ -217,7 +220,7 @@ describe("M04 · Consulta clínica", () => {
       simularBackend({ [POST_CONSULTA]: () => respuestaStream(lineas) });
       renderizar();
       await escribirYEnviar();
-      expect(await screen.findByText(JSON.parse(lineas[lineas.length - 1]).mensaje)).toBeInTheDocument();
+      expect(await screen.findByText(textoDesenlace(estado, JSON.parse(lineas[lineas.length - 1]).mensaje)!)).toBeInTheDocument();
       expect(screen.queryByText(SUGERENCIA_FUERA_DE_DOMINIO)).not.toBeInTheDocument();
     });
 
@@ -228,7 +231,7 @@ describe("M04 · Consulta clínica", () => {
     renderizar();
     await escribirYEnviar();
     expect(await screen.findByText(/MODO DE PRUEBA: respuesta no clínica/)).toBeInTheDocument();
-    expect(screen.getByText("No se pudo evaluar la consulta. Aplique su criterio clínico.")).toBeInTheDocument();
+    expect(screen.getByText(MENSAJE_ERROR)).toBeInTheDocument();
   });
 
   it("el evento error del stream se muestra como estado final", async () => {
@@ -240,7 +243,10 @@ describe("M04 · Consulta clínica", () => {
     simularBackend({ [POST_CONSULTA]: () => respuestaStream([lineasFixture("VERIFICADA")[0], JSON.stringify(error)]) });
     renderizar();
     await escribirYEnviar();
-    expect(await screen.findByText(error.mensaje)).toBeInTheDocument();
+    // El texto genérico del backend se reemplaza por el mensaje de ERROR con «Reintentar».
+    expect(await screen.findByText(MENSAJE_ERROR)).toBeInTheDocument();
+    expect(screen.queryByText(error.mensaje)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
   });
 
   it.each([

@@ -7,6 +7,7 @@ import { guardarToken } from "../api/cliente";
 import type { EstadoFinal, EventoFin, ResultadoConsulta } from "../api/tipos_consulta";
 import { AuthProvider } from "../auth/AuthContext";
 import { AVISO_DECISION, SUGERENCIA_FUERA_DE_DOMINIO, TITULOS_ESTADO } from "../consulta/textos";
+import { textoDesenlace } from "../components/MensajeDesenlace";
 import {
   GET_RESULTADO,
   HISTORIAL_FIXTURE,
@@ -297,31 +298,52 @@ describe("M05 · EN_PROCESO", () => {
   });
 });
 
-describe("M05 · otros estados al recargar", () => {
+describe("M05 · estados sin recomendación al recargar", () => {
   const OTROS: EstadoFinal[] = ["EVIDENCIA_INSUFICIENTE", "DATOS_FALTANTES", "TAMIZAJE_NO_VIGENTE", "FUERA_DE_DOMINIO",
                                "SOLICITUD_BLOQUEADA", "ERROR"];
+  const ACCION: Partial<Record<EstadoFinal, string>> = {
+    ERROR: "Reintentar",
+    FUERA_DE_DOMINIO: "Reformular la pregunta",
+    SOLICITUD_BLOQUEADA: "Reformular la consulta",
+    DATOS_FALTANTES: "Completar datos",
+    TAMIZAJE_NO_VIGENTE: "Revisar el tamizaje",
+  };
 
-  it.each(OTROS)("%s muestra un resumen con el mensaje del backend y las acciones básicas", async (estado) => {
+  it.each(OTROS)("%s: estado a ancho completo, clasificación debajo y su acción", async (estado) => {
     const r = resultadoFixture(estado);
-    conResultado(r);
+    simularBackend({
+      [GET_RESULTADO]: () => respuestaJson(200, r),
+      [`GET /api/pacientes/${ID_PACIENTE_FIXTURE}/consultas`]: () => respuestaJson(200, []),
+    });
     renderizar();
-    expect(await screen.findByRole("heading", { name: "Estado de la consulta" })).toBeInTheDocument();
-    const alerta = screen.getByRole("alert");
+    const titulo = await screen.findByRole("heading", { name: "Estado de la consulta" });
+    // M06 y M15 se abren solas; aquí se revisa el resumen de fondo.
+    if (estado === "DATOS_FALTANTES" || estado === "TAMIZAJE_NO_VIGENTE") await screen.findByRole("dialog");
+    const tarjeta = titulo.closest("section") as HTMLElement;
+    const alerta = within(tarjeta).getByRole("alert");
     expect(alerta).toHaveTextContent(TITULOS_ESTADO[estado]);
-    expect(within(alerta).getByText(r.mensaje!)).toBeInTheDocument();
-    expect(screen.getByText(AVISO_DECISION)).toBeInTheDocument();
+    expect(within(alerta).getByText(textoDesenlace(estado, r.mensaje)!)).toBeInTheDocument();
+    expect(within(tarjeta).getByText(AVISO_DECISION)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Volver al paciente" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Nueva consulta" })).toBeInTheDocument();
     expect(within(screen.getByText("Pregunta realizada").parentElement!).getByText(r.texto_filtrado!)).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Recomendación clínica" })).not.toBeInTheDocument();
     expect(screen.queryByText(SUGERENCIA_FUERA_DE_DOMINIO) !== null).toBe(estado === "FUERA_DE_DOMINIO");
-    if (estado === "DATOS_FALTANTES") {
-      expect(screen.getByText(r.datos_faltantes[0].mensaje)).toBeInTheDocument();
+    if (estado === "DATOS_FALTANTES") expect(within(tarjeta).getByText(r.datos_faltantes[0].mensaje)).toBeInTheDocument();
+    const accion = ACCION[estado];
+    if (accion) expect(within(tarjeta).getByRole("button", { name: accion })).toBeInTheDocument();
+    else expect(within(tarjeta).queryByRole("button")).not.toBeInTheDocument();
+    // Una sola columna: el estado y, debajo, la clasificación, en el mismo contenedor.
+    const contenedor = tarjeta.parentElement as HTMLElement;
+    expect(contenedor).toHaveClass("estado-consulta");
+    if (r.clasificacion) {
+      const clasificacion = screen.getByRole("region", { name: "Clasificación del paciente" });
+      expect(clasificacion.parentElement).toBe(contenedor);
+      expect(tarjeta.compareDocumentPosition(clasificacion) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(clasificacion).toHaveTextContent("Calculada por reglas a partir del tamizaje, no por el modelo.");
+    } else {
+      expect(screen.queryByRole("region", { name: "Clasificación del paciente" })).not.toBeInTheDocument();
     }
-    if (estado === "TAMIZAJE_NO_VIGENTE") {
-      expect(screen.getByRole("button", { name: "+ Nuevo tamizaje" })).toBeInTheDocument();
-    }
-    if (r.clasificacion) expect(screen.getByRole("region", { name: "Nivel de riesgo" })).toBeInTheDocument();
   });
 });
 

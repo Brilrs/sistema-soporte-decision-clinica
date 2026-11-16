@@ -185,3 +185,19 @@ export function simularBackend(rutas: Record<string, Manejador> = {}) {
 
 export const POST_CONSULTA = `POST /api/pacientes/${ID_PACIENTE}/consultas`;
 export const GET_RESULTADO = `GET /api/consultas/${ID_CONSULTA}`;
+
+// Stream de una consulta reanudada (M06 o M15): las líneas del fixture con el id de la consulta
+// nueva y, en el evento fin, la consulta previa.
+export const ID_CONSULTA_REANUDADA = "00000000-0000-4000-8000-000000000009";
+export function lineasReanudadas(estado: EstadoFinal, idNueva = ID_CONSULTA_REANUDADA, idPrevia = ID_CONSULTA): string[] {
+  return lineasFixture(estado).map((linea) => {
+    const evento = JSON.parse(linea);
+    if ("id_consulta" in evento) evento.id_consulta = idNueva;
+    if (evento.tipo === "fin") evento.id_consulta_previa = idPrevia;
+    return JSON.stringify(evento);
+  });
+}
+
+export function resultadoReanudado(estado: EstadoFinal, idNueva = ID_CONSULTA_REANUDADA, idPrevia = ID_CONSULTA): ResultadoConsulta {
+  return { ...resultadoFixture(estado), id_consulta: idNueva, id_consulta_previa: idPrevia };
+}

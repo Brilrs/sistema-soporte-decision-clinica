@@ -40,7 +40,7 @@ export default function Layout() {
         </div>
         <div className="cabecera__usuario">
           <span className="insignia">{usuario.rol}</span>
-          <span>{usuario.nombre_completo}</span>
+          <span className="cabecera__nombre">{usuario.nombre_completo}</span>
           <span className="avatar">{iniciales(usuario.nombre_completo)}</span>
           <button className="boton boton--enlace" onClick={cerrarSesion}>Cerrar sesión</button>
         </div>

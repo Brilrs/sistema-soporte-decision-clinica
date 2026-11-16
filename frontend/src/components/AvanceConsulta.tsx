@@ -1,10 +1,12 @@
 // Avance de la consulta por etapas (M04): lista con su estado, barra, tiempo transcurrido,
 // aviso de espera en cola y botón «Cancelar». Una región aria-live anuncia la etapa en curso.
+// Si la consulta terminó antes de recorrer todas las etapas («detenida»), las restantes se
+// marcan «no ejecutada» para que la tarjeta no parezca trabada.
 import { useEffect, useState } from "react";
 import { ETAPAS, RECURSOS, estadosEtapas, type Avance } from "../consulta/avance";
 import { segundos } from "../utilidades/formato";
 
-const TEXTO_ESTADO = { lista: "lista", en_curso: "en curso", pendiente: "pendiente" } as const;
+const TEXTO_ESTADO = { lista: "lista", en_curso: "en curso", pendiente: "pendiente", omitida: "no ejecutada" } as const;
 
 // Tiempo desde «inicio»; se actualiza cada décima de segundo mientras la consulta está activa.
 function useTranscurrido(inicio: number | null, finMs: number | null, activa: boolean): number {
@@ -19,15 +21,17 @@ function useTranscurrido(inicio: number | null, finMs: number | null, activa: bo
   return inicio === null ? 0 : Math.max(ahora - inicio, 0);
 }
 
-export default function AvanceConsulta({ avance, activa, recuperando, inicio, finMs, cancelar }: {
+export default function AvanceConsulta({ avance, activa, recuperando, inicio, finMs, cancelar, detenida = false }: {
   avance: Avance;
   activa: boolean;
   recuperando: boolean;
   inicio: number | null;
   finMs: number | null;
   cancelar: () => void;
+  detenida?: boolean;
 }) {
-  const estados = estadosEtapas(avance, activa && !recuperando);
+  const estados = estadosEtapas(avance, activa && !recuperando, detenida && !activa);
+  const omitidas = estados.filter((e) => e === "omitida").length;
   const listas = estados.filter((e) => e === "lista").length;
   const enCurso = estados.indexOf("en_curso");
   const transcurrido = useTranscurrido(inicio, finMs, activa);
@@ -58,9 +62,11 @@ export default function AvanceConsulta({ avance, activa, recuperando, inicio, fi
         {ETAPAS.map((et, i) => (
           <li key={et.clave} className={`avance__etapa avance__etapa--${estados[i]}`}
               aria-current={estados[i] === "en_curso" ? "step" : undefined}>
-            <span className="avance__icono" aria-hidden="true">{estados[i] === "lista" ? "✓" : i + 1}</span>
+            <span className="avance__icono" aria-hidden="true">{estados[i] === "lista" ? "✓" : estados[i] === "omitida" ? "·" : i + 1}</span>
             <span>{et.texto}</span>
-            <span className="solo-lectores"> ({TEXTO_ESTADO[estados[i]]})</span>
+            {estados[i] === "omitida"
+              ? <span className="avance__omitida"> no ejecutada</span>
+              : <span className="solo-lectores"> ({TEXTO_ESTADO[estados[i]]})</span>}
           </li>
         ))}
       </ol>
@@ -69,6 +75,9 @@ export default function AvanceConsulta({ avance, activa, recuperando, inicio, fi
           En espera: {RECURSOS[avance.enCola.recurso]} está atendiendo otras consultas. La suya continuará
           automáticamente.
         </p>
+      )}
+      {omitidas > 0 && (
+        <p className="avance__detenida">La consulta terminó antes de recorrer todas las etapas; las restantes no se ejecutaron.</p>
       )}
       <div className="avance__barra" role="progressbar" aria-label="Etapas terminadas"
            aria-valuemin={0} aria-valuemax={ETAPAS.length} aria-valuenow={listas}>
