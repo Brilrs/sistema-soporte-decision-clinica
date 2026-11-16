@@ -218,7 +218,8 @@ describe("M05 · Resultado de la consulta (VERIFICADA)", () => {
     expect(controles[0]).toHaveTextContent("6.1 Citas textuales: Cumplido");
     expect(controles[1]).toHaveTextContent("6.2 Consistencia y dosis: No se ejecutó");
     expect(controles[2]).toHaveTextContent("6.3 Suficiencia de la evidencia: No cumplido");
-    expect(controles[2]).toHaveTextContent(`Relevancia máxima sin dato frente al umbral ${decimal(0.05, 3)}.`);
+    expect(controles[2]).toHaveTextContent(
+      `Ningún fragmento alcanzó el umbral: relevancia máxima sin dato frente al umbral ${decimal(0.05, 3)}.`);
   });
 
   it("destaca la derivación y el ajuste por altitud cuando corresponden", async () => {

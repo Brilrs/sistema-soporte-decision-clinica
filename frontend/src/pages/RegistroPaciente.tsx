@@ -1,5 +1,5 @@
 // M03 · Registro del paciente (HU02, HU05): identificación, datos al nacer y primer tamizaje.
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { mensajeError } from "../api/cliente";
 import { pacientesApi } from "../api/pacientes";
@@ -9,15 +9,22 @@ import { CamposIdentificacion, CamposNacimiento, aEntradaPaciente, formPacienteV
 import FormularioTamizaje, { aEntradaTamizaje, erroresTamizaje, formTamizajeVacio,
   type FormTamizaje } from "../components/FormularioTamizaje";
 import Migas from "../components/Migas";
+import { useAuth } from "../auth/AuthContext";
 import { avisoClasificacion } from "./avisos";
+import { useTituloPagina } from "../utilidades/useTituloPagina";
 
 export default function RegistroPaciente() {
+  const { tienePermiso } = useAuth();
+  useTituloPagina("Registro del paciente");
   const navegar = useNavigate();
   const { distritos, sintomas, error: errorCatalogos } = useCatalogos();
   const [paciente, setPaciente] = useState<FormPaciente>(formPacienteVacio);
   const [tamizaje, setTamizaje] = useState<FormTamizaje>(() => formTamizajeVacio());
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  // «Guardar y evaluar» abre la consulta clínica (M04) del paciente nuevo.
+  const evaluar = useRef(false);
+  const puedeEvaluar = tienePermiso("REALIZAR_CONSULTA");
 
   const completo = pacienteCompleto(paciente) && !!tamizaje.fecha_tamizaje;
 
@@ -32,10 +39,9 @@ export default function RegistroPaciente() {
     setEnviando(true);
     try {
       const r = await pacientesApi.registrar({ ...aEntradaPaciente(paciente), tamizaje: aEntradaTamizaje(tamizaje) });
-      navegar(`/pacientes/${r.id_paciente}/historial`, {
-        replace: true,
-        state: { aviso: `Paciente registrado. ${avisoClasificacion(r.tamizaje)}` },
-      });
+      const aviso = `Paciente registrado. ${avisoClasificacion(r.tamizaje)}`;
+      navegar(`/pacientes/${r.id_paciente}/${evaluar.current && puedeEvaluar ? "consulta" : "historial"}`,
+              { replace: true, state: { aviso } });
     } catch (err) {
       setError(mensajeError(err));
       setEnviando(false);
@@ -62,27 +68,36 @@ export default function RegistroPaciente() {
                               mostrarEdad={false} cambiar={(c) => setTamizaje((t) => ({ ...t, ...c }))} />
 
           {error && <p className="alerta alerta--error" role="alert">{error}</p>}
-          <BotonesGuardar enviando={enviando} habilitado={completo} cancelar={() => navegar("/pacientes")} />
+          <BotonesGuardar enviando={enviando} habilitado={completo} cancelar={() => navegar("/pacientes")}
+                          alElegir={puedeEvaluar ? (e) => (evaluar.current = e) : undefined} />
         </div>
       </form>
     </section>
   );
 }
 
-// «Guardar y evaluar» abre la consulta clínica (M04), que se construye en el Sprint 2.
-export function BotonesGuardar({ enviando, habilitado, cancelar }: { enviando: boolean; habilitado: boolean; cancelar: () => void }) {
+// Botones de M03 y M14. «Guardar» y «Guardar y evaluar» envían el mismo formulario; el segundo
+// avisa antes (alElegirEvaluar) para que, al guardar, se abra la consulta clínica (M04) en lugar
+// del historial. Sin evaluar (rol sin REALIZAR_CONSULTA), solo se ofrece «Guardar».
+export function BotonesGuardar({ enviando, habilitado, cancelar, alElegir }: {
+  enviando: boolean;
+  habilitado: boolean;
+  cancelar: () => void;
+  alElegir?: (evaluar: boolean) => void;
+}) {
   return (
     <div className="acciones">
       <button type="button" className="boton boton--neutro" onClick={cancelar} disabled={enviando}>Cancelar</button>
-      <button type="submit" className="boton boton--secundario" disabled={enviando || !habilitado}>
+      <button type="submit" className={`boton ${alElegir ? "boton--secundario" : "boton--primario boton--auto"}`}
+              disabled={enviando || !habilitado} onClick={() => alElegir?.(false)}>
         {enviando ? "Guardando…" : "Guardar"}
       </button>
-      <span>
-        <button type="button" className="boton boton--primario" disabled title="Disponible en el Sprint 2">
+      {alElegir && (
+        <button type="submit" className="boton boton--primario boton--auto" disabled={enviando || !habilitado}
+                onClick={() => alElegir(true)}>
           Guardar y evaluar
         </button>
-        <span className="nota-sprint" style={{ display: "block", textAlign: "right" }}>Disponible en el Sprint 2</span>
-      </span>
+      )}
     </div>
   );
 }

@@ -29,6 +29,7 @@ import VerificacionRespuesta from "../components/resultado/VerificacionRespuesta
 import { AVISO_DECISION, NOTA_EVIDENCIA_ADMINISTRADOR, QUE_PUEDE_HACER_EVIDENCIA } from "../consulta/textos";
 import type { EstadoM04 } from "./ConsultaClinica";
 import { SEXOS, edadCabecera, fechaHora, iniciales } from "../utilidades/formato";
+import { useTituloPagina } from "../utilidades/useTituloPagina";
 
 // El evento fin no trae la pregunta, la fecha ni la decisión: quedan vacías hasta el GET.
 export function desdeFin(fin: EventoFin): Resultado {
@@ -111,6 +112,8 @@ function ResultadoConsulta() {
       .catch(fallar);
     return () => control.abort();
   }, [id, reintento]);
+
+  useTituloPagina(resultado?.estado === "EVIDENCIA_INSUFICIENTE" ? "Evidencia insuficiente" : "Resultado de la consulta");
 
   const idPaciente = resultado?.id_paciente;
   useEffect(() => {

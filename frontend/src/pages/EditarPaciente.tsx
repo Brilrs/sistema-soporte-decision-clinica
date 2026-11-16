@@ -8,8 +8,10 @@ import { useCatalogos } from "../api/useCatalogos";
 import { CamposIdentificacion, CamposNacimiento, aEntradaPaciente, formPacienteDesdeFicha, pacienteCompleto,
   type FormPaciente } from "../components/CamposPaciente";
 import Migas from "../components/Migas";
+import { useTituloPagina } from "../utilidades/useTituloPagina";
 
 export default function EditarPaciente() {
+  useTituloPagina("Editar datos del paciente");
   const { id = "" } = useParams();
   const navegar = useNavigate();
   const { distritos, error: errorCatalogos } = useCatalogos();

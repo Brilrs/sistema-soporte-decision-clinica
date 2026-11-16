@@ -15,6 +15,20 @@ function marca(valor: boolean | null) {
   return valor === null ? "no_ejecutado" : valor ? "cumplido" : "no_cumplido";
 }
 
+// 6.3 falla de dos maneras: ningún fragmento alcanza el umbral (sin llamar al modelo) o el modelo
+// declara que los fragmentos recuperados no bastan aunque la relevancia supere el umbral.
+export function detalleEvidencia(v: Verificacion, relevancia: string): string {
+  const umbral = decimal(v.umbral_relevancia, 3);
+  if (v.valida_evidencia === false) {
+    if (v.relevancia_maxima !== null && v.relevancia_maxima >= v.umbral_relevancia) {
+      return `El modelo indicó que los fragmentos recuperados no bastan para responder, aunque la relevancia máxima ` +
+        `(${relevancia}) supera el umbral (${umbral}).`;
+    }
+    return `Ningún fragmento alcanzó el umbral: relevancia máxima ${relevancia} frente al umbral ${umbral}.`;
+  }
+  return `Relevancia máxima ${relevancia} frente al umbral ${umbral}.`;
+}
+
 type Props = {
   verificacion: Verificacion | null;
   intentos: Intento[];
@@ -38,7 +52,7 @@ export default function VerificacionRespuesta({ verificacion: v, intentos, citas
     { codigo: "6.2", titulo: "Consistencia y dosis", valor: v.valida_consistencia,
       detalle: "Coherente con la clasificación calculada, la derivación y las dosis de la fuente." },
     { codigo: "6.3", titulo: "Suficiencia de la evidencia", valor: v.valida_evidencia,
-      detalle: `Relevancia máxima ${relevancia} frente al umbral ${decimal(v.umbral_relevancia, 3)}.` },
+      detalle: detalleEvidencia(v, relevancia) },
   ];
   const intento = intentos.find((i) => i.numero === v.numero_intento);
   const pie = [

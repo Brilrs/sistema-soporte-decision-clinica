@@ -342,7 +342,8 @@ describe("accesos a M04", () => {
         respuestaJson(200, { evaluaciones_hoy: 0, con_anemia_detectada: 0, controles_pendientes: 0, tiempo_medio_respuesta_s: null, dias_vigencia_tamizaje: 30 }),
     });
     renderizar("/pacientes");
-    fireEvent.click(await screen.findByRole("button", { name: "Abrir" }));
+    // El nombre accesible empieza por el texto visible y nombra al paciente («Abrir: …»).
+    fireEvent.click(await screen.findByRole("button", { name: "Abrir: Paciente Ficticio Uno" }));
     expect(await screen.findByRole("heading", { name: "Consulta clínica" })).toBeInTheDocument();
   });
 

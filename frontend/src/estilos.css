@@ -7,6 +7,7 @@
   --gris-900: #111827;
   --gris-700: #374151;
   --gris-500: #6b7280;
+  --gris-600: #4b5563; /* texto secundario sobre --gris-100 (contraste 4.5:1 o más) */
   --gris-300: #d1d5db;
   --gris-100: #f3f4f6;
   --fondo: #f5f7fb;
@@ -61,7 +62,8 @@ input:focus { outline: 2px solid var(--azul-600); outline-offset: 0; border-colo
 .cabecera { background: var(--azul-900); color: var(--blanco); display: flex; align-items: center;
   justify-content: space-between; padding: .6rem 1.25rem; gap: 1rem; }
 .cabecera__marca { display: flex; align-items: center; gap: .75rem; min-width: 0; }
-.cabecera__marca span { display: block; font-size: .78rem; opacity: .8; }
+/* Solo el subtítulo: una regla sobre todos los span de la marca ocultaba el icono del botón de menú. */
+.cabecera__subtitulo { display: block; font-size: .78rem; opacity: .8; }
 .cabecera__usuario { display: flex; align-items: center; gap: .75rem; font-size: .9rem; min-width: 0; }
 .insignia { background: rgba(255,255,255,.15); border-radius: 999px; padding: .2rem .65rem; font-size: .78rem; }
 .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--azul-600); display: grid; place-items: center; font-size: .8rem; font-weight: 700; }
@@ -116,11 +118,11 @@ input:focus { outline: 2px solid var(--azul-600); outline-offset: 0; border-colo
 .indicador__nota { font-size: .75rem; color: var(--gris-500); margin: .25rem 0 0; }
 
 /* Tablas de pacientes y tamizajes */
-.tabla th { text-align: left; font-size: .75rem; letter-spacing: .04em; text-transform: uppercase; color: var(--gris-500);
+.tabla th { text-align: left; font-size: .75rem; letter-spacing: .04em; text-transform: uppercase; color: var(--gris-600);
   padding: .55rem .4rem; border-bottom: 1px solid var(--gris-300); background: var(--gris-100); }
 .tabla td { vertical-align: middle; }
 .tabla__acciones { display: flex; gap: .4rem; justify-content: flex-end; white-space: nowrap; }
-.tabla-contenedor { overflow-x: auto; }
+.tabla-contenedor { overflow-x: auto; position: relative; } /* relative: los textos solo para lectores (absolute) quedan dentro y no ensanchan la página */
 .vacio { color: var(--gris-500); padding: 1rem .4rem; }
 
 /* Etiquetas de clasificación y vigencia */
@@ -150,11 +152,16 @@ input:disabled, input[readonly] { background: var(--gris-100); color: var(--gris
 .anterior { font-size: .78rem; color: var(--gris-500); margin: .25rem 0 0; }
 .subtitulo { font-size: .85rem; font-weight: 600; margin: 1rem 0 .4rem; }
 .subtitulo span { font-weight: 400; color: var(--gris-500); }
+.solo-lectura { margin: 0; }
+/* M14 usa tres listas seguidas: conservan el margen que tenía la lista única (1em arriba y abajo). */
+.solo-lectura:first-of-type { margin-top: 1em; }
+.solo-lectura:last-of-type { margin-bottom: 1em; }
 .solo-lectura dt { font-size: .8rem; font-weight: 600; color: var(--gris-700); margin-top: .8rem; }
 .solo-lectura dd { margin: .25rem 0 0; padding: .55rem .7rem; background: var(--gris-100); border-radius: 8px; }
 .vista-previa { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; background: var(--gris-100);
   border-radius: 8px; padding: .7rem .9rem; margin-top: 1.25rem; font-size: .9rem; }
 .vista-previa strong { margin-right: .4rem; }
+.vista-previa .texto-tenue { color: var(--gris-600); }
 
 /* Historial (M08) */
 .ficha-cabecera { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
@@ -164,6 +171,12 @@ input:disabled, input[readonly] { background: var(--gris-100); color: var(--gris
 .ficha-cabecera h1 { margin: 0; }
 .historial { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 1.25rem; align-items: start; }
 .historial .tarjeta { max-width: none; margin-top: 0; }
+/* M08: por debajo de 1280 px la tabla de tamizajes (unos 520 px de mínimo) no cabe en la columna
+   derecha; el gráfico y la tabla pasan a una columna, con el gráfico sin agrandarse de más. */
+@media (max-width: 1279px) {
+  .historial { grid-template-columns: minmax(0, 1fr); }
+  .historial .grafico { max-width: 640px; }
+}
 .datos-paciente { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: .5rem 1.25rem; margin: 0; }
 .datos-paciente dt { font-size: .75rem; color: var(--gris-500); }
 .datos-paciente dd { margin: .1rem 0 0; font-weight: 600; }
@@ -201,7 +214,7 @@ input:disabled, input[readonly] { background: var(--gris-100); color: var(--gris
 
 @media (max-width: 1100px) {
   .usuarios { grid-template-columns: minmax(0, 1fr); }
-  .formulario, .historial { grid-template-columns: minmax(0, 1fr); }
+  .formulario { grid-template-columns: minmax(0, 1fr); }
   .indicadores { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
@@ -211,7 +224,7 @@ input:disabled, input[readonly] { background: var(--gris-100); color: var(--gris
 }
 
 @media (max-width: 420px) {
-  .cabecera__marca span { display: none; }
+  .cabecera__subtitulo { display: none; }
   .cabecera__nombre { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
     clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 }
@@ -219,7 +232,6 @@ input:disabled, input[readonly] { background: var(--gris-100); color: var(--gris
 @media (max-width: 800px) {
   .login { grid-template-columns: minmax(0, 1fr); }
   .login__marca { padding: 1.5rem; }
-  .menu { display: none; }
   .contenido { padding: 1rem; }
   .columnas, .casillas, .rejilla--2 { grid-template-columns: minmax(0, 1fr); }
 }
@@ -504,3 +516,63 @@ input[aria-invalid="true"] { border-color: var(--rojo); }
 .decision__definitiva { margin-top: 1rem; }
 .decision__error { margin-top: 1rem; }
 .decision__error:focus { outline: 2px solid var(--rojo); outline-offset: 2px; }
+
+/* Sprint 2 · M08 Evaluaciones realizadas y estados de consulta (E6) */
+.etiqueta--estado-VERIFICADA { background: var(--verde-50); color: var(--verde); }
+.etiqueta--estado-EVIDENCIA_INSUFICIENTE, .etiqueta--estado-DATOS_FALTANTES,
+.etiqueta--estado-TAMIZAJE_NO_VIGENTE { background: var(--ambar-50); color: var(--ambar); }
+.etiqueta--estado-ERROR, .etiqueta--estado-SOLICITUD_BLOQUEADA { background: var(--rojo-50); color: var(--rojo); }
+.etiqueta--estado-FUERA_DE_DOMINIO { background: var(--gris-100); color: var(--gris-700); }
+.etiqueta--estado-EN_PROCESO { background: var(--azul-50); color: var(--azul-700); }
+.evaluaciones { margin-top: 1.25rem; }
+.evaluaciones h2 { margin-bottom: .2rem; }
+.evaluaciones__nota { font-size: .82rem; margin: 0; }
+.evaluaciones__filtro { min-width: 0; }
+.evaluaciones__filtro label { margin: 0 0 .25rem; }
+.evaluaciones__filtro-campos { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+.evaluaciones__filtro input { width: auto; max-width: 100%; }
+.evaluaciones__tabla { margin-top: 1rem; }
+.evaluaciones__tabla:focus-visible { outline: 2px solid var(--azul-600); }
+/* M08: tablas compactas. Caben enteras desde unos 1000 px (evaluaciones) y 1100 px (tamizajes);
+   por debajo, el min-width deja el desplazamiento interno solo como respaldo. */
+.tabla--compacta th, .tabla--compacta td { padding: .45rem .3rem; }
+.tabla--compacta th { font-size: .7rem; letter-spacing: .02em; }
+.tabla--compacta td { font-size: .9rem; }
+/* Las etiquetas pueden partirse en dos líneas («Anemia / moderada») para no ensanchar la columna. */
+.tabla--compacta .etiqueta { white-space: normal; border-radius: 10px; }
+.tabla--compacta .etiqueta--no-vigente, .tabla--compacta .etiqueta--prueba { margin: .2rem .3rem 0 0; }
+.evaluaciones__tabla table { min-width: 600px; }
+.evaluaciones__tabla td { vertical-align: middle; }
+.evaluaciones__pregunta-celda { min-width: 9rem; }
+/* Hasta 2 líneas con puntos suspensivos; el texto completo queda en title y para lectores. */
+.evaluaciones__pregunta { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+  overflow: hidden; overflow-wrap: anywhere; }
+.evaluaciones__ver { white-space: nowrap; }
+.tamizajes__tabla table { min-width: 500px; }
+.tamizajes__sintomas { min-width: 6rem; }
+a.boton { display: inline-block; text-decoration: none; text-align: center; }
+
+/* Menú en pantalla angosta (E6): por debajo de 800 px el menú lateral se oculta y la cabecera
+   muestra «Abrir menú»; las mismas opciones se abren en un panel lateral con fondo oscuro.
+   El mismo corte está en Layout.tsx (CONSULTA_ANGOSTA). Desde 800 px no cambia nada. */
+.boton-menu { display: none; }
+@media (max-width: 799px) {
+  .cuerpo > .menu { display: none; }
+  .boton-menu { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px;
+    padding: 0; border: 1px solid rgba(255, 255, 255, .35); border-radius: 8px; background: transparent; color: var(--blanco);
+    cursor: pointer; }
+  /* Foco: anillo blanco y otro azul claro por fuera, visibles sobre la cabecera azul oscura. */
+  .boton-menu:focus-visible { outline: 3px solid var(--blanco); outline-offset: 2px; box-shadow: 0 0 0 5px #93c5fd; }
+  .boton-menu:hover { background: rgba(255, 255, 255, .12); }
+  .boton-menu__icono { display: block; width: 24px; height: 24px; flex: none; color: var(--blanco); }
+}
+.menu-movil__fondo { position: fixed; inset: 0; z-index: 40; background: rgba(17, 24, 39, .45); }
+.menu-movil { position: fixed; top: 0; left: 0; bottom: 0; z-index: 41; width: min(300px, 85vw); overflow-y: auto;
+  box-shadow: 0 10px 30px rgba(17, 24, 39, .25); border-right: 0; }
+.menu-movil__cabecera { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .25rem; }
+.menu-movil__titulo { font-weight: 700; color: var(--gris-900); padding-left: .5rem; }
+.menu-movil__cerrar { width: 44px; height: 44px; border: 0; border-radius: 8px; background: transparent; color: var(--gris-700);
+  font-size: 1.6rem; line-height: 1; cursor: pointer; }
+.menu-movil__cerrar:focus-visible, .menu-movil a:focus-visible { outline: 2px solid var(--azul-600); outline-offset: 0; }
+/* Área táctil de al menos 44 px por opción. */
+.menu-movil a { display: flex; align-items: center; min-height: 44px; }

@@ -6,11 +6,12 @@ import { EtiquetaClasificacion, EtiquetaVigencia } from "./Etiquetas";
 
 // «Abrir» lleva a la consulta clínica (M04) si se indica abrirConsulta (panel de pacientes y rol
 // que realiza consultas); si no, al historial del paciente (M08).
-export default function TablaPacientes({ pacientes, puedeRegistrar, vacio, abrirConsulta = false }: {
+export default function TablaPacientes({ pacientes, puedeRegistrar, vacio, abrirConsulta = false, textoAbrir = "Abrir" }: {
   pacientes: PacienteListado[];
   puedeRegistrar: boolean;
   vacio: string;
   abrirConsulta?: boolean;
+  textoAbrir?: string; // «Ver historial» en el historial de consultas
 }) {
   const navegar = useNavigate();
   if (pacientes.length === 0) return <p className="vacio">{vacio}</p>;
@@ -46,11 +47,12 @@ export default function TablaPacientes({ pacientes, puedeRegistrar, vacio, abrir
                 <td>
                   <div className="tabla__acciones">
                     <button className="boton boton--secundario boton--chico"
+                            aria-label={`${textoAbrir}: ${p.nombres_apellidos}`}
                             onClick={() => navegar(`/pacientes/${p.id_paciente}/${abrirConsulta ? "consulta" : "historial"}`)}>
-                      Abrir
+                      {textoAbrir}
                     </button>
                     {puedeRegistrar && (
-                      <button className="boton boton--neutro boton--chico"
+                      <button className="boton boton--neutro boton--chico" aria-label={`Nuevo tamizaje: ${p.nombres_apellidos}`}
                               onClick={() => navegar(`/pacientes/${p.id_paciente}/tamizajes/nuevo`)}>+ Tamizaje</button>
                     )}
                   </div>
