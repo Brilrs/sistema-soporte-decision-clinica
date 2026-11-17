@@ -286,12 +286,19 @@ def motivo_dudoso(documento: str, seccion: str | None, texto: str, reglas: Regla
             f"{g.poblacion}.")
 
 
-def asignar_grupos(fragmentos: list, documento: str, reglas: Reglas | None = None) -> list[str]:
+def asignar_grupos(fragmentos: list, documento: str, reglas: Reglas | None = None,
+                   por_defecto: str = TEXTO) -> list[str]:
     """Completa en cada fragmento edad_min_meses, edad_max_meses, poblacion,
     origen_rango y rango_dudoso. Devuelve los id de las correcciones por fragmento de
     este documento que no se aplicaron (el orden no existe o el texto ya no empieza
-    igual), para avisar en vez de corregir otro fragmento."""
+    igual), para avisar en vez de corregir otro fragmento.
+
+    por_defecto: modo de un documento sin entrada en grupos_etarios.yaml. TEXTO para los del
+    manifiesto (como hasta ahora); GENERAL para los cargados desde M11, que nadie revisa en la
+    página de grupos etarios: quedan como el documento entero GENERAL (oms2024), sin rango."""
     reglas = reglas or cargar_reglas()
+    if documento not in reglas.documentos and por_defecto == GENERAL:
+        reglas = replace(reglas, documentos={**reglas.documentos, documento: GENERAL})
     aplicados = set()
     for f in fragmentos:
         g = grupo_de(documento, f.seccion, f.texto, reglas, f.orden)

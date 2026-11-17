@@ -192,6 +192,28 @@ class Repositorio:
                     WHERE id_trabajo = :id"""
             ), {"e": etapa, "p": procesados, "t": total, "id": id_trabajo})
 
+    def marcar_trabajos_huerfanos(self, mensaje: str) -> list[tuple[str, str]]:
+        """Al arrancar el trabajador: los trabajos EN_CURSO quedaron huérfanos (el proceso se
+        detuvo a mitad de la indexación). Pasan a ERROR con el mensaje, y su documento, si
+        seguía EN_PROCESO, también; nada de lo indexado a medias quedó escrito (la versión se
+        escribe en una sola transacción). Devuelve (id_trabajo, id_documento)."""
+        with self.engine.begin() as c:
+            filas = [tuple(f) for f in c.execute(text(
+                """UPDATE conocimiento.trabajo_indexacion
+                      SET estado = 'ERROR', mensaje_error = :m, fecha_fin = now()
+                    WHERE estado = 'EN_CURSO'
+                RETURNING id_trabajo::text, id_documento::text"""
+            ), {"m": mensaje[:500]})]
+            documentos = sorted({d for _, d in filas})
+            if documentos:
+                c.execute(text(
+                    """UPDATE conocimiento.documento_fuente SET estado_indexacion = 'ERROR'
+                        WHERE id_documento = ANY(CAST(:ids AS uuid[])) AND estado_indexacion = 'EN_PROCESO'"""
+                ), {"ids": documentos})
+            for id_trabajo, id_documento in filas:
+                self.auditar(c, "GUIA_INDEXACION_ERROR", id_documento, {"id_trabajo": id_trabajo, "error": mensaje[:500]})
+        return filas
+
     def finalizar_trabajo(self, id_trabajo: str | None, error: str | None = None) -> None:
         if id_trabajo is None:
             return

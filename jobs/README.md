@@ -11,8 +11,8 @@ tiempo real:
 ## Indexador de guías
 
 Se conecta a PostgreSQL con el usuario `cdss_indexador` (sin acceso a datos clínicos ni permiso
-de eliminación), a ChromaDB y al servicio `modelos`. Lee los PDF de `./data/guias` (solo
-lectura) y escribe los informes en `./data/mediciones`.
+de eliminación), a ChromaDB y al servicio `modelos`. Lee los PDF de `./data/guias` y del volumen
+`datos_guias_cargadas` (solo lectura) y escribe los informes en `./data/mediciones`.
 
 ```bash
 docker compose build jobs
@@ -25,7 +25,7 @@ docker compose run --rm jobs python -m app.indexador <comando> [opciones]
 | `procesar --documento <clave o id>` | Indexa un documento. `--archivo` indica otro PDF. |
 | `comparar` | Informe de extracción en `data/mediciones/a2_extraccion.md`: páginas, tokens sospechosos del OCR, fragmentos, transcripciones, anclas, texto sustituido, tamaños y conflictos derivados. No escribe en la base. Para experimentos, `--parametros 250,400,40` usa otros tamaños y `--fragmentos-json` exporta los fragmentos (los usa `medir_recuperacion rankings --fragmentos`). |
 | `verificar-valores` | Lista de comprobación en `data/mediciones/verificacion_valores_criticos.md` (cada valor crítico, su transcripción, la página y la imagen) y página local `data/mediciones/verificacion.html`: imagen y texto de cada transcripción lado a lado, valores críticos resaltados, casilla y notas guardadas en el navegador y botón «Copiar resumen». |
-| `trabajador` | Toma los trabajos `PENDIENTE` de `conocimiento.trabajo_indexacion` (`FOR UPDATE SKIP LOCKED`) cada 5 s. Lo usará la pantalla M11. `--una-vez` termina cuando no quedan pendientes. |
+| `trabajador` | Toma los trabajos `PENDIENTE` de `conocimiento.trabajo_indexacion` (`FOR UPDATE SKIP LOCKED`) cada 5 s. Corre permanente en el servicio `indexador` (ver «Trabajador permanente»). `--una-vez` termina cuando no quedan pendientes. |
 
 Opciones comunes:
 
@@ -67,6 +67,64 @@ Opciones comunes:
 6. **Versiones**: reindexar crea la versión N+1; los fragmentos anteriores pasan a no vigentes
    ("REINDEXADO") pero se conservan, así que las citas ya registradas siguen apuntando a su
    texto. ChromaDB solo guarda la versión vigente.
+
+### Trabajador permanente y guías cargadas desde M11 (parte F2)
+
+El servicio `indexador` de `docker-compose.yml` arranca con el stack y ejecuta
+`python -m app.indexador trabajador` con la imagen de `jobs`, el usuario `cdss_indexador`,
+`restart: unless-stopped` y `mem_limit` de 768 MB. Lee los PDF en solo lectura (`./data/guias`
+y el volumen `datos_guias_cargadas`); su salud se comprueba con la conexión a la base. El
+contenedor `jobs` sigue disponible para la línea de comandos.
+
+- Al arrancar, los trabajos que quedaron `EN_CURSO` (el proceso se detuvo a mitad) pasan a
+  `ERROR` con el mensaje «Indexación interrumpida… use «Reintentar»», y su documento, si seguía
+  `EN_PROCESO`, también; se audita `GUIA_INDEXACION_ERROR`. La versión se escribe en una sola
+  transacción, así que no queda nada a medias. Supone un solo trabajador: no ejecute `cargar` ni
+  `procesar` mientras el servicio arranca, porque marcaría ese trabajo como interrumpido.
+- Una excepción fuera de la indexación (documento inexistente, base caída) no detiene el
+  bucle: se registra, el trabajo tomado queda en `ERROR` y el trabajador sigue tras una pausa.
+- Un documento que no está en el manifiesto (los que se cargan desde M11) se indexa sin
+  recorte, transcripciones ni mapa de modificaciones; con `pagina_inicio_cuerpo` y
+  `pagina_fin_cuerpo` lee solo esas páginas y, sin ellas, todas. Todos sus fragmentos quedan con
+  grupo etario GENERAL (sin bonificación ni castigo por edad), porque nadie los revisa en la
+  página de grupos etarios. Conserva su `ruta_blob` (`local://guias_cargadas/<id>.pdf`).
+- M11 solo carga documentos de nivel 2 (decisión de la parte F2): no se recuperan ni se citan.
+  Los de nivel 1 se cargan por línea de comandos, con sus transcripciones verificadas.
+
+#### Volumen de las guías cargadas
+
+El backend escribe los PDF de M11 en el volumen `datos_guias_cargadas` (`/datos/guias_cargadas`)
+con el usuario `cdss`. La imagen crea esa carpeta con dueño `cdss`, así que un volumen nuevo nace
+bien. Un volumen creado antes de la parte F2 es de `root` y necesita, una sola vez:
+
+```bash
+docker compose build backend
+MSYS_NO_PATHCONV=1 docker compose run --rm --no-deps --user root --entrypoint "" backend chown cdss:cdss /datos/guias_cargadas
+```
+
+(`MSYS_NO_PATHCONV=1` solo en Git Bash.) Nginx admite cuerpos de hasta 25 MB solo en
+`/api/conocimiento/documentos`; el backend corta la subida en 20 MB.
+
+#### Medición (16/11/2026, equipo de desarrollo, no B2ms)
+
+PDF de la RM 251 completo (38 páginas, sin páginas del cuerpo, como un documento de M11), con
+los modelos reales, contra la base de pruebas y una colección temporal de ChromaDB (ambas
+limpias al terminar). Sonda de latencia de `modelos` dentro del backend: 1 embedding de la
+pregunta y el reranker con 8 candidatos de 256 tokens, como una recuperación.
+
+| Medida | Valor |
+| --- | --- |
+| Fragmentos | 98 |
+| Tiempo total | 254,8 s (embeddings 248,8 s, unos 0,4 fragmentos/s) |
+| Memoria del contenedor que indexa | pico 311 MiB (de 768 MiB); el servicio `indexador` en espera usa unos 86 MiB |
+| Memoria de `modelos` | de 1955 a 2356 MiB |
+| Recuperación típica antes / durante / después (mediana) | 3,7 s / 24,0 s / 4,2 s |
+| Llamada más lenta durante la indexación | embedding 27,7 s; reranker 30,2 s |
+
+Mientras se indexa, `modelos` (una petición a la vez) atiende los lotes de 8 fragmentos del
+indexador y las consultas esperan su turno: la recuperación de una consulta pasa de unos 4 s a
+unos 24 s y puede superar los 30 s. Indexar una guía nueva fuera del horario de atención hasta
+decidir cómo limitarlo (pendiente P14 de `docs/cambios_respecto_al_OE2.md`).
 
 ### Verificar las transcripciones
 

@@ -10,6 +10,10 @@ COPY app ./app
 
 # Usuario sin privilegios dentro del contenedor
 RUN useradd --create-home cdss
+# PDF cargados desde M11 (volumen datos_guias_cargadas): la carpeta existe en la imagen con dueño
+# cdss, así un volumen nuevo se crea con ese dueño y el backend puede escribir en él. Un volumen
+# creado antes necesita un chown una sola vez (jobs/README.md, «Volumen de las guías cargadas»).
+RUN mkdir -p /datos/guias_cargadas && chown cdss:cdss /datos/guias_cargadas
 USER cdss
 
 # Procesos fuera de línea (indexador de guías y evaluación). Se ejecutan con

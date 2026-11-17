@@ -43,6 +43,9 @@ class FuenteDocumento:
     modificaciones: str | None = None
     rol: str = "normal"
     prefijo_imagen: str | None = None
+    # False para los documentos cargados desde M11 (fuera del manifiesto): sin reglas propias de
+    # grupo etario, todos sus fragmentos quedan GENERAL (parte F2).
+    en_manifiesto: bool = True
 
 
 def cargar_manifiesto(ruta: str | Path) -> list[FuenteDocumento]:

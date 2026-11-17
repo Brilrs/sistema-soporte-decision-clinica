@@ -15,7 +15,7 @@ from pathlib import Path
 from app.indexador.chunker import Avisos, Fragmento, fragmentar
 from app.indexador.config import FuenteDocumento
 from app.indexador.errores import ErrorIndexacion
-from app.indexador.grupos_etarios import asignar_grupos
+from app.indexador.grupos_etarios import GENERAL, TEXTO, asignar_grupos
 from app.indexador.extraccion import PaginaTexto, contar_sospechosos, extraer_pdf
 from app.indexador.modificaciones import cargar_mapa
 from app.indexador.repositorio import Documento, Repositorio
@@ -84,7 +84,8 @@ def preparar(fuente: FuenteDocumento, paginas: list[PaginaTexto], tokenizador: T
     fragmentos = fragmentar(seg.segmentos, doc, tokenizador, objetivo, maximo, solapamiento, avisos)
     if not fragmentos:
         raise ErrorIndexacion("El documento no produjo fragmentos")
-    for id_sin_aplicar in asignar_grupos(fragmentos, fuente.clave):
+    por_defecto = TEXTO if fuente.en_manifiesto else GENERAL
+    for id_sin_aplicar in asignar_grupos(fragmentos, fuente.clave, por_defecto=por_defecto):
         avisos.mensajes.append(f"grupos_etarios.yaml: la corrección {id_sin_aplicar} no se aplicó (no existe ese "
                                "fragmento o su texto ya no empieza igual); revise la página de grupos etarios")
     return Preparacion(paginas, seg, fragmentos, avisos.mensajes, transcripciones,
@@ -133,7 +134,13 @@ class Indexador:
                 if ruta_pdf is None or not ruta_pdf.is_file():
                     raise ErrorIndexacion(f"No se encontró el archivo {ruta_pdf}")
                 hash_archivo = sha256_archivo(ruta_pdf)
-            ruta_blob = ruta_blob or f"local://guias/{ruta_pdf.name if ruta_pdf else fuente.archivo}"
+            if ruta_blob is None:
+                # Un documento cargado desde M11 conserva su ubicación (local://guias_cargadas/...);
+                # los del manifiesto siguen en local://guias/<archivo>, como antes.
+                if documento.ruta_blob and not documento.ruta_blob.startswith("local://guias/"):
+                    ruta_blob = documento.ruta_blob
+                else:
+                    ruta_blob = f"local://guias/{ruta_pdf.name if ruta_pdf else fuente.archivo}"
 
             if (documento.hash_archivo == hash_archivo and documento.estado_indexacion == "COMPLETADA"
                     and not opciones.reindexar):
