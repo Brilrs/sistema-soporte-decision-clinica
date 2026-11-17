@@ -26,7 +26,7 @@ import RecomendacionClinica from "../components/resultado/RecomendacionClinica";
 import RiesgoClasificacion from "../components/resultado/RiesgoClasificacion";
 import TablaCitas from "../components/resultado/TablaCitas";
 import VerificacionRespuesta from "../components/resultado/VerificacionRespuesta";
-import { AVISO_DECISION, NOTA_EVIDENCIA_ADMINISTRADOR, QUE_PUEDE_HACER_EVIDENCIA } from "../consulta/textos";
+import { AVISO_DECISION, NOTA_EVIDENCIA_ADMINISTRADOR, QUE_PUEDE_HACER_EVIDENCIA, avisoCambioDeTramo } from "../consulta/textos";
 import type { EstadoM04 } from "./ConsultaClinica";
 import { SEXOS, edadCabecera, fechaHora, iniciales } from "../utilidades/formato";
 import { useTituloPagina } from "../utilidades/useTituloPagina";
@@ -54,6 +54,7 @@ export function desdeFin(fin: EventoFin): Resultado {
     intentos: fin.intentos,
     verificacion: fin.verificacion,
     modo_prueba: fin.modo_prueba,
+    tramo_edad: null,
     decision: null,
     opciones_decision: fin.opciones_decision,
   };
@@ -166,6 +167,11 @@ function ResultadoConsulta() {
       {error && <p className="alerta alerta--aviso" role="status">No se pudo actualizar el resultado: {error.mensaje}</p>}
 
       <Cabecera resultado={resultado} ficha={ficha} edadTamizaje={tamizaje?.edad_meses ?? null} />
+      {resultado.tramo_edad?.cambio && (
+        <p className="alerta alerta--aviso resultado__tramo" role="note">
+          {avisoCambioDeTramo(ficha?.sexo, resultado.tramo_edad.edad_meses_tamizaje, resultado.tramo_edad.edad_meses_consulta)}
+        </p>
+      )}
 
       {resultado.estado === "EN_PROCESO" ? (
         <EnProceso recuperacion={recuperacion} reintentar={() => setReintento((n) => n + 1)} />
@@ -319,10 +325,10 @@ function OtroEstado({ resultado, estado, tamizaje, ultimoTamizaje, decision, res
     };
   }, [conVentana, resultado.id_paciente, resultado.id_consulta]);
 
-  // M15 reenvía la pregunta guardada: espera al GET si se llegó solo con el evento fin.
+  // M15 continúa en el servidor con la pregunta guardada (P5): no depende del texto filtrado.
   const pendiente =
     conVentana && reanudacion === null &&
-    (estado === "DATOS_FALTANTES" ? faltantes.length > 0 : !!pregunta);
+    (estado === "DATOS_FALTANTES" ? faltantes.length > 0 : true);
   useEffect(() => {
     if (pendiente && !abierta.current) {
       abierta.current = true;
@@ -369,7 +375,7 @@ function OtroEstado({ resultado, estado, tamizaje, ultimoTamizaje, decision, res
       )}
       {ventana && estado === "TAMIZAJE_NO_VIGENTE" && (
         <VentanaTamizajeNoVigente idPaciente={resultado.id_paciente} idConsultaPrevia={resultado.id_consulta}
-                                  pregunta={pregunta} idTamizaje={resultado.id_tamizaje || null}
+                                  pregunta={pregunta}
                                   tamizaje={tamizaje ?? ultimoTamizaje} vigencia={resultado.vigencia}
                                   puedeRegistrar={tienePermiso("REGISTRAR_PACIENTE")}
                                   alCerrar={() => setVentana(false)} focoAlCerrar={boton} />

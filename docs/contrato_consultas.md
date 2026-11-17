@@ -1,4 +1,4 @@
-# Contrato de la API de consultas (partes D2 y E0)
+# Contrato de la API de consultas (partes D2, E0 y F1)
 
 Formato de las rutas de consultas clínicas, para la interfaz (parte E). OpenAPI lo refleja en
 `/docs` y `/openapi.json`. El NDJSON aparece como `EventoConsulta`, con discriminador `tipo`.
@@ -39,7 +39,7 @@ pruebas con el cliente falso, en `frontend/src/__fixtures__` (`consulta_<estado>
 | EVIDENCIA_INSUFICIENTE | M07 | Sin evidencia suficiente tras el reintento | CRITERIO_CLINICO_PROPIO |
 | ERROR | M07 | No se pudo evaluar (API, tiempo agotado, respuesta inválida dos veces o falla interna) | CRITERIO_CLINICO_PROPIO |
 | DATOS_FALTANTES | M06 | Falta un dato mínimo del tamizaje; se completa con `POST /api/consultas/{id}/datos-faltantes` | No |
-| TAMIZAJE_NO_VIGENTE | M15 | El tamizaje superó `DIAS_VIGENCIA_TAMIZAJE`; se reanuda con una consulta nueva con `confirma_tamizaje_no_vigente: true` e `id_consulta_previa` | No |
+| TAMIZAJE_NO_VIGENTE | M15 | El tamizaje superó `DIAS_VIGENCIA_TAMIZAJE`; se continúa con `POST /api/consultas/{id}/continuar` (pregunta guardada en el servidor) o, como antes, con una consulta nueva con `confirma_tamizaje_no_vigente: true` e `id_consulta_previa` | No |
 | FUERA_DE_DOMINIO | Aviso | La consulta no trata de anemia en niños de 0 a 59 meses | No |
 | SOLICITUD_BLOQUEADA | Aviso | El control previo encontró datos del paciente en la solicitud; no se envió nada | No |
 
@@ -224,11 +224,26 @@ Campos:
 - **Pregunta:** `texto_filtrado`.
 - **Tiempos:** `numero_intentos`, `fecha_hora_inicio`, `fecha_hora_fin` y `latencia_total_ms`.
 - **Contexto clínico:** `datos_faltantes` (lista de `{campo, etiqueta, mensaje, completado}`),
-  `vigencia` y `clasificacion`.
+  `vigencia`, `clasificacion` y `tramo_edad` (ver «Tramo de edad»).
 - **Respuesta:** `recomendacion`, `citas`, `intentos`, `verificacion` y `modo_prueba`, con el
   mismo formato que el evento `fin` (los decimales coinciden: 3 decimales en ambos).
 - **Decisión:** `decision` (`{id_decision, id_usuario, tipo_decision, nota, fecha_registro}` o
   null) y `opciones_decision`.
+
+### Tramo de edad (`tramo_edad`, parte F1)
+
+Indica si el niño cambió de tramo de edad de los puntos de corte de hemoglobina entre el
+tamizaje y la fecha de la consulta (fecha de inicio en hora de Perú). Los tramos son los de
+`configuracion.umbral_hemoglobina` vigentes, los mismos con que se clasifica (hoy 6 a 23 y 24 a
+59 meses). La clasificación y la recomendación se calcularon con la edad del tamizaje. Solo viene
+en el GET (el evento `fin` no lo trae).
+
+| Campo | Tipo | Descripción |
+| --- | --- | --- |
+| `edad_meses_tamizaje` | entero | Edad en meses a la fecha del tamizaje |
+| `edad_meses_consulta` | entero | Edad en meses a la fecha de la consulta |
+| `tramo_tamizaje`, `tramo_consulta` | `{edad_min_meses, edad_max_meses}` o null | null si los puntos de corte no cubren la edad (por ejemplo, menos de 6 meses) |
+| `cambio` | booleano | true si los dos tramos difieren (por ejemplo, de 5 a 6 meses o de 23 a 24) |
 
 ## GET /api/pacientes/{id_paciente}/consultas
 
@@ -260,6 +275,25 @@ Cada elemento (`ConsultaListada`):
 | `categoria` | texto o null | Clasificación del tamizaje |
 | `tipo_decision` | tipo o null | Decisión registrada, si la hay |
 | `modo_prueba` | booleano | |
+
+## POST /api/consultas/{id_consulta}/continuar
+
+M15, «Continuar con este tamizaje» (parte F1). Continúa una consulta que terminó en
+TAMIZAJE_NO_VIGENTE con el mismo tamizaje vencido, como consulta nueva con
+`confirma_tamizaje_no_vigente: true` e `id_consulta_previa` igual a la consulta original. Usa la
+pregunta original guardada en el servidor: no lleva cuerpo y el cliente no reenvía el texto.
+Responde con el mismo NDJSON que `POST /api/pacientes/{id}/consultas`. Para evaluar con un
+tamizaje nuevo se registra el tamizaje (M14) y se hace una consulta nueva: la reanudación solo
+admite el mismo tamizaje.
+
+| Código | Caso |
+| --- | --- |
+| 200 | NDJSON de la consulta nueva |
+| 404 | No existe o es de otro profesional (queda ACCESO_DENEGADO_CONSULTA con la acción `continuar`) |
+| 409 | La consulta no está en TAMIZAJE_NO_VIGENTE o ya se reanudó |
+
+La auditoría (CONSULTA_INICIADA) guarda `id_tamizaje`, `id_consulta_previa` y
+`confirma_tamizaje_no_vigente`, nunca el texto.
 
 ## POST /api/consultas/{id_consulta}/datos-faltantes
 
@@ -298,4 +332,4 @@ decisión por consulta.
 
 La auditoría (DECISION_REGISTRADA) guarda el tipo y si hubo nota, nunca su texto.
 
-La nota se guarda sin los espacios del inicio y del final (vacía equivale a null) y no pasa por el filtro de identificadores de la consulta: la interfaz pide no escribir nombres, DNI, historia clínica ni teléfonos y muestra la nota tal como la devuelve el 201. El 201 trae `id_usuario`, no el nombre de quien decidió; como solo el profesional de la consulta puede verla y registrarla, la interfaz muestra el nombre del usuario de la sesión.
+La nota se guarda sin los espacios del inicio y del final (vacía equivale a null) y pasa por el mismo filtro de identificadores que la consulta (parte F1): el nombre y los apellidos del paciente, su DNI, su HC, los teléfonos, las fechas completas y los nombres frecuentes se guardan como [PACIENTE], [DNI], [HC], [TELEFONO], [FECHA] o [NOMBRE]. El 201 y el GET devuelven la nota ya filtrada; la interfaz avisa cuando difiere de la escrita. El 201 trae `id_usuario`, no el nombre de quien decidió; como solo el profesional de la consulta puede verla y registrarla, la interfaz muestra el nombre del usuario de la sesión.

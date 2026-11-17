@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import UsuarioActual, requiere_algun_permiso, requiere_permiso
 from app.core.auditoria import registrar_evento
-from app.core.db import sesion_clinica
+from app.core.db import engines, sesion_clinica
 from app.core.fechas import edad_en_meses, hoy
 from app.services import pacientes as srv
 from app.services.clasificacion import Evaluacion
@@ -160,7 +160,9 @@ class PacienteListado(BaseModel):
 
 
 class Indicadores(BaseModel):
-    """Los valores nulos se muestran como «Sin datos» (dependen de las consultas del Sprint 2)."""
+    """Los valores nulos se muestran como «Sin datos». evaluaciones_hoy y tiempo_medio_respuesta_s
+    cuentan solo consultas reales del día terminadas en VERIFICADA o EVIDENCIA_INSUFICIENTE
+    (services/pacientes.py, metricas_consultas); sin ninguna son nulos."""
     evaluaciones_hoy: int | None
     con_anemia_detectada: int
     controles_pendientes: int
@@ -297,7 +299,10 @@ def buscar(datos: Busqueda, request: Request, usuario: UsuarioActual = Depends(l
 
 @router.get("/indicadores", response_model=Indicadores)
 def ver_indicadores(_: UsuarioActual = Depends(lectura), sesion: Session = Depends(sesion_clinica)) -> dict:
-    return srv.indicadores(sesion)
+    """Los de las consultas se calculan con cdss_generacion (lee intento_generacion para excluir
+    las consultas de prueba); cdss_clinica no puede leerlo."""
+    with engines()["generacion"].connect() as generacion:
+        return srv.indicadores(sesion, generacion)
 
 
 # ---------------------------------------------------------------------------

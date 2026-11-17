@@ -42,6 +42,17 @@ def rango_edad_clasificable(sesion: Session | Connection) -> tuple[int, int] | N
     return None if fila is None or fila[0] is None else (fila[0], fila[1])
 
 
+def tramo_de_edad(sesion: Session | Connection, edad_meses: int) -> tuple[int, int] | None:
+    """Tramo de edad (meses) de los puntos de corte vigentes que contiene la edad, el mismo con el
+    que clasificar() elige el umbral; None si la edad no está cubierta (por ejemplo, menos de 6
+    meses con los puntos de corte actuales)."""
+    fila = sesion.execute(text("""SELECT DISTINCT edad_min_meses, edad_max_meses
+                                    FROM configuracion.umbral_hemoglobina
+                                   WHERE vigente_hasta IS NULL AND :edad BETWEEN edad_min_meses AND edad_max_meses
+                                   ORDER BY edad_min_meses LIMIT 1"""), {"edad": edad_meses}).first()
+    return None if fila is None else (fila[0], fila[1])
+
+
 def motivo_fuera_de_rango(rango: tuple[int, int] | None) -> str:
     if rango is None:
         return "No hay puntos de corte de hemoglobina vigentes"

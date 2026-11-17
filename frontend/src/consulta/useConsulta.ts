@@ -188,7 +188,7 @@ export function useConsulta(idPaciente: string) {
     [],
   );
 
-  // POST /api/pacientes/{id}/consultas: consulta nueva o continuación con un tamizaje vencido (M15).
+  // POST /api/pacientes/{id}/consultas: consulta nueva.
   const enviar = useCallback(
     (entrada: ConsultaEntrada) => ejecutar((senal) => consultasApi.consultar(idPaciente, entrada, { senal })),
     [ejecutar, idPaciente],
@@ -201,7 +201,13 @@ export function useConsulta(idPaciente: string) {
     [ejecutar],
   );
 
+  // POST /api/consultas/{id}/continuar: continúa con el tamizaje vencido y la pregunta guardada (M15).
+  const continuarTamizajeNoVigente = useCallback(
+    (idConsulta: string) => ejecutar((senal) => consultasApi.continuarTamizajeNoVigente(idConsulta, { senal })),
+    [ejecutar],
+  );
+
   const cancelar = useCallback(() => control.current?.abort(), []);
 
-  return { estado, enviar, completarDatos, cancelar };
+  return { estado, enviar, completarDatos, continuarTamizajeNoVigente, cancelar };
 }

@@ -269,7 +269,7 @@ describe("decisión clínica · registro", () => {
     expect(screen.getAllByRole("button", { name: "Registrar decisión clínica" }).every((x) => (x as HTMLButtonElement).disabled))
       .toBe(true);
     expect(b.posts()).toHaveLength(1);
-    expect(screen.queryByText(/guardó la nota con cambios/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/datos personales reemplazados/)).not.toBeInTheDocument();
   });
 
   it("201 sin nota: «Sin nota» y nota null en el cuerpo", async () => {
@@ -289,7 +289,8 @@ describe("decisión clínica · registro", () => {
     await confirmar(ventana, "CRITERIO_CLINICO_PROPIO", "Control el 20/12/2026.");
     const panel = await screen.findByRole("region", { name: "Decisión clínica registrada" });
     expect(within(panel).getByText("Control en [FECHA].")).toBeInTheDocument();
-    expect(within(panel).getByRole("status")).toHaveTextContent("El sistema guardó la nota con cambios");
+    expect(within(panel).getByRole("status")).toHaveTextContent(
+      "Por privacidad, el sistema guardó la nota con los datos personales reemplazados por marcas como [PACIENTE] o [DNI].");
   });
 
   it("al recargar, la decisión viene del GET y no se puede registrar otra", async () => {

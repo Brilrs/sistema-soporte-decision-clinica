@@ -69,6 +69,17 @@ export type Verificacion = {
   umbral_relevancia: number;
 };
 
+// Tramo de edad de los puntos de corte de Hb en el tamizaje y en la fecha de la consulta (P6, F1).
+// Un tramo null: los puntos de corte no cubren esa edad (por ejemplo, menos de 6 meses).
+export type TramoMeses = { edad_min_meses: number; edad_max_meses: number };
+export type TramoEdad = {
+  edad_meses_tamizaje: number;
+  edad_meses_consulta: number;
+  tramo_tamizaje: TramoMeses | null;
+  tramo_consulta: TramoMeses | null;
+  cambio: boolean;
+};
+
 export type Vigencia = {
   dias_transcurridos: number | null;
   dias_vigencia: number | null;
@@ -215,6 +226,8 @@ export type ResultadoConsulta = {
   intentos: Intento[];
   verificacion: Verificacion | null;
   modo_prueba: boolean;
+  // Solo en el GET (el evento fin no lo trae): null hasta que llega.
+  tramo_edad: TramoEdad | null;
   decision: Decision | null;
   opciones_decision: OpcionDecision[];
 };

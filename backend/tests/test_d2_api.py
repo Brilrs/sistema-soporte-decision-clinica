@@ -335,6 +335,45 @@ def test_decision_en_una_consulta_verificada(cliente_http, cabeceras, consultas_
     assert detalle == {"tipo_decision": "MODIFICA_RECOMENDACION", "con_nota": True}
 
 
+IDENTIDAD_VALENTINA = ("Valentina", "Ccori", "Mamani", "81345678", "00391")
+
+
+def test_la_nota_de_la_decision_pasa_por_el_filtro_de_identificadores(cliente_http, cabeceras, consultas_d2,
+                                                                       super_engine, usar_entorno):
+    """P1 (F1): nombre, DNI, HC y teléfono de la paciente quedan como marcas en el 201, en el GET
+    y en la base; nunca se guardan en texto plano."""
+    c = _caso_http(cliente_http, cabeceras, consultas_d2, super_engine, usar_entorno, "a")[1][-1]["id_consulta"]
+    nota = ("Valentina Ccori Mamani (DNI 81345678, HC 00391): mantener sulfato ferroso; "
+            "la madre llama al 987 654 321 si hay intolerancia.")
+    r = cliente_http.post(f"/api/consultas/{c}/decision", json={"tipo_decision": "MODIFICA_RECOMENDACION", "nota": nota},
+                          headers=cabeceras("med.salazar"))
+    assert r.status_code == 201, r.text
+    guardada = r.json()["nota"]
+    for marca in ("[PACIENTE]", "[DNI]", "[HC]", "[TELEFONO]"):
+        assert marca in guardada, (marca, guardada)
+    assert "mantener sulfato ferroso" in guardada and "si hay intolerancia" in guardada
+    for dato in IDENTIDAD_VALENTINA + ("987 654 321",):
+        assert dato not in guardada
+    assert cliente_http.get(f"/api/consultas/{c}", headers=cabeceras("med.salazar")).json()["decision"]["nota"] == guardada
+    with super_engine.connect() as conexion:
+        en_base = conexion.execute(text("SELECT descripcion FROM asistencia.decision_clinica "
+                                        "WHERE id_consulta = CAST(:c AS uuid)"), {"c": c}).scalar_one()
+    assert en_base == guardada and not any(d in en_base for d in IDENTIDAD_VALENTINA + ("987654321", "987 654 321"))
+    # La auditoría sigue sin el texto.
+    (detalle,) = _auditoria(super_engine, "DECISION_REGISTRADA", c)
+    assert detalle == {"tipo_decision": "MODIFICA_RECOMENDACION", "con_nota": True}
+
+
+def test_filtrar_nota_deja_igual_una_nota_limpia():
+    valentina = IdentidadPaciente("Valentina Ccori Mamani", "81345678", "00391")
+    limpia = "Se mantiene la dosis indicada y control de hemoglobina en un mes."
+    assert dec.filtrar_nota(f"  {limpia}  ", valentina) == limpia
+    assert dec.filtrar_nota("   ", valentina) is None and dec.filtrar_nota(None, valentina) is None
+    assert dec.filtrar_nota("Ccori tolera bien el hierro", valentina) == "[PACIENTE] tolera bien el hierro"
+    # Sin identidad (tamizaje sin paciente legible) igual se filtran DNI y teléfonos.
+    assert dec.filtrar_nota("DNI 81345678, cel 987654321", None) == "DNI [DNI], [TELEFONO]"
+
+
 @pytest.mark.parametrize("id_caso, cambios, tipo, codigo", [
     ("j", {}, "ACEPTA_RECOMENDACION", 409), ("j", {}, "CRITERIO_CLINICO_PROPIO", 201),
     ("g", {}, "CRITERIO_CLINICO_PROPIO", 409), ("h", {}, "CRITERIO_CLINICO_PROPIO", 409),

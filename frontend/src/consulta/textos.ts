@@ -99,6 +99,14 @@ export const SUGERENCIA_FUERA_DE_DOMINIO =
 
 export const AVISO_DECISION = "La decisión final corresponde al profesional tratante.";
 
+// P6 (F1): el niño cambió de grupo de edad entre el tamizaje y la consulta. Breve y sin alarma.
+export function avisoCambioDeTramo(sexo: string | null | undefined, edadTamizaje: number, edadConsulta: number): string {
+  const sujeto = sexo === "F" ? "La niña" : sexo === "M" ? "El niño" : "El niño o la niña";
+  const meses = (n: number) => `${n} ${n === 1 ? "mes" : "meses"}`;
+  return `${sujeto} pasó a otro grupo de edad desde el tamizaje (${meses(edadTamizaje)} entonces, ` +
+    `${meses(edadConsulta)} en esta consulta). Verifique que la recomendación aplique a su edad actual.`;
+}
+
 export const ETIQUETA_TRADUCCION = "Traducción de apoyo, no oficial";
 
 // Estados graves: se muestran en rojo.

@@ -8,10 +8,16 @@ Reglas (aprobadas en D2):
   MODIFICA_RECOMENDACION.
 - opciones_decision(estado) es la fuente única de estas reglas: la API la devuelve en el
   evento final y en el resultado de la consulta para que la interfaz no las duplique.
+- La nota pasa por el mismo filtro de identificadores que la consulta (filtro_texto) antes de
+  guardarse: el nombre y los apellidos del paciente, su DNI, su HC, teléfonos, fechas completas y
+  nombres frecuentes quedan como [PACIENTE], [DNI], [HC], [TELEFONO], [FECHA] o [NOMBRE]. La
+  identidad se lee y se descifra solo en memoria, con cdss_clinica (parte F1, P1).
 - La auditoría guarda el tipo y si hay nota, nunca el texto de la nota."""
 from sqlalchemy import Connection, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+
+from app.rag.filtro_texto import IdentidadPaciente, filtrar_texto
 
 ACEPTA_RECOMENDACION = "ACEPTA_RECOMENDACION"
 MODIFICA_RECOMENDACION = "MODIFICA_RECOMENDACION"
@@ -48,14 +54,22 @@ def leer_decision(sesion: Session | Connection, id_consulta: str) -> dict | None
             "nota": fila.descripcion, "fecha_registro": fila.fecha_registro}
 
 
+def filtrar_nota(nota: str | None, identidad: IdentidadPaciente | None) -> str | None:
+    """Nota sin espacios sobrantes y con los identificadores reemplazados por marcas; None si queda vacía."""
+    limpia = (nota or "").strip()
+    if not limpia:
+        return None
+    return filtrar_texto(limpia, identidad).texto_filtrado.strip() or None
+
+
 def registrar_decision(sesion: Session | Connection, id_consulta: str, estado: str, id_usuario: str, tipo: str,
-                       nota: str | None) -> dict:
+                       nota: str | None, identidad: IdentidadPaciente | None = None) -> dict:
     permitidos = TIPOS_POR_ESTADO.get(estado, ())
     if not permitidos:
         raise ErrorDecision(f"Una consulta en estado {estado} no admite una decisión clínica", 409)
     if tipo not in permitidos:
         raise ErrorDecision(f"En una consulta {estado} solo se admite: {', '.join(permitidos)}", 409)
-    nota = (nota or "").strip() or None
+    nota = filtrar_nota(nota, identidad)
     if tipo in NOTA_OBLIGATORIA and nota is None:
         raise ErrorDecision(f"La nota es obligatoria con {tipo}", 422)
     if leer_decision(sesion, id_consulta) is not None:

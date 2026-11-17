@@ -64,7 +64,8 @@ export default function DecisionClinica({ idConsulta, decision, opciones, alRegi
         </dl>
         {cambiada && (
           <p className="alerta alerta--aviso" role="status">
-            El sistema guardó la nota con cambios respecto de lo que escribió. Revise el texto registrado.
+            Por privacidad, el sistema guardó la nota con los datos personales reemplazados por marcas como [PACIENTE] o
+            [DNI]. Revise el texto registrado.
           </p>
         )}
         <div className="decision__boton">

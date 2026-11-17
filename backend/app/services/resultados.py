@@ -8,18 +8,21 @@ Cada función recibe la sesión que le corresponde:
   etiqueta F-xx, que cdss_clinica no puede leer. Nada de esto lleva identidad.
 
 texto_consulta solo lo lee leer_texto_original(), con cdss_clinica, para reanudar una
-consulta en el servidor; nunca se devuelve en la API."""
+consulta en el servidor (datos faltantes y tamizaje no vigente); nunca se devuelve en la API."""
 from dataclasses import dataclass
+from datetime import date
 
 from sqlalchemy import Connection, text
 from sqlalchemy.orm import Session
 
+from app.core.fechas import edad_en_meses
 from app.rag import grafo as g
 from app.rag.cliente_llm import MODELO_FALSO
 from app.rag.generacion import interpretar
 from app.rag.parametros import leer_parametros
 from app.rag.validacion import DATOS_MINIMOS, TAMIZAJE_NO_VIGENTE, leer_clasificacion
 from app.rag.verificacion import EVIDENCIA_INSUFICIENTE, ERROR, MENSAJE_EVIDENCIA_INSUFICIENTE, MENSAJE_NO_EVALUADA
+from app.services.clasificacion import tramo_de_edad
 from app.services.consultas import intento_publico, verificacion_de
 from app.services.decisiones import leer_decision, opciones_decision
 
@@ -72,6 +75,31 @@ def _vigencia(sesion, id_consulta: str) -> dict:
             "continua_con_tamizaje_no_vigente": bool(fila.confirma_tamizaje_no_vigente and fila.dias > vigencia)}
 
 
+def _tramo(t: tuple[int, int] | None) -> dict | None:
+    return None if t is None else {"edad_min_meses": t[0], "edad_max_meses": t[1]}
+
+
+def comparar_tramos(sesion: Session | Connection, edad_meses_tamizaje: int, fecha_nacimiento: date,
+                    fecha_consulta: date) -> dict:
+    """P6 (F1): tramo de edad de los puntos de corte en el tamizaje y en la fecha de la consulta.
+    cambio es true si difieren (por ejemplo de 5 a 6 meses o de 23 a 24): la clasificación y la
+    recomendación se calcularon con la edad del tamizaje."""
+    edad_consulta = edad_en_meses(fecha_nacimiento, fecha_consulta)
+    antes, ahora = tramo_de_edad(sesion, edad_meses_tamizaje), tramo_de_edad(sesion, edad_consulta)
+    return {"edad_meses_tamizaje": edad_meses_tamizaje, "edad_meses_consulta": edad_consulta,
+            "tramo_tamizaje": _tramo(antes), "tramo_consulta": _tramo(ahora), "cambio": antes != ahora}
+
+
+def _tramo_edad(sesion, id_consulta: str) -> dict:
+    fila = sesion.execute(text(
+        """SELECT t.edad_meses, p.fecha_nacimiento, (q.fecha_hora_inicio AT TIME ZONE 'America/Lima')::date AS fecha
+             FROM asistencia.consulta q
+             JOIN clinico.tamizaje t ON t.id_tamizaje = q.id_tamizaje
+             JOIN clinico.paciente p ON p.id_paciente = t.id_paciente
+            WHERE q.id_consulta = CAST(:c AS uuid)"""), {"c": id_consulta}).one()
+    return comparar_tramos(sesion, fila.edad_meses, fila.fecha_nacimiento, fila.fecha)
+
+
 def mensaje_de_estado(estado: str, faltantes: list[dict], vigencia: dict) -> str | None:
     if estado == DATOS_FALTANTES:
         return g.mensaje_datos_faltantes([f["etiqueta"] for f in faltantes if not f["completado"]] or
@@ -107,6 +135,7 @@ def parte_clinica(sesion: Session | Connection, f: FichaConsulta) -> dict:
             "categoria": c.categoria, "nivel_riesgo": c.nivel_riesgo, "hb_ajustada_g_dl": float(c.hb_ajustada_g_dl),
             "ajuste_hb_g_dl": float(c.ajuste_hb_g_dl), "altitud_msnm": c.altitud_msnm,
             "requiere_derivacion": c.requiere_derivacion},
+        "tramo_edad": _tramo_edad(sesion, f.id_consulta),
         "decision": decision,
         "opciones_decision": [] if decision else opciones_decision(f.estado),
     }

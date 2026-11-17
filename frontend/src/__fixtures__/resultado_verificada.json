@@ -73,6 +73,19 @@
     "umbral_relevancia": 0.05
   },
   "modo_prueba": true,
+  "tramo_edad": {
+    "edad_meses_tamizaje": 49,
+    "edad_meses_consulta": 49,
+    "tramo_tamizaje": {
+      "edad_min_meses": 24,
+      "edad_max_meses": 59
+    },
+    "tramo_consulta": {
+      "edad_min_meses": 24,
+      "edad_max_meses": 59
+    },
+    "cambio": false
+  },
   "decision": null,
   "opciones_decision": [
     {

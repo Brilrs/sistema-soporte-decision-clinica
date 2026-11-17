@@ -1,8 +1,9 @@
 // M15 · Tamizaje no vigente (HU15, HU18, RF5). Ventana sobre la consulta cuando termina en
 // TAMIZAJE_NO_VIGENTE: días transcurridos frente al plazo de vigencia y resumen del tamizaje.
 // «Registrar nuevo tamizaje» (recomendada) lleva a M14, que al guardar vuelve a la consulta con la
-// pregunta. «Continuar con este tamizaje» reenvía la consulta con confirma_tamizaje_no_vigente e
-// id_consulta_previa (contrato, POST /api/pacientes/{id}/consultas) y muestra el avance aquí.
+// pregunta. «Continuar con este tamizaje» llama a POST /api/consultas/{id}/continuar, que reanuda
+// en el servidor con la pregunta original guardada (el cliente ya no la reenvía, P5) y muestra el
+// avance aquí. La pregunta solo se usa para dejarla escrita en M04 al volver de M14.
 import { type RefObject } from "react";
 import { useNavigate } from "react-router-dom";
 import type { TamizajeHistorial } from "../../api/pacientes";
@@ -23,8 +24,7 @@ const dias = (n: number) => `${n} ${n === 1 ? "día" : "días"}`;
 type Props = {
   idPaciente: string;
   idConsultaPrevia: string;
-  pregunta: string; // texto que se reenvía al continuar
-  idTamizaje: string | null;
+  pregunta: string; // solo para dejarla escrita en M04 al volver de «Registrar nuevo tamizaje»
   tamizaje: TamizajeHistorial | null;
   vigencia: Vigencia | null;
   puedeRegistrar: boolean;
@@ -33,22 +33,17 @@ type Props = {
 };
 
 export default function VentanaTamizajeNoVigente({
-  idPaciente, idConsultaPrevia, pregunta, idTamizaje, tamizaje, vigencia, puedeRegistrar, alCerrar, focoAlCerrar,
+  idPaciente, idConsultaPrevia, pregunta, tamizaje, vigencia, puedeRegistrar, alCerrar, focoAlCerrar,
 }: Props) {
   const navegar = useNavigate();
-  const { estado, enviar, cancelar, enCurso, sinResultado } = useReanudacion(idPaciente);
+  const { estado, continuarTamizajeNoVigente, cancelar, enCurso, sinResultado } = useReanudacion(idPaciente);
   const bloqueado = enCurso || estado.fase === "terminada" || estado.fase === "cancelada";
   const transcurridos = vigencia?.dias_transcurridos ?? null;
   const plazo = vigencia?.dias_vigencia ?? null;
 
   function continuar() {
-    if (bloqueado || !pregunta.trim()) return;
-    void enviar({
-      texto_consulta: pregunta,
-      id_tamizaje: idTamizaje || null,
-      confirma_tamizaje_no_vigente: true,
-      id_consulta_previa: idConsultaPrevia,
-    });
+    if (bloqueado) return;
+    void continuarTamizajeNoVigente(idConsultaPrevia);
   }
 
   function registrarNuevo() {
@@ -86,7 +81,7 @@ export default function VentanaTamizajeNoVigente({
       <div className="acciones">
         <button type="button" className="boton boton--neutro" onClick={alCerrar} disabled={enCurso}>Cancelar</button>
         <button type="button" className="boton boton--secundario boton--auto" onClick={continuar}
-                disabled={bloqueado || !pregunta.trim()} aria-describedby="m15-cautela">
+                disabled={bloqueado} aria-describedby="m15-cautela">
           {enCurso ? "Evaluando…" : "Continuar con este tamizaje"}
         </button>
         {puedeRegistrar && (

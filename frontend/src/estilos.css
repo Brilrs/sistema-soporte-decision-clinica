@@ -576,3 +576,6 @@ a.boton { display: inline-block; text-decoration: none; text-align: center; }
 .menu-movil__cerrar:focus-visible, .menu-movil a:focus-visible { outline: 2px solid var(--azul-600); outline-offset: 0; }
 /* Área táctil de al menos 44 px por opción. */
 .menu-movil a { display: flex; align-items: center; min-height: 44px; }
+
+/* Sprint 2 · F1: aviso de cambio de grupo de edad en M05 (P6) */
+.resultado__tramo { margin: 1rem 0 0; }

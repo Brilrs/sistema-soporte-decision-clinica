@@ -189,6 +189,10 @@ export const consultasApi = {
   // POST /api/pacientes/{id}/consultas (NDJSON)
   consultar: (idPaciente: string, entrada: ConsultaEntrada, opciones?: OpcionesStream) =>
     leerStreamConsulta(`/api/pacientes/${idPaciente}/consultas`, entrada, opciones),
+  // POST /api/consultas/{id}/continuar (NDJSON, sin cuerpo): continúa una consulta TAMIZAJE_NO_VIGENTE
+  // con el mismo tamizaje y la pregunta original guardada en el servidor (P5, F1).
+  continuarTamizajeNoVigente: (idConsulta: string, opciones?: OpcionesStream) =>
+    leerStreamConsulta(`/api/consultas/${idConsulta}/continuar`, undefined, opciones),
   // POST /api/consultas/{id}/datos-faltantes (NDJSON, reanuda como consulta nueva)
   completarDatosFaltantes: (idConsulta: string, datos: DatosFaltantesEntrada, opciones?: OpcionesStream) =>
     leerStreamConsulta(`/api/consultas/${idConsulta}/datos-faltantes`, datos, opciones),

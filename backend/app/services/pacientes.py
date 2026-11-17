@@ -9,12 +9,13 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
 
-from sqlalchemy import text
+from sqlalchemy import Connection, text
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.fechas import edad_en_meses, hoy
 from app.core.seguridad import hmac_identificador
+from app.rag.cliente_llm import MODELO_FALSO
 from app.services.clasificacion import (Evaluacion, clasificar, guardar_resultado, motivo_fuera_de_rango,
                                         rango_edad_clasificable)
 
@@ -342,9 +343,42 @@ def buscar(sesion: Session, termino: str, limite: int = 20) -> tuple[list[dict],
     return [_fila_listado(f, dias) for f in filas], sorted({f["coincidencia"] for f in filas})
 
 
-def indicadores(sesion: Session) -> dict:
-    """Indicadores de M02. Los que dependen de las consultas (Sprint 2) se devuelven
-    como nulos para que la interfaz muestre «Sin datos»."""
+# «Evaluaciones hoy» y «Tiempo medio de respuesta» (M02), parte F1 (P2):
+# - cuentan las consultas de todos los profesionales del establecimiento, como los demás
+#   indicadores del panel;
+# - solo las reales: sin ningún intento del cliente falso (modelo_llm = MODELO_FALSO, la misma
+#   regla que modo_prueba);
+# - solo las que terminaron en una evaluación del sistema: VERIFICADA o EVIDENCIA_INSUFICIENTE
+#   (la abstención por evidencia insuficiente también es una evaluación, RF8). ERROR es una falla
+#   técnica y no cuenta; DATOS_FALTANTES, TAMIZAJE_NO_VIGENTE, FUERA_DE_DOMINIO,
+#   SOLICITUD_BLOQUEADA y EN_PROCESO no llegan a evaluar (si se reanudan, cuenta solo la consulta
+#   nueva, así una pregunta no se cuenta dos veces);
+# - «hoy» es la fecha de inicio de la consulta en hora de Perú (America/Lima, UTC-5);
+# - el tiempo medio es el promedio de latencia_total_ms de esas mismas consultas, en segundos con
+#   un decimal.
+# Sin evaluaciones reales en el día, los dos son nulos y la interfaz muestra «Sin datos».
+ESTADOS_EVALUADOS = ("VERIFICADA", "EVIDENCIA_INSUFICIENTE")
+
+
+def metricas_consultas(generacion: Session | Connection, dia: date) -> tuple[int | None, float | None]:
+    """(evaluaciones del día, tiempo medio en s) con la conexión de cdss_generacion, que lee
+    asistencia.consulta (sin texto_consulta) e intento_generacion."""
+    fila = generacion.execute(text(
+        """SELECT count(*) AS evaluaciones, avg(q.latencia_total_ms) AS ms
+             FROM asistencia.consulta q
+            WHERE q.estado = ANY(:estados)
+              AND (q.fecha_hora_inicio AT TIME ZONE 'America/Lima')::date = :dia
+              AND NOT EXISTS (SELECT 1 FROM asistencia.intento_generacion i
+                               WHERE i.id_consulta = q.id_consulta AND i.modelo_llm = :falso)"""),
+        {"estados": list(ESTADOS_EVALUADOS), "dia": dia, "falso": MODELO_FALSO}).one()
+    if not fila.evaluaciones:
+        return None, None
+    tiempo = None if fila.ms is None else round(float(fila.ms) / 1000, 1)
+    return fila.evaluaciones, tiempo
+
+
+def indicadores(sesion: Session, generacion: Session | Connection | None = None) -> dict:
+    """Indicadores de M02. Sin la conexión de cdss_generacion, los de las consultas son nulos."""
     dias = dias_vigencia(sesion)
     fila = sesion.execute(
         text("""WITH ultimo AS (
@@ -358,11 +392,12 @@ def indicadores(sesion: Session) -> dict:
                   FROM ultimo"""),
         {"limite": hoy() - timedelta(days=dias)},
     ).mappings().one()
+    evaluaciones, tiempo = metricas_consultas(generacion, hoy()) if generacion is not None else (None, None)
     return {
-        "evaluaciones_hoy": None,
+        "evaluaciones_hoy": evaluaciones,
         "con_anemia_detectada": fila["con_anemia"],
         "controles_pendientes": fila["no_vigentes"],
-        "tiempo_medio_respuesta_s": None,
+        "tiempo_medio_respuesta_s": tiempo,
         "dias_vigencia_tamizaje": dias,
     }
 
