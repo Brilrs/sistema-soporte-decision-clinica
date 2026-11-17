@@ -579,3 +579,79 @@ a.boton { display: inline-block; text-decoration: none; text-align: center; }
 
 /* Sprint 2 · F1: aviso de cambio de grupo de edad en M05 (P6) */
 .resultado__tramo { margin: 1rem 0 0; }
+
+/* Sprint 2 · F2c: M11 Base de conocimiento */
+.etiqueta--nivel-1 { background: var(--azul-50); color: var(--azul-700); }
+.etiqueta--nivel-2 { background: var(--gris-100); color: var(--gris-700); }
+.etiqueta--obsoleta { background: var(--rojo-50); color: var(--rojo); }
+.etiqueta--indexacion-COMPLETADA { background: var(--turquesa-50); color: var(--turquesa); }
+.etiqueta--indexacion-PENDIENTE { background: var(--ambar-50); color: var(--ambar); }
+.etiqueta--indexacion-EN_PROCESO { background: var(--azul-50); color: var(--azul-700); }
+.etiqueta--indexacion-ERROR { background: var(--rojo-50); color: var(--rojo); }
+.conocimiento .guias { padding: .75rem 1rem; }
+/* M11: cabe sin desplazamiento interno desde unos 1000 px; el min-width solo es el respaldo para
+   anchos menores (contenido a 1000 px: 1000 - menú 230 - márgenes 64 - relleno 32 - bordes 2). */
+.guias__tabla table { min-width: 620px; }
+.guias__tabla:focus-visible { outline: 2px solid var(--azul-600); }
+.guias__documento { min-width: 10rem; }
+.guias__titulo { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+  overflow: hidden; overflow-wrap: anywhere; }
+.guias__codigo { display: block; font-size: .78rem; color: var(--gris-600); }
+.guias__numero { text-align: right; font-variant-numeric: tabular-nums; }
+.tabla th.guias__numero { text-align: right; }
+.guias__estados { display: flex; flex-wrap: wrap; gap: .25rem; }
+.guias__acciones { display: flex; flex-wrap: wrap; gap: .35rem; justify-content: flex-end; }
+.guias__pie { font-size: .82rem; color: var(--gris-600); margin: .6rem 0 0; }
+
+.indexacion { background: var(--blanco); border: 1px solid var(--gris-300); border-radius: var(--radio); padding: 1rem 1.1rem;
+  margin-top: 1.25rem; display: grid; grid-template-columns: minmax(0, 1fr); gap: .9rem; }
+.indexacion__titulo { font-size: 1rem; margin: 0; }
+.indexacion__trabajo { min-width: 0; }
+.indexacion__trabajo + .indexacion__trabajo { border-top: 1px solid var(--gris-100); padding-top: .9rem; }
+.indexacion__documento { margin: 0; font-size: .92rem; }
+.indexacion__documento .texto-tenue { color: var(--gris-600); }
+.indexacion__etapas { list-style: none; padding: 0; margin: .75rem 0; display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; }
+.indexacion__etapa { display: flex; align-items: center; gap: .4rem; font-size: .88rem; color: var(--gris-900); }
+.indexacion__icono { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center;
+  font-size: .78rem; font-weight: 700; background: var(--gris-100); color: var(--gris-600); }
+.indexacion__etapa--lista .indexacion__icono { background: var(--verde-50); color: var(--verde); }
+.indexacion__etapa--en_curso { font-weight: 700; }
+.indexacion__etapa--en_curso .indexacion__icono { background: var(--azul-50); color: var(--azul-700); border: 2px solid var(--azul-700); }
+.indexacion__etapa--pendiente { color: var(--gris-600); }
+.indexacion__cuenta { font-size: .85rem; color: var(--gris-600); margin: .45rem 0 0; }
+.indexacion__fin { border-radius: 8px; padding: .7rem .9rem; display: flex; flex-wrap: wrap; gap: .5rem 1rem;
+  align-items: center; justify-content: space-between; }
+.indexacion__fin > p, .indexacion__fin-titulo { margin: 0; min-width: 0; }
+.indexacion__fin--ok { background: var(--verde-50); color: var(--verde); }
+.indexacion__fin--error { background: var(--rojo-50); color: var(--rojo); }
+.indexacion__mensaje { flex-basis: 100%; margin: 0; font-size: .88rem; overflow-wrap: anywhere; color: var(--gris-900); }
+.indexacion__fin-acciones { display: flex; flex-wrap: wrap; gap: .4rem; }
+
+.modal--amplia { max-width: 760px; }
+.detalle-guia__datos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem 1.25rem; margin: 1rem 0 0; }
+.detalle-guia__datos > div { min-width: 0; }
+.detalle-guia__datos dt { font-size: .78rem; color: var(--gris-600); }
+.detalle-guia__datos dd { margin: .1rem 0 0; font-weight: 600; }
+.detalle-guia__hash { grid-column: 1 / -1; }
+.detalle-guia__hash code { font-size: .8rem; font-weight: 400; overflow-wrap: anywhere; }
+.detalle-guia__subtitulo { font-size: 1rem; margin: 1.25rem 0 .4rem; }
+.detalle-guia__tabla table { min-width: 460px; }
+.detalle-guia__tabla:focus-visible { outline: 2px solid var(--azul-600); }
+.detalle-guia__error { display: block; font-size: .8rem; color: var(--rojo); overflow-wrap: anywhere; }
+
+.guia__aviso { margin-top: 1rem; }
+.guia__nivel, .guia__paginas { border: 0; padding: 0; margin: .9rem 0 0; min-width: 0; }
+.guia__nivel legend, .guia__paginas legend { font-size: .85rem; font-weight: 600; padding: 0; margin-bottom: .3rem; }
+.guia__opcion { min-height: 32px; }
+.guia__opcion--deshabilitada { color: var(--gris-600); cursor: not-allowed; }
+.guia__nota-nivel { margin: 0 0 .35rem 1.6rem; }
+.guia__rejilla { gap: 0 1rem; }
+
+/* Áreas táctiles de 44 px en pantallas angostas (botones, opciones y campos de M11). */
+@media (max-width: 799px) {
+  .conocimiento .boton, .modal .boton { min-height: 44px; min-width: 44px; }
+  .modal input, .modal select { min-height: 44px; }
+  .modal input[type="radio"] { min-height: 0; }
+  .guia__opcion { min-height: 44px; }
+  .detalle-guia__datos { grid-template-columns: minmax(0, 1fr); }
+}

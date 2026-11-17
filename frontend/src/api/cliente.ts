@@ -30,11 +30,14 @@ export function mensajeError(err: unknown): string {
   return err instanceof ErrorApi ? err.message : "No se pudo conectar con el servidor";
 }
 
-// Cabeceras comunes: JSON si hay cuerpo y el token de la sesión si existe.
+// Cabeceras comunes: JSON si hay cuerpo y el token de la sesión si existe. Con FormData (subida de
+// guías, M11) no se pone Content-Type: lo arma el navegador con el separador del multipart.
 export function cabecerasCon(opciones: RequestInit = {}): Headers {
   const token = leerToken();
   const cabeceras = new Headers(opciones.headers);
-  if (opciones.body && !cabeceras.has("Content-Type")) cabeceras.set("Content-Type", "application/json");
+  if (opciones.body && !(opciones.body instanceof FormData) && !cabeceras.has("Content-Type")) {
+    cabeceras.set("Content-Type", "application/json");
+  }
   if (token) cabeceras.set("Authorization", `Bearer ${token}`);
   return cabeceras;
 }
