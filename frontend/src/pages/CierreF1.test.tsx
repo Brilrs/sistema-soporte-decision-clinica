@@ -35,7 +35,7 @@ const DE_5_A_6: TramoEdad = {
   tramo_consulta: { edad_min_meses: 6, edad_max_meses: 23 }, cambio: true,
 };
 
-function conResultado(cambios: Partial<ResultadoConsulta>, sexo: "M" | "F" = "M") {
+function conResultado(cambios: Partial<ResultadoConsulta>, sexo: "M" | "F") {
   simularBackend({
     [GET_RESULTADO]: () => respuestaJson(200, { ...resultadoFixture("VERIFICADA"), ...cambios }),
     [`GET /api/pacientes/${ID_PACIENTE_FIXTURE}`]: () => respuestaJson(200, { ...FICHA_FIXTURE, sexo }),
@@ -45,8 +45,10 @@ function conResultado(cambios: Partial<ResultadoConsulta>, sexo: "M" | "F" = "M"
 
 describe("M05 · aviso de cambio de grupo de edad (P6)", () => {
   it("con cambio de tramo muestra un aviso breve, sin alarma, con las dos edades", async () => {
-    conResultado({ tramo_edad: DE_5_A_6 });
-    await screen.findByRole("heading", { name: "Recomendación clínica" });
+    conResultado({ tramo_edad: DE_5_A_6 }, "M");
+    // La ficha (con el sexo) llega después del resultado: hasta entonces el aviso dice «El niño o la
+    // niña». Se espera la ficha para no depender de cuál de las dos respuestas resuelve primero.
+    await screen.findByRole("heading", { level: 1, name: FICHA_FIXTURE.nombres_apellidos });
     const aviso = await screen.findByText(/pasó a otro grupo de edad/);
     expect(aviso).toHaveAttribute("role", "note");
     expect(aviso).toHaveClass("alerta--aviso");
@@ -65,7 +67,7 @@ describe("M05 · aviso de cambio de grupo de edad (P6)", () => {
   });
 
   it("sin cambio de tramo no muestra el aviso", async () => {
-    conResultado({});  // el fixture trae cambio: false
+    conResultado({}, "M");  // el fixture trae cambio: false
     await screen.findByRole("heading", { name: "Recomendación clínica" });
     expect(screen.queryByText(/pasó a otro grupo de edad/)).not.toBeInTheDocument();
   });
