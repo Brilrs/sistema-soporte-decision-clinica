@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
 import Layout from "./components/Layout";
+import BaseConocimiento from "./pages/BaseConocimiento";
 import ConsultaClinica from "./pages/ConsultaClinica";
 import EditarPaciente from "./pages/EditarPaciente";
 import EnConstruccion from "./pages/EnConstruccion";
@@ -48,7 +49,7 @@ export default function App() {
         <Route path="consultas" element={<ConPermiso permisos={LEER_PACIENTES}><PanelPacientes modo="historial" /></ConPermiso>} />
         <Route path="reportes" element={<EnConstruccion titulo="Reportes" pantalla="M09 Reporte exportable" sprint={3} />} />
         <Route path="admin/usuarios" element={<ConPermiso permisos={["ADMINISTRAR_USUARIOS"]}><GestionUsuarios /></ConPermiso>} />
-        <Route path="admin/conocimiento" element={<EnConstruccion titulo="Base de conocimiento" pantalla="M11 Base de conocimiento" sprint={2} />} />
+        <Route path="admin/conocimiento" element={<ConPermiso permisos={["ADMINISTRAR_GUIAS"]}><BaseConocimiento /></ConPermiso>} />
         <Route path="admin/parametros" element={<EnConstruccion titulo="Parámetros clínicos" pantalla="M12 Parámetros clínicos" sprint={3} />} />
         <Route path="admin/auditoria" element={<EnConstruccion titulo="Auditoría" pantalla="M13 Auditoría y trazabilidad" sprint={3} />} />
         <Route path="*" element={<Navigate to="/" replace />} />

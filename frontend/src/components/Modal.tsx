@@ -17,10 +17,11 @@ type Props = {
   // Control que recibe el foco al cerrar; por defecto, el que tenía el foco al abrir.
   focoAlCerrar?: RefObject<HTMLElement | null>;
   icono?: string; // marca decorativa de la cabecera («!» en M06 y M15)
+  amplia?: boolean; // ventana más ancha (detalle de una guía en M11, con tablas)
   children: ReactNode;
 };
 
-export default function Modal({ id, titulo, descripcion, alCerrar, cerrable = true, focoInicial, focoAlCerrar, icono = "!", children }: Props) {
+export default function Modal({ id, titulo, descripcion, alCerrar, cerrable = true, focoInicial, focoAlCerrar, icono = "!", amplia = false, children }: Props) {
   const ventana = useRef<HTMLDivElement>(null);
   const cerrarRef = useRef(alCerrar);
   cerrarRef.current = alCerrar;
@@ -66,7 +67,7 @@ export default function Modal({ id, titulo, descripcion, alCerrar, cerrable = tr
 
   return (
     <div className="modal__fondo">
-      <div ref={ventana} className="modal" role="dialog" aria-modal="true" tabIndex={-1}
+      <div ref={ventana} className={amplia ? "modal modal--amplia" : "modal"} role="dialog" aria-modal="true" tabIndex={-1}
            aria-labelledby={`${id}-titulo`} aria-describedby={descripcion ? `${id}-descripcion` : undefined}
            onKeyDown={tecla}>
         <div className="modal__cabecera">

@@ -176,6 +176,39 @@ describe("estilos · desbordes horizontales", () => {
     expect(valor(".menu-movil", "width")).toBe("min(300px, 85vw)");
   });
 
+  // M11 (parte F2c): tabla compacta que cabe desde unos 1000 px, título en 2 líneas, áreas táctiles
+  // de 44 px por debajo de 800 px y etiquetas nuevas con contraste AA (4.5:1) sobre su fondo.
+  it("M11: tabla de guías que cabe desde 1000 px, áreas táctiles de 44 px y etiquetas legibles", () => {
+    const px = (v: string | null) => Number(v?.replace("px", ""));
+    // Contenido a 1000 px: 1000 - menú 230 - márgenes 64 - relleno de la tarjeta 32 - bordes 2.
+    expect(px(valor(".guias__tabla table", "min-width"))).toBeLessThanOrEqual(1000 - 230 - 64 - 32 - 2);
+    expect(valor(".guias__titulo", "-webkit-line-clamp")).toBe("2");
+    expect(valor(".guias__titulo", "line-clamp")).toBe("2");
+    expect(valor(".guias__titulo", "overflow")).toBe("hidden");
+    // El código y la versión se parten solo donde se puede (guiones, barras), no a mitad de palabra.
+    expect(valor(".guias__codigo", "overflow-wrap")).toBeNull();
+    expect(valor(".guias__acciones", "flex-wrap")).toBe("wrap");
+    expect(valor(".indexacion", "grid-template-columns")).toBe("minmax(0, 1fr)");
+    expect(valor(".indexacion__etapas", "flex-wrap")).toBe("wrap");
+    expect(valor(".modal--amplia", "max-width")).toBe("760px");
+    const angosta = /max-width: 799px/;
+    expect(valor(".conocimiento .boton", "min-height", angosta)).toBe("44px");
+    expect(valor(".modal .boton", "min-height", angosta)).toBe("44px");
+    expect(valor(".modal input", "min-height", angosta)).toBe("44px");
+    expect(valor(".modal select", "min-height", angosta)).toBe("44px");
+    expect(valor(".guia__opcion", "min-height", angosta)).toBe("44px");
+    // Tokens de todos los bloques :root.
+    const tokens = (nombre: string) => {
+      for (const r of REGLAS) if (r.selector === ":root" && r.media === null) { const v = propiedad(r.cuerpo, nombre); if (v) return v; }
+      throw new Error(`Token ${nombre} no definido`);
+    };
+    const color = (v: string | null) => tokens(v!.replace(/^var\((--[\w-]+)\)$/, "$1"));
+    for (const clase of [".etiqueta--nivel-1", ".etiqueta--nivel-2", ".etiqueta--obsoleta", ".etiqueta--indexacion-COMPLETADA",
+                         ".etiqueta--indexacion-PENDIENTE", ".etiqueta--indexacion-EN_PROCESO", ".etiqueta--indexacion-ERROR"]) {
+      expect(contraste(color(valor(clase, "color")), color(valor(clase, "background"))), clase).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
   // Un grid-area global sobre una tarjeta compartida (la de riesgo también se usa en
   // .estado-consulta) crea filas y columnas implícitas en la rejilla de una columna.
   it("M05: las áreas de la rejilla de dos columnas solo se aplican a los hijos de .resultado__cuerpo", () => {

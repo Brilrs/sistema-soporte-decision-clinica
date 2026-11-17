@@ -1,0 +1,113 @@
+{
+ "id_documento": "10000000-0000-0000-0000-000000000213",
+ "titulo": "Norma técnica de salud para la prevención y control de la anemia",
+ "codigo_documento": "NTS 213-MINSA/DGIESP-2024",
+ "entidad_emisora": "MINSA",
+ "tipo_documento": "NORMA_TECNICA",
+ "nivel": 1,
+ "version": "RM 251-2024/MINSA",
+ "version_indexacion": 5,
+ "anio_publicacion": 2024,
+ "idioma": "es",
+ "estado": "VIGENTE",
+ "estado_indexacion": "COMPLETADA",
+ "fecha_carga": "2026-10-22T19:49:24.815496Z",
+ "fragmentos_vigentes": 83,
+ "citas_30_dias": 133,
+ "ultimo_trabajo": {
+  "id_trabajo": "6fffd409-a0bf-4c6d-a59c-e12e6538b953",
+  "tipo": "REINDEXACION",
+  "estado": "COMPLETADO",
+  "etapa": "INDEXACION",
+  "procesados": 102,
+  "total": 102,
+  "mensaje_error": null,
+  "fecha_solicitud": "2026-11-13T01:35:40.299465Z",
+  "fecha_fin": "2026-11-13T01:38:57.528742Z"
+ },
+ "fecha_publicacion": "2024-04-08",
+ "pagina_inicio_cuerpo": 4,
+ "pagina_fin_cuerpo": 36,
+ "hash_archivo": "fc52f3940b72bd51e0cd5a6e01a0836d7b62fc8b4dbd1ad81742f50667533359",
+ "total_fragmentos": 102,
+ "cargado_por": "Sistema (carga inicial)",
+ "versiones": [
+  {
+   "version_indexacion": 5,
+   "fragmentos": 102,
+   "vigentes": 83,
+   "modelo_embedding": "bge-m3"
+  },
+  {
+   "version_indexacion": 4,
+   "fragmentos": 101,
+   "vigentes": 0,
+   "modelo_embedding": "bge-m3"
+  },
+  {
+   "version_indexacion": 3,
+   "fragmentos": 97,
+   "vigentes": 0,
+   "modelo_embedding": "bge-m3"
+  },
+  {
+   "version_indexacion": 2,
+   "fragmentos": 97,
+   "vigentes": 0,
+   "modelo_embedding": "bge-m3"
+  },
+  {
+   "version_indexacion": 1,
+   "fragmentos": 97,
+   "vigentes": 0,
+   "modelo_embedding": "bge-m3"
+  }
+ ],
+ "trabajos": [
+  {
+   "id_trabajo": "6fffd409-a0bf-4c6d-a59c-e12e6538b953",
+   "id_documento": "10000000-0000-0000-0000-000000000213",
+   "titulo": "Norma técnica de salud para la prevención y control de la anemia",
+   "tipo": "REINDEXACION",
+   "estado": "COMPLETADO",
+   "etapa": "INDEXACION",
+   "procesados": 102,
+   "total": 102,
+   "mensaje_error": null,
+   "fecha_solicitud": "2026-11-13T01:35:40.299465Z",
+   "fecha_inicio": "2026-11-13T01:35:40.299465Z",
+   "fecha_fin": "2026-11-13T01:38:57.528742Z",
+   "solicitado_por": "Sistema (carga inicial)"
+  },
+  {
+   "id_trabajo": "a480bb00-9698-4db3-bcb2-a5f418aaa69e",
+   "id_documento": "10000000-0000-0000-0000-000000000213",
+   "titulo": "Norma técnica de salud para la prevención y control de la anemia",
+   "tipo": "REINDEXACION",
+   "estado": "COMPLETADO",
+   "etapa": "INDEXACION",
+   "procesados": 101,
+   "total": 101,
+   "mensaje_error": null,
+   "fecha_solicitud": "2026-11-07T06:33:11.801850Z",
+   "fecha_inicio": "2026-11-07T06:33:11.801850Z",
+   "fecha_fin": "2026-11-07T06:36:21.737825Z",
+   "solicitado_por": "Sistema (carga inicial)"
+  },
+  {
+   "id_trabajo": "ca78966a-ca9f-48ee-87a1-05e41eaa29c7",
+   "id_documento": "10000000-0000-0000-0000-000000000213",
+   "titulo": "Norma técnica de salud para la prevención y control de la anemia",
+   "tipo": "REINDEXACION",
+   "estado": "COMPLETADO",
+   "etapa": "INDEXACION",
+   "procesados": 97,
+   "total": 97,
+   "mensaje_error": null,
+   "fecha_solicitud": "2026-11-05T23:25:07.254798Z",
+   "fecha_inicio": "2026-11-05T23:25:07.254798Z",
+   "fecha_fin": "2026-11-05T23:27:55.494667Z",
+   "solicitado_por": "Sistema (carga inicial)"
+  }
+ ]
+}
