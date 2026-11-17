@@ -456,7 +456,8 @@ def test_nginx_no_guarda_en_bufer_las_rutas_de_stream():
     conf = NGINX.read_text(encoding="utf-8")
     bloque = re.search(r"location ~ (\S+) \{(.*?)\}", conf, re.S)
     patron, cuerpo = bloque.group(1), bloque.group(2)
-    for ruta in ("/api/pacientes/1b2c/consultas", "/api/consultas/1b2c/datos-faltantes"):
+    for ruta in ("/api/pacientes/1b2c/consultas", "/api/consultas/1b2c/datos-faltantes",
+                 "/api/consultas/1b2c/continuar"):
         assert re.match(patron, ruta), ruta
     for ruta in ("/api/consultas/1b2c", "/api/consultas/1b2c/decision", "/api/pacientes/1b2c"):
         assert not re.match(patron, ruta), ruta
@@ -464,6 +465,10 @@ def test_nginx_no_guarda_en_bufer_las_rutas_de_stream():
     assert int(re.search(r"proxy_read_timeout (\d+)s;", cuerpo).group(1)) >= 60
     # La ruta general de la API no cambia.
     assert "location /api/ {" in conf and "proxy_read_timeout 60s;" in conf
+    # M11: solo la subida de guías admite cuerpos grandes (25 MB; el backend corta en 20 MB).
+    assert conf.count("client_max_body_size") == 1
+    subida = re.search(r"location = /api/conocimiento/documentos \{(.*?)\}", conf, re.S).group(1)
+    assert "client_max_body_size 25m;" in subida and "proxy_pass http://backend:8000;" in subida
 
 
 def test_openapi_documenta_el_ndjson(cliente_http):

@@ -93,7 +93,8 @@ def _fuente(clave_o_id: str, manifiesto: str) -> FuenteDocumento:
     for f in cargar_manifiesto(manifiesto):
         if clave_o_id in (f.clave, f.id_documento):
             return f
-    return FuenteDocumento(clave=clave_o_id, id_documento=clave_o_id, archivo="")
+    # Documento cargado desde M11: sin recorte, transcripciones ni modificaciones; grupo GENERAL.
+    return FuenteDocumento(clave=clave_o_id, id_documento=clave_o_id, archivo="", en_manifiesto=False)
 
 
 def cmd_procesar(args, config: ConfigIndexador) -> int:
@@ -201,24 +202,59 @@ def cmd_grupos_etarios(args, config: ConfigIndexador) -> int:
     return 0
 
 
+MENSAJE_HUERFANO = ("Indexación interrumpida: el trabajador se detuvo mientras procesaba el documento. "
+                    "No quedó nada a medias; use «Reintentar» para volver a indexarlo.")
+
+
+def _procesar_trabajo(indexador: Indexador, config: ConfigIndexador, trabajo, manifiesto: str,
+                      permitir_no_verificadas: bool) -> None:
+    fuente = _fuente(trabajo.id_documento, manifiesto)
+    if trabajo.tipo == "RETIRO":
+        indexador.repo.finalizar_trabajo(trabajo.id_trabajo, "El retiro de guías (HU17) se implementa en el Sprint 3")
+        return
+    documento = indexador.repo.documento(trabajo.id_documento)
+    ruta = _ruta_pdf(config, fuente, documento.ruta_blob if not fuente.archivo else None)
+    opciones = Opciones(permitir_no_verificadas, reindexar=trabajo.tipo == "REINDEXACION")
+    _mostrar(fuente, indexador.indexar(fuente, ruta, opciones, trabajo.id_trabajo))
+
+
+def procesar_pendientes(indexador: Indexador, config: ConfigIndexador, manifiesto: str = MANIFIESTO,
+                        permitir_no_verificadas: bool = False, una_vez: bool = False,
+                        dormir=time.sleep) -> int:
+    """Bucle del trabajador. Al arrancar, los trabajos EN_CURSO huérfanos pasan a ERROR. Una
+    excepción fuera de indexar() (documento inexistente, base caída) no lo termina: se registra,
+    el trabajo tomado queda en ERROR si se puede y el bucle sigue después de una pausa."""
+    try:
+        for id_trabajo, id_documento in indexador.repo.marcar_trabajos_huerfanos(MENSAJE_HUERFANO):
+            log.warning("Trabajo %s (documento %s) quedó EN_CURSO al detenerse el trabajador: pasa a ERROR",
+                        id_trabajo, id_documento)
+    except Exception:
+        log.exception("No se pudieron revisar los trabajos interrumpidos; se sigue con los pendientes")
+    while True:
+        trabajo = None
+        try:
+            trabajo = indexador.repo.tomar_trabajo()
+            if trabajo is None:
+                if una_vez:
+                    return 0
+                dormir(config.intervalo_trabajador_s)
+                continue
+            _procesar_trabajo(indexador, config, trabajo, manifiesto, permitir_no_verificadas)
+        except Exception as e:
+            mensaje = f"{type(e).__name__}: {e}"
+            log.exception("Fallo del trabajador%s", f" en el trabajo {trabajo.id_trabajo}" if trabajo else "")
+            if trabajo is not None:
+                try:
+                    indexador.repo.finalizar_trabajo(trabajo.id_trabajo, mensaje)
+                except Exception:
+                    log.exception("No se pudo marcar en ERROR el trabajo %s", trabajo.id_trabajo)
+            dormir(config.intervalo_trabajador_s)
+
+
 def cmd_trabajador(args, config: ConfigIndexador) -> int:
     indexador = _indexador(config, args.falsos)
     print(f"Trabajador en espera de trabajos PENDIENTE (cada {config.intervalo_trabajador_s:.0f} s)", flush=True)
-    while True:
-        trabajo = indexador.repo.tomar_trabajo()
-        if trabajo is None:
-            if args.una_vez:
-                return 0
-            time.sleep(config.intervalo_trabajador_s)
-            continue
-        fuente = _fuente(trabajo.id_documento, args.manifiesto)
-        if trabajo.tipo == "RETIRO":
-            indexador.repo.finalizar_trabajo(trabajo.id_trabajo, "El retiro de guías (HU17) se implementa en el Sprint 3")
-            continue
-        documento = indexador.repo.documento(trabajo.id_documento)
-        ruta = _ruta_pdf(config, fuente, documento.ruta_blob if not fuente.archivo else None)
-        opciones = Opciones(args.permitir_no_verificadas, reindexar=trabajo.tipo == "REINDEXACION")
-        _mostrar(fuente, indexador.indexar(fuente, ruta, opciones, trabajo.id_trabajo))
+    return procesar_pendientes(indexador, config, args.manifiesto, args.permitir_no_verificadas, args.una_vez)
 
 
 def main(argv: list[str] | None = None) -> int:

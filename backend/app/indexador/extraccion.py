@@ -108,11 +108,15 @@ def extraer_pdf(ruta: Path, pagina_inicio: int | None, pagina_fin: int | None, r
         fin = min(pagina_fin or len(pdf.pages), len(pdf.pages))
         for numero in range(inicio, fin + 1):
             pagina = pdf.pages[numero - 1]
+            # La caja se limita al cuadro real de la página (pagina.bbox), que puede no empezar en 0:
+            # en la RM 251 es (0, -0.01, 596.65, 845.74), y una caja de 0 a pagina.height (845.75) se
+            # salía por 0.01 pt y pdfplumber la rechazaba (parte F2, documentos sin recorte).
+            x0, y0, x1, y1 = pagina.bbox
             caja = (
-                max(0, recorte.izquierda),
-                max(0, recorte.superior),
-                min(pagina.width, recorte.derecha or pagina.width),
-                min(pagina.height, recorte.inferior or pagina.height),
+                max(x0, recorte.izquierda),
+                max(y0, recorte.superior),
+                min(x1, recorte.derecha or pagina.width),
+                min(y1, recorte.inferior or pagina.height),
             )
             texto = pagina.within_bbox(caja).extract_text() or ""
             paginas.append(PaginaTexto(numero, texto.splitlines()))
