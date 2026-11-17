@@ -459,7 +459,7 @@ describe("Estados sin recomendación rediseñados", () => {
     renderizar(RUTA_M05);
     fireEvent.click(await screen.findByRole("button", { name: "Reintentar" }));
     expect(await screen.findByLabelText("Consulta sobre el paciente")).toHaveValue(r.texto_filtrado);
-    expect(screen.getByRole("heading", { name: "Paciente Ficticio Dos" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Paciente Ficticio Dos" })).toBeInTheDocument();
   });
 
   it("SOLICITUD_BLOQUEADA en M05: «Reformular la consulta» lleva a M04 con el campo vacío", async () => {

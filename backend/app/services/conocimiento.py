@@ -7,6 +7,7 @@ Ninguna función devuelve rutas del servidor: ruta_blob se guarda en la base par
 (local://guias_cargadas/<id_documento>.pdf), pero no sale en las respuestas."""
 import hashlib
 import os
+import unicodedata
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -72,7 +73,6 @@ _DOCUMENTOS = """
       LEFT JOIN LATERAL (SELECT * FROM conocimiento.trabajo_indexacion x WHERE x.id_documento = d.id_documento
                           ORDER BY x.fecha_solicitud DESC, x.id_trabajo DESC LIMIT 1) t ON true
      {filtro}
-     ORDER BY d.nivel, d.estado DESC, d.anio_publicacion DESC, d.titulo, d.id_documento
 """
 
 
@@ -86,8 +86,22 @@ def _documento(fila) -> dict:
     return {**base, "ultimo_trabajo": trabajo}
 
 
+def _titulo_para_ordenar(titulo: str) -> str:
+    """Título sin tildes y sin distinguir mayúsculas («Norma técnica» antes de «NTS 213»)."""
+    return "".join(c for c in unicodedata.normalize("NFKD", titulo) if not unicodedata.combining(c)).casefold()
+
+
+def clave_orden(d: dict) -> tuple:
+    """Orden de la lista de M11: nivel, vigentes primero, año más reciente y título; desempatan el
+    título exacto y el id. Se ordena aquí y no con ORDER BY titulo porque ese orden depende de la
+    colación de la base (glibc ignora mayúsculas; C y la imagen alpine, con musl, ordenan por bytes)."""
+    return (d["nivel"], d["estado"] != "VIGENTE", -d["anio_publicacion"], _titulo_para_ordenar(d["titulo"]),
+            d["titulo"], d["id_documento"])
+
+
 def listar_documentos(sesion: Session) -> list[dict]:
-    return [_documento(f) for f in sesion.execute(text(_DOCUMENTOS.format(filtro="")))]
+    filas = sesion.execute(text(_DOCUMENTOS.format(filtro="")))
+    return sorted((_documento(f) for f in filas), key=clave_orden)
 
 
 def documento(sesion: Session, id_documento: str) -> dict | None:

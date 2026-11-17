@@ -357,9 +357,11 @@ def test_lista_con_citas_versiones_y_orden_estable(cliente, cabeceras, carpeta, 
     fila = next(d for d in lista if d["id_documento"] == doc)
     assert (fila["fragmentos_vigentes"], fila["citas_30_dias"], fila["version_indexacion"]) == (2, 2, 2)
     assert fila["version"] is None and fila["ultimo_trabajo"]["estado"] == "PENDIENTE"
-    claves = [(d["nivel"], d["estado"] != "VIGENTE", -d["anio_publicacion"], d["titulo"], d["id_documento"])
-              for d in lista]
-    assert claves == sorted(claves)
+    assert lista == sorted(lista, key=srv.clave_orden)  # orden propio, independiente de la colación
+    titulos = [d["titulo"] for d in lista]
+    norma = next(t for t in titulos if t.startswith("Norma técnica de salud"))
+    nts = next(t for t in titulos if t.startswith("NTS 213"))
+    assert titulos.index(norma) < titulos.index(nts)  # sin distinguir mayúsculas, con cualquier colación
     assert cliente.get(URL, headers=cabeceras(ADMIN)).json() == lista
     assert "ruta" not in r.text and "guias_cargadas" not in r.text
 

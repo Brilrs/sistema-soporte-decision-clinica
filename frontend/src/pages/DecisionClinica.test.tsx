@@ -524,6 +524,7 @@ describe("M07 · evidencia insuficiente", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Registrar decisión clínica" }));
     const ventana = await screen.findByRole("dialog", { name: "Registrar decisión clínica" });
     expect(within(ventana).getByRole("radio")).toBeChecked();
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Paciente Ficticio Dos");
+    // La cabecera con el nombre depende de la ficha, que llega después del resultado.
+    expect(await screen.findByRole("heading", { level: 1, name: "Paciente Ficticio Dos" })).toBeInTheDocument();
   });
 });
