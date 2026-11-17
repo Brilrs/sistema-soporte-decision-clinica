@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     modelos_timeout_s: float = Field(120.0, alias="MODELOS_TIMEOUT_S", gt=0)
     cors_origenes: list[str] = Field(default_factory=lambda: ["http://localhost:5173"], alias="CORS_ORIGENES")
 
+    # Guías cargadas desde M11 (parte F2): carpeta del volumen datos_guias_cargadas y tamaño
+    # máximo de la subida (Nginx admite 25 MB en esa ruta; el backend corta en este valor).
+    dir_guias_cargadas: str = Field("/datos/guias_cargadas", alias="CDSS_DIR_GUIAS_CARGADAS")
+    max_bytes_guia: int = Field(20 * 1024 * 1024, alias="CDSS_MAX_BYTES_GUIA", ge=1024)
+
     # Consultas (parte D): llamadas simultáneas al servicio modelos (embedding y reranker)
     # y a la API del modelo de lenguaje. Vacío en MAX_CONCURRENCIA_RERANKER significa
     # automático: núcleos visibles dividido por los hilos que informa el servicio modelos
