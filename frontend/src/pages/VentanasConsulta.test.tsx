@@ -24,7 +24,6 @@ import {
   ID_CONSULTA_REANUDADA,
   ID_PACIENTE,
   ID_PACIENTE_FIXTURE,
-  ID_TAMIZAJE_FIXTURE,
   POST_CONSULTA,
   lineasFixture,
   lineasReanudadas,
@@ -248,13 +247,16 @@ describe("M06 · Datos faltantes desde M05", () => {
   });
 });
 
+// P5 (F1): continuación de una consulta TAMIZAJE_NO_VIGENTE con la pregunta guardada en el servidor.
+const POST_CONTINUAR = `POST /api/consultas/${ID_CONSULTA}/continuar`;
+
 describe("M15 · Tamizaje no vigente", () => {
   it("desde M04 informa los días frente a la vigencia, advierte la cautela y «Continuar» reanuda con el avance", async () => {
     const stream = streamControlado();
-    // Primer envío: TAMIZAJE_NO_VIGENTE; el segundo (la continuación) usa el stream controlado.
-    let envios = 0;
+    // La consulta termina en TAMIZAJE_NO_VIGENTE; la continuación (P5) va a su propia ruta, sin cuerpo.
     const f = simularBackend({
-      [POST_CONSULTA]: () => (++envios === 1 ? respuestaStream(lineasFixture("TAMIZAJE_NO_VIGENTE")) : stream.respuesta()),
+      [POST_CONSULTA]: () => respuestaStream(lineasFixture("TAMIZAJE_NO_VIGENTE")),
+      [POST_CONTINUAR]: () => stream.respuesta(),
       [GET_REANUDADA]: () => respuestaJson(200, resultadoReanudado("VERIFICADA")),
     });
     renderizar();
@@ -269,10 +271,10 @@ describe("M15 · Tamizaje no vigente", () => {
     expect(continuar).toHaveAccessibleDescription(AVISO_CONTINUAR);
 
     fireEvent.click(continuar);
-    await waitFor(() => expect(llamadas(f, POST_CONSULTA)).toHaveLength(2));
-    expect(JSON.parse(String(llamadas(f, POST_CONSULTA)[1][1]!.body))).toEqual({
-      texto_consulta: PREGUNTA, id_tamizaje: "t-0001", confirma_tamizaje_no_vigente: true, id_consulta_previa: ID_CONSULTA,
-    });
+    await waitFor(() => expect(llamadas(f, POST_CONTINUAR)).toHaveLength(1));
+    // El cliente ya no reenvía la pregunta: el servidor usa la guardada.
+    expect(llamadas(f, POST_CONTINUAR)[0][1]!.body).toBeUndefined();
+    expect(llamadas(f, POST_CONSULTA)).toHaveLength(1);
     const lineas = lineasReanudadas("VERIFICADA");
     stream.enviar(lineas[0], lineas[1]);
     await waitFor(() => expect(within(ventana).getByText("Procesando la consulta…")).toBeInTheDocument());
@@ -294,21 +296,43 @@ describe("M15 · Tamizaje no vigente", () => {
     expect(screen.getByRole("button", { name: "Revisar el tamizaje" })).toBeInTheDocument();
   });
 
-  it("desde M05 se abre sola y «Continuar» reenvía la pregunta guardada con el tamizaje de la consulta", async () => {
+  it("desde M05 se abre sola y «Continuar» reanuda en el servidor sin reenviar el texto filtrado", async () => {
     const f = simularBackend({
       [GET_RESULTADO]: () => respuestaJson(200, resultadoFixture("TAMIZAJE_NO_VIGENTE")),
       [`GET /api/pacientes/${ID_PACIENTE_FIXTURE}/consultas`]: () => respuestaJson(200, []),
-      [POST_CONSULTA_FIXTURE]: () => respuestaStream(lineasReanudadas("VERIFICADA")),
+      [POST_CONTINUAR]: () => respuestaStream(lineasReanudadas("VERIFICADA")),
       [GET_REANUDADA]: () => respuestaJson(200, resultadoReanudado("VERIFICADA")),
     });
     renderizar(RUTA_M05);
     const ventana = await screen.findByRole("dialog", { name: "El tamizaje no está vigente" });
     fireEvent.click(within(ventana).getByRole("button", { name: "Continuar con este tamizaje" }));
     expect(await screen.findByRole("heading", { name: "Recomendación clínica" })).toBeInTheDocument();
-    expect(cuerpo(f, POST_CONSULTA_FIXTURE)).toEqual({
-      texto_consulta: resultadoFixture("TAMIZAJE_NO_VIGENTE").texto_filtrado, id_tamizaje: ID_TAMIZAJE_FIXTURE,
-      confirma_tamizaje_no_vigente: true, id_consulta_previa: ID_CONSULTA,
+    expect(llamadas(f, POST_CONTINUAR)).toHaveLength(1);
+    expect(llamadas(f, POST_CONTINUAR)[0][1]!.body).toBeUndefined();
+    expect(llamadas(f, POST_CONSULTA_FIXTURE)).toHaveLength(0);
+  });
+
+  it("la ventana abre aunque el resultado aún no traiga la pregunta (llegada con el evento fin)", async () => {
+    // Antes esperaba a texto_filtrado para poder reenviarlo; con P5 no lo necesita.
+    simularBackend({
+      [GET_RESULTADO]: () => respuestaJson(200, { ...resultadoFixture("TAMIZAJE_NO_VIGENTE"), texto_filtrado: null }),
+      [`GET /api/pacientes/${ID_PACIENTE_FIXTURE}/consultas`]: () => respuestaJson(200, []),
     });
+    renderizar(RUTA_M05);
+    const ventana = await screen.findByRole("dialog", { name: "El tamizaje no está vigente" });
+    expect(within(ventana).getByRole("button", { name: "Continuar con este tamizaje" })).toBeEnabled();
+  });
+
+  it("si el servidor responde 409 (ya se reanudó), lo informa en la ventana", async () => {
+    simularBackend({
+      [GET_RESULTADO]: () => respuestaJson(200, resultadoFixture("TAMIZAJE_NO_VIGENTE")),
+      [`GET /api/pacientes/${ID_PACIENTE_FIXTURE}/consultas`]: () => respuestaJson(200, []),
+      [POST_CONTINUAR]: () => respuestaJson(409, { detail: "La consulta previa ya se reanudó" }),
+    });
+    renderizar(RUTA_M05);
+    const ventana = await screen.findByRole("dialog", { name: "El tamizaje no está vigente" });
+    fireEvent.click(within(ventana).getByRole("button", { name: "Continuar con este tamizaje" }));
+    expect(await within(ventana).findByText("La consulta previa ya se reanudó")).toBeInTheDocument();
   });
 });
 

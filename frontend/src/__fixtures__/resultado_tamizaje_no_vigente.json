@@ -30,6 +30,19 @@
   "intentos": [],
   "verificacion": null,
   "modo_prueba": false,
+  "tramo_edad": {
+    "edad_meses_tamizaje": 31,
+    "edad_meses_consulta": 31,
+    "tramo_tamizaje": {
+      "edad_min_meses": 24,
+      "edad_max_meses": 59
+    },
+    "tramo_consulta": {
+      "edad_min_meses": 24,
+      "edad_max_meses": 59
+    },
+    "cambio": false
+  },
   "decision": null,
   "opciones_decision": []
 }

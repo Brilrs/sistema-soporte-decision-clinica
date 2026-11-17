@@ -10,7 +10,9 @@ frontend/src/__fixtures__. Solo datos sintéticos: pacientes de seed_demo y la g
 - Para que el diff solo muestre cambios del contrato, se normalizan los valores que cambian
   en cada corrida: los UUID (en orden de aparición), los tiempos (*_ms) y las fechas. En el
   resultado guardado, la vigencia y su mensaje se copian del evento fin, porque el GET los
-  calcula con la fecha del día y el stream con la fecha de referencia de los casos."""
+  calcula con la fecha del día y el stream con la fecha de referencia de los casos. Por la misma
+  razón, en tramo_edad (P6) la edad y el tramo de la consulta se fijan iguales a los del tamizaje
+  (sin cambio de tramo)."""
 import json
 import re
 from pathlib import Path
@@ -41,6 +43,10 @@ def normalizar(eventos: list[dict], resultado: dict) -> tuple[list[dict], dict]:
     resultado = {**resultado, "vigencia": fin.get("vigencia", resultado.get("vigencia"))}
     if resultado["estado"] == "TAMIZAJE_NO_VIGENTE":
         resultado["mensaje"] = fin["mensaje"]
+    tramo = resultado.get("tramo_edad")
+    if tramo:
+        resultado["tramo_edad"] = {**tramo, "edad_meses_consulta": tramo["edad_meses_tamizaje"],
+                                   "tramo_consulta": tramo["tramo_tamizaje"], "cambio": False}
     texto = json.dumps({"eventos": eventos, "resultado": resultado}, ensure_ascii=False)
     ids: dict[str, str] = {}
     for u in _UUID.findall(texto):

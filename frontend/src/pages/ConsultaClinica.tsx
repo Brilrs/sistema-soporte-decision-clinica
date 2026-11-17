@@ -220,7 +220,7 @@ export default function ConsultaClinica() {
       )}
       {ventana === "vigencia" && resumen?.id_consulta && (
         <VentanaTamizajeNoVigente idPaciente={id} idConsultaPrevia={resumen.id_consulta} pregunta={pregunta ?? ""}
-                                  idTamizaje={ultimo?.id_tamizaje ?? null} tamizaje={ultimo ?? null}
+                                  tamizaje={ultimo ?? null}
                                   vigencia={resumen.vigencia} puedeRegistrar={puedeRegistrar}
                                   alCerrar={() => setVentana(null)} focoAlCerrar={campo} />
       )}

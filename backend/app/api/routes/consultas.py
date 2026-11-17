@@ -6,6 +6,9 @@
 - GET /api/consultas/{id}: resultado guardado con sus citas.
 - POST /api/consultas/{id}/datos-faltantes: completa la hemoglobina y reanuda como consulta
   nueva enlazada a la previa, con el mismo flujo de eventos.
+- POST /api/consultas/{id}/continuar: continúa una consulta TAMIZAJE_NO_VIGENTE con el mismo
+  tamizaje (vencido) y la pregunta original guardada en el servidor, como consulta nueva
+  enlazada a la previa (parte F1, P5).
 - POST /api/consultas/{id}/decision: decisión del profesional (M07 mínimo).
 - GET /api/pacientes/{id}/consultas: consultas del paciente hechas por el usuario (M04 y M08).
 
@@ -30,6 +33,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import UsuarioActual, requiere_permiso
 from app.core.auditoria import registrar_evento
 from app.core.db import engines, sesion_clinica
+from app.rag.filtro_texto import leer_identidad
 from app.services import consultas as srv
 from app.services import decisiones as dec
 from app.services import resultados as res
@@ -204,6 +208,20 @@ class EventoError(BaseModel):
 EventoConsulta = Annotated[Union[EventoEtapa, EventoEnCola, EventoFin, EventoError], Field(discriminator="tipo")]
 
 
+class TramoEdadMeses(BaseModel):
+    edad_min_meses: int
+    edad_max_meses: int
+
+
+class TramoEdad(BaseModel):
+    """Tramo de edad de los puntos de corte de Hb en el tamizaje y en la fecha de la consulta (P6)."""
+    edad_meses_tamizaje: int
+    edad_meses_consulta: int
+    tramo_tamizaje: TramoEdadMeses | None = Field(None, description="null si los puntos de corte no cubren la edad")
+    tramo_consulta: TramoEdadMeses | None = None
+    cambio: bool = Field(description="true si el tramo del tamizaje y el de la fecha de la consulta difieren")
+
+
 class DatoFaltante(BaseModel):
     campo: str
     etiqueta: str
@@ -240,6 +258,7 @@ class ResultadoConsulta(BaseModel):
     intentos: list[Intento]
     verificacion: Verificacion | None = None
     modo_prueba: bool = Field(description="true si la respuesta la generó el cliente falso (CDSS_LLM=falso o pruebas)")
+    tramo_edad: TramoEdad
     decision: Decision | None = None
     opciones_decision: list[OpcionDecision] = Field(
         description="Tipos de decisión admitidos y si cada uno exige nota; vacía si ya hay decisión o no se admite")
@@ -410,6 +429,28 @@ async def completar_datos_faltantes(id_consulta: UUID, datos: DatosFaltantesEntr
     return _stream(solicitud, entorno, id_tamizaje)
 
 
+@router.post("/api/consultas/{id_consulta}/continuar", response_class=StreamingResponse, responses=_ERRORES,
+             openapi_extra=_STREAM)
+async def continuar_con_tamizaje_no_vigente(id_consulta: UUID, request: Request,
+                                            usuario: UsuarioActual = Depends(realiza_consulta),
+                                            sesion: Session = Depends(sesion_clinica),
+                                            entorno: srv.EntornoConsulta = Depends(entorno_consultas)
+                                            ) -> StreamingResponse:
+    """M15: continúa una consulta TAMIZAJE_NO_VIGENTE con el mismo tamizaje vencido y la pregunta
+    original guardada (el cliente no la envía), como consulta nueva enlazada a la previa."""
+    f = _ficha_propia(sesion, id_consulta, usuario, "continuar", request)
+    if f.estado != srv.TAMIZAJE_NO_VIGENTE:
+        raise HTTPException(status.HTTP_409_CONFLICT, "La consulta no está pendiente de confirmar un tamizaje no vigente")
+    texto = res.leer_texto_original(sesion, f.id_consulta)
+    solicitud = srv.SolicitudConsulta(f.id_paciente, usuario.id_usuario, texto, f.id_tamizaje, True, f.id_consulta)
+    id_tamizaje = await _preparar(solicitud, entorno)  # 409 si ya se reanudó
+    registrar_evento(sesion, "CONSULTA_INICIADA", usuario.id_usuario, "paciente", f.id_paciente,
+                     {"id_tamizaje": id_tamizaje, "id_consulta_previa": f.id_consulta,
+                      "confirma_tamizaje_no_vigente": True}, _ip(request))
+    sesion.commit()
+    return _stream(solicitud, entorno, id_tamizaje)
+
+
 @router.post("/api/consultas/{id_consulta}/decision", response_model=Decision, status_code=status.HTTP_201_CREATED,
              responses=_ERRORES)
 def registrar_decision(id_consulta: UUID, datos: DecisionEntrada, request: Request,
@@ -417,9 +458,12 @@ def registrar_decision(id_consulta: UUID, datos: DecisionEntrada, request: Reque
                        sesion: Session = Depends(sesion_clinica)) -> dict:
     """M07 mínimo: «Registrar decisión clínica». Solo el profesional de la consulta."""
     f = _ficha_propia(sesion, id_consulta, usuario, "decidir", request)
+    # La nota pasa por el mismo filtro de identificadores que la consulta; la identidad se
+    # descifra solo en memoria con cdss_clinica y no sale de esta función.
+    identidad = leer_identidad(sesion, f.id_tamizaje)
     try:
         decision = dec.registrar_decision(sesion, f.id_consulta, f.estado, usuario.id_usuario, datos.tipo_decision,
-                                          datos.nota)
+                                          datos.nota, identidad)
     except dec.ErrorDecision as e:
         sesion.rollback()
         raise HTTPException(e.codigo, str(e))

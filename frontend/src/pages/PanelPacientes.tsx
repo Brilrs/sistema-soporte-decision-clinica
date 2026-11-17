@@ -10,6 +10,7 @@ import { pacientesApi, type Indicadores, type PacienteListado } from "../api/pac
 import { useAuth } from "../auth/AuthContext";
 import TablaPacientes from "../components/TablaPacientes";
 import TarjetaIndicador from "../components/TarjetaIndicador";
+import { decimal } from "../utilidades/formato";
 import { useTituloPagina } from "../utilidades/useTituloPagina";
 
 export default function PanelPacientes({ modo = "panel" }: { modo?: "panel" | "historial" }) {
@@ -83,13 +84,15 @@ export default function PanelPacientes({ modo = "panel" }: { modo?: "panel" | "h
 
       {modo === "panel" && (
         <div className="indicadores">
-          <TarjetaIndicador titulo="Evaluaciones hoy" valor={indicadores?.evaluaciones_hoy} />
+          <TarjetaIndicador titulo="Evaluaciones hoy" valor={indicadores?.evaluaciones_hoy}
+                            nota="Verificadas o con evidencia insuficiente, sin las de prueba" />
           <TarjetaIndicador titulo="Con anemia detectada" valor={indicadores?.con_anemia_detectada} color="var(--ambar)"
                             nota="Según el último tamizaje de cada paciente" />
           <TarjetaIndicador titulo="Controles pendientes" valor={indicadores?.controles_pendientes} color="var(--azul-700)"
                             nota={dias ? `Último tamizaje con más de ${dias} días` : undefined} />
           <TarjetaIndicador titulo="Tiempo medio de respuesta"
-                            valor={indicadores?.tiempo_medio_respuesta_s ?? null} />
+                            valor={indicadores?.tiempo_medio_respuesta_s == null ? null : `${decimal(indicadores.tiempo_medio_respuesta_s)} s`}
+                            nota="Consultas evaluadas hoy, sin las de prueba" />
         </div>
       )}
 

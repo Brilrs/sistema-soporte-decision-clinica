@@ -868,13 +868,19 @@ SELECT count(*) AS consultas,
        round(100.0 * count(*) FILTER (WHERE numero_intentos = 2) / NULLIF(count(*), 0), 1) AS pct_con_reintento,
        round(100.0 * count(*) FILTER (WHERE estado = 'EVIDENCIA_INSUFICIENTE') / NULLIF(count(*), 0), 1) AS pct_evidencia_insuficiente,
        (SELECT coalesce(sum(costo_usd), 0) FROM asistencia.intento_generacion
-         WHERE fecha_hora >= now() - interval '30 days') AS costo_api_usd
-FROM asistencia.consulta
-WHERE fecha_hora_inicio >= now() - interval '30 days';
+         WHERE fecha_hora >= now() - interval '30 days'
+           AND modelo_llm IS DISTINCT FROM 'modelo-falso') AS costo_api_usd
+FROM asistencia.consulta q
+WHERE fecha_hora_inicio >= now() - interval '30 days'
+  AND NOT EXISTS (SELECT 1 FROM asistencia.intento_generacion p
+                   WHERE p.id_consulta = q.id_consulta AND p.modelo_llm = 'modelo-falso');
 
 CREATE VIEW conocimiento.v_uso_documento AS
 SELECT d.id_documento, d.titulo, d.nivel, d.estado, d.total_fragmentos,
-       count(ce.id_cita) FILTER (WHERE r.fecha_generacion >= now() - interval '30 days') AS citas_30_dias
+       count(ce.id_cita) FILTER (WHERE r.fecha_generacion >= now() - interval '30 days'
+                                   AND NOT EXISTS (SELECT 1 FROM asistencia.intento_generacion p
+                                                    WHERE p.id_consulta = r.id_consulta
+                                                      AND p.modelo_llm = 'modelo-falso')) AS citas_30_dias
 FROM conocimiento.documento_fuente d
 LEFT JOIN conocimiento.fragmento f ON f.id_documento = d.id_documento
 LEFT JOIN asistencia.cita_evidencia ce ON ce.id_fragmento = f.id_fragmento
@@ -885,7 +891,13 @@ CREATE VIEW asistencia.v_consultas_sin_evidencia AS
 SELECT q.id_consulta, q.fecha_hora_inicio, i.consulta_reformulada, i.relevancia_maxima, i.umbral_relevancia
 FROM asistencia.consulta q
 JOIN asistencia.intento_generacion i ON i.id_consulta = q.id_consulta AND i.numero_intento = q.numero_intentos
-WHERE q.estado = 'EVIDENCIA_INSUFICIENTE';
+WHERE q.estado = 'EVIDENCIA_INSUFICIENTE'
+  AND NOT EXISTS (SELECT 1 FROM asistencia.intento_generacion p
+                   WHERE p.id_consulta = q.id_consulta AND p.modelo_llm = 'modelo-falso');
+-- Las vistas agregadas excluyen las consultas de prueba (modelo_llm = 'modelo-falso'), migración 011.
+COMMENT ON VIEW asistencia.v_consultas_sin_evidencia IS 'Consultas reales (sin las de prueba del cliente falso) cerradas con evidencia insuficiente, para evaluar la incorporación de nuevas guías (M11).';
+COMMENT ON VIEW asistencia.v_indicadores_operativos IS 'Indicadores de los últimos 30 días sin las consultas de prueba del cliente falso.';
+COMMENT ON VIEW conocimiento.v_uso_documento IS 'Uso de cada guía: citas de los últimos 30 días en recomendaciones de consultas reales.';
 
 -- ============================================================================
 -- Roles de base de datos (mínimo privilegio)
