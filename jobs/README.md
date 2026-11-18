@@ -5,7 +5,7 @@ arranca con el resto del sistema. Agrupa los procesos que no forman parte de la 
 tiempo real:
 
 - `indexador` (Sprint 2): código en [`backend/app/indexador`](../backend/app/indexador).
-- `evaluacion`: métricas RAGAS y CUE del OE3 (Sprint 2, parte posterior).
+- `evaluacion`: métricas RAGAS y CUE del OE3 (Sprint 3, parte propia después de congelar el sistema, solo con datos sintéticos; ver `docs/plan_sprint3.md`).
 - `respaldo`: copia del índice de ChromaDB hacia Azure Blob Storage (Sprint 3).
 
 ## Indexador de guías

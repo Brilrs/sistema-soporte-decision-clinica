@@ -18,8 +18,8 @@ Sistema de soporte a la decisión clínica para la evaluación del riesgo de ane
 | --- | --- | --- |
 | 0 | Repositorio, Docker Compose, base de datos con catálogos, login y control de acceso por rol | Completado |
 | 1 | Gestión de pacientes y tamizajes (HU01, HU02, HU04, HU05, HU11, HU18), pantallas M02, M03, M08, M10 y M14 | Completado |
-| 2 | Base de conocimiento y motor RAG (HU03, HU06 a HU09, HU12, HU15), pantallas M04 a M07, M11 y M15 | Completado (cierre del 17/11/2026, con pendientes) |
-| 3 | Verificación, reportes y administración (HU10, HU13, HU14, HU16, HU17) | Pendiente |
+| 2 | Base de conocimiento y motor RAG (HU03, HU06 a HU09, HU12, HU15 y HU16), pantallas M04 a M07, M11 y M15 | Completado (cierre del 17/11/2026, con pendientes) |
+| 3 | Reportes, auditoría, parámetros clínicos y retiro de guías (HU10, HU13, HU14 y HU17), con la preparación del despliegue en Azure y de la evaluación del OE3; plan en `docs/plan_sprint3.md` | En curso |
 
 Lo entregado en el Sprint 2, cómo se verificó, las mediciones y los pendientes están en [`docs/cierre_sprint2.md`](docs/cierre_sprint2.md). Las diferencias con el documento de diseño (OE2) se registran en [`docs/cambios_respecto_al_OE2.md`](docs/cambios_respecto_al_OE2.md).
 
@@ -184,7 +184,7 @@ npm run dev
 cd backend
 cp .env.test.example .env.test   # conexiones a la base de pruebas (incluidas TEST_DATABASE_URL_SUPER y DATABASE_URL_INDEXADOR)
 python -m app.scripts.seed_demo
-pytest -q                        # 736 pruebas; excluye las marcas lenta y api_real
+pytest -q                        # 772 pruebas; excluye las marcas lenta y api_real
 pytest -q -m lenta               # PDF reales de data/guias y fragmentos indexados (no corren en CI)
 ```
 
@@ -201,7 +201,7 @@ cd modelos && pip install -r requirements-dev.txt && python -m pytest -q
 ```bash
 cd frontend
 npm ci
-npm test                 # 251 pruebas (vitest run)
+npm test                 # 252 pruebas (vitest run)
 npm run build            # también comprueba los tipos de las pruebas
 ```
 
@@ -227,7 +227,7 @@ backend/        API FastAPI
 frontend/       React + Vite; Dockerfile con Nginx (único punto de entrada)
 db/
   init/           01 esquema (27 tablas), 02 catálogos, 03 usuarios de conexión, 04 migraciones
-  migraciones/    cambios idempotentes para bases existentes (001 a 011: Sprint 2)
+  migraciones/    cambios idempotentes para bases existentes (001 a 012: Sprint 2)
   sql/            usuarios de conexión con mínimo privilegio
   aplicar_bd.sh   aplica todo sobre una base nueva, o solo las migraciones (--solo-migraciones)
 modelos/        servicio interno de modelos locales; experimentos/ mide rerankers alternativos
@@ -269,14 +269,16 @@ export CDSS_DB_PWD_INDEXADOR=<...>
 
 Las mejoras pendientes para el despliegue en Azure están en [`docs/mejoras_despliegue.md`](docs/mejoras_despliegue.md).
 
-## Qué queda para el Sprint 3
+## Sprint 3
 
-- **HU17:** retirar guías desde M11 y cargar guías de nivel 1 con revisión («Aprobar»), con el recorte de márgenes por documento.
-- **M09** reporte exportable (incluido «Exportar reporte» en M05), **M12** parámetros clínicos y **M13** auditoría y trazabilidad (historias HU10, HU13 y HU14 del Sprint 3).
-- Consultas de seguimiento encadenadas y una lista de todas las consultas del usuario (P9 y P10).
-- Respaldo del índice de ChromaDB y despliegue en Azure.
+El plan, con sus partes, dependencias y decisiones, está en [`docs/plan_sprint3.md`](docs/plan_sprint3.md). En resumen:
 
-Antes de la evaluación del OE3 y del despliegue quedan la recuperación de la Tabla N° 4 de la RM 429 (P4) y la prioridad de las consultas frente a la indexación (P14). La lista completa, con su dueño y fecha prevista, está en [`docs/cierre_sprint2.md`](docs/cierre_sprint2.md).
+- **M09** reporte exportable (HU10, incluido «Exportar reporte» en M05), **M13** auditoría y trazabilidad (HU13) y **M12** parámetros clínicos (HU14).
+- **HU17:** retirar guías desde M11. La carga de guías de nivel 1 desde la pantalla, con revisión («Aprobar») y recorte de márgenes por documento, queda para después de la evaluación del OE3.
+- Lista de las consultas propias (P10), cambio obligatorio de contraseña, prioridad de las consultas frente a la indexación (P14), respaldo y despliegue en Azure.
+- Trabajo de evaluación del OE3, con el sistema congelado y solo datos sintéticos. P3, P4, P7 y P8 no se tocan antes del OE3.
+
+La auditoría visual de la interfaz (desbordes, elementos que escapan de su contenedor y axe-core) está en [`frontend/auditoria/`](frontend/auditoria/README.md) y se ejecuta con `npm run auditoria`, fuera del CI. Los pendientes del Sprint 2, con su dueño, están en [`docs/cierre_sprint2.md`](docs/cierre_sprint2.md).
 
 ## Seguridad en desarrollo
 
