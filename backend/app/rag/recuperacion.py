@@ -12,7 +12,9 @@
 3. Comprobación contra PostgreSQL de los candidatos fusionados (vigente, documento
    VIGENTE, nivel 1 y última versión); de allí sale además el texto.
 4. Reranker sobre los CANDIDATOS_RERANKER mejores de la fusión, con pares de hasta
-   MAX_LONGITUD_RERANKER tokens.
+   MAX_LONGITUD_RERANKER tokens. En los fragmentos de la RM 429 el reranker lee el texto sin
+   la instrucción de modificación (texto_para_reranker); el resto del sistema usa el texto
+   completo.
 5. Selección de los FRAGMENTOS_ENVIADOS mejores que alcanzan UMBRAL_RELEVANCIA. Si
    ninguno lo alcanza, búsqueda ampliada: CANDIDATOS_BUSQUEDA_AMPLIADA por método y
    la consulta con los sinónimos y equivalentes en inglés del diccionario.
@@ -30,6 +32,7 @@ posición final.
 La consulta que recibe esta capa es el texto filtrado (asistencia.consulta.texto_filtrado)
 o una consulta construida con datos estructurados; nunca texto_consulta. La
 persistencia en asistencia.fragmento_recuperado corresponde al orquestador."""
+import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -49,6 +52,31 @@ CANDIDATOS_REGISTRADOS = 20
 INICIAL = "INICIAL"
 AMPLIADA = "AMPLIADA"
 FILTRO_VECTORIAL = {"nivel": 1, "estado_documento": "VIGENTE", "vigente": True}
+
+# Parte G (d1): documento cuyos fragmentos llegan al reranker sin la instrucción de modificación.
+DOCUMENTO_MODIFICATORIO = "RM 429-2024/MINSA"
+_INICIO_TABLA = re.compile(r"^Tabla N° ?\d+", re.MULTILINE)
+_FIN_INSTRUCCION = re.compile(r"conforme al siguiente detalle:\s*")
+
+
+def texto_para_reranker(codigo_documento: str, texto: str) -> str:
+    """Texto que puntúa el reranker. En la RM 429 cada fragmento empieza con la línea de
+    procedencia («NTS 213 modificada por RM 429-2024/MINSA, numeral ...»), sigue la instrucción
+    («5. Modificar la Tabla N° 4 ... conforme al siguiente detalle:») y la ruta de títulos de la
+    NTS, que con 256 tokens por par dejan fuera las filas de la tabla. Se conserva la primera
+    línea y se quita, en una tabla, todo hasta antes de «Tabla N° X» y, en un texto, hasta
+    «conforme al siguiente detalle:» inclusive. Sin esas marcas, y en los demás documentos, el
+    texto queda igual. Solo cambia lo que lee el reranker (y por lo tanto su puntaje); el texto
+    guardado, la solicitud al modelo, las citas y la verificación usan el texto completo."""
+    if codigo_documento != DOCUMENTO_MODIFICATORIO:
+        return texto
+    primera, _, resto = texto.partition("\n")
+    if m := _INICIO_TABLA.search(resto):
+        return primera + "\n" + resto[m.start():]
+    if m := _FIN_INSTRUCCION.search(resto):
+        return primera + "\n" + resto[m.end():]
+    return texto
+
 
 _FRAGMENTOS = f"""
     SELECT f.id_fragmento::text AS id_fragmento, f.id_documento::text AS id_documento, d.titulo,
@@ -246,7 +274,8 @@ def seleccionar(sesion: Session | Connection, consulta: ConsultaNormalizada, can
 
     if reranker is not None and evaluados:
         puntajes = c.medir("reranker", reranker.puntuar, consulta.texto_normalizado,
-                           [filas[i].texto for i, _, _ in evaluados], parametros.max_longitud_reranker)
+                           [texto_para_reranker(filas[i].codigo_documento, filas[i].texto)
+                            for i, _, _ in evaluados], parametros.max_longitud_reranker)
     else:
         puntajes = [None] * len(evaluados)
     orden = sorted(range(len(evaluados)), key=lambda j: (-(puntajes[j] if puntajes[j] is not None else 0.0), j))

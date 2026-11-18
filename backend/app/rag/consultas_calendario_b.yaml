@@ -1,0 +1,87 @@
+# Conjunto de aceptación B de la parte G (pendiente P4). Se congela antes de cambiar el código;
+# su SHA-256 (contenido con fin de línea LF) va en docs/mediciones_sprint2.md. No se edita
+# después de medir la línea base ni se usa para elegir variantes (para eso está el conjunto de
+# desarrollo de la fase 3, fuera del repositorio).
+#
+# Primera redacción el 17/11/2026, después del diagnóstico del conjunto A y antes de las
+# simulaciones. Revisada el 18/11/2026, después de ver las simulaciones (sin ejecutar B), solo
+# para quitar parecidos con A, las 20 de referencia y el desarrollo: mismas edades, tipos y
+# formas; cambian redacciones y campos del contexto. Escrito sin abrir el conjunto de prueba, el
+# de validación, los casos de punta a punta ni los casos del OE3. Todas sintéticas.
+#
+# Formas: consulta (pregunta libre sola), contexto (consulta estructurada sola, construir_consulta)
+# y contexto + pregunta (combinada, como la arma el grafo con combinar_consulta).
+#
+# Criterio de acierto, sobre los fragmentos enviados al modelo (hasta 5):
+#   CALENDARIO: algún fragmento de la RM 429 contiene la fila de la Tabla N° 4 de esa edad.
+#   TRATAMIENTO, estricto: algún fragmento de la NTS 213 contiene el título de la Tabla N° 20.
+#   TRATAMIENTO, aceptado: algún fragmento de la NTS 213 contiene «Tabla N° 20» (la tabla o el
+#     fragmento «Seguimiento de casos de anemia», que la cita). Se reportan los dos.
+consultas:
+  # Calendario, libres
+  - {id: B01, tipo: CALENDARIO, edad_meses: 8, fila: "6 a 11 meses de edad",
+     consulta: "Bebé de 8 meses con multimicronutrientes, ¿qué fechas de control de hemoglobina debo programar?"}
+  - {id: B02, tipo: CALENDARIO, edad_meses: 17, fila: "12 a 23 meses de edad",
+     consulta: "Mi paciente de 17 meses arranca hoy con jarabe de hierro como prevención, ¿en qué mes de la suplementación le corresponde el análisis de hemoglobina?"}
+  - {id: B03, tipo: CALENDARIO, edad_meses: 29, fila: "24 a 35 meses de edad",
+     consulta: "¿A los cuántos meses de suplementación se le extrae sangre para hemoglobina a una pequeña de 29 meses?"}
+  - {id: B04, tipo: CALENDARIO, edad_meses: 52, fila: "36-59 meses de edad",
+     consulta: "Preescolar de 52 meses con suplemento diario: calendario de análisis de hemoglobina"}
+  # Calendario, estructuradas
+  - {id: B05, tipo: CALENDARIO, edad_meses: 8, fila: "6 a 11 meses de edad",
+     contexto: {edad_meses: 8, categoria: SIN_ANEMIA, nivel_riesgo: MODERADO, hb_ajustada_g_dl: 11.2,
+                recibe_suplementacion_hierro: false, bajo_peso_nacer: true}}
+  - {id: B06, tipo: CALENDARIO, edad_meses: 14, fila: "12 a 23 meses de edad",
+     contexto: {edad_meses: 14, categoria: SIN_ANEMIA, nivel_riesgo: BAJO, hb_ajustada_g_dl: 11.7,
+                altitud_msnm: 3259, ajuste_hb_g_dl: 2.1, recibe_suplementacion_hierro: true}}
+  - {id: B07, tipo: CALENDARIO, edad_meses: 32, fila: "24 a 35 meses de edad",
+     contexto: {edad_meses: 32, categoria: SIN_ANEMIA, nivel_riesgo: MODERADO, hb_ajustada_g_dl: 12.1,
+                recibe_suplementacion_hierro: true, sintomas: [Irritabilidad]}}
+  - {id: B08, tipo: CALENDARIO, edad_meses: 46, fila: "36-59 meses de edad",
+     contexto: {edad_meses: 46, categoria: SIN_ANEMIA, nivel_riesgo: MODERADO, hb_ajustada_g_dl: 11.4,
+                altitud_msnm: 3827, ajuste_hb_g_dl: 2.5, recibe_suplementacion_hierro: false}}
+  - {id: B09, tipo: CALENDARIO, edad_meses: 58, fila: "36-59 meses de edad",
+     contexto: {edad_meses: 58, categoria: SIN_ANEMIA, nivel_riesgo: BAJO, hb_ajustada_g_dl: 12.7,
+                recibe_suplementacion_hierro: true, prematuro: true}}
+  # Calendario, combinadas
+  - {id: B10, tipo: CALENDARIO, edad_meses: 23, fila: "12 a 23 meses de edad",
+     contexto: {edad_meses: 23, categoria: SIN_ANEMIA, nivel_riesgo: MODERADO, hb_ajustada_g_dl: 11.3,
+                recibe_suplementacion_hierro: false, bajo_peso_nacer: true},
+     pregunta: "¿Qué análisis de sangre le tocan mientras dure la suplementación?"}
+  - {id: B11, tipo: CALENDARIO, edad_meses: 25, fila: "24 a 35 meses de edad",
+     contexto: {edad_meses: 25, categoria: SIN_ANEMIA, nivel_riesgo: BAJO, hb_ajustada_g_dl: 11.9,
+                altitud_msnm: 3399, ajuste_hb_g_dl: 2.1, recibe_suplementacion_hierro: true},
+     pregunta: "¿Qué examen sigue en su calendario de suplementación?"}
+  - {id: B12, tipo: CALENDARIO, edad_meses: 41, fila: "36-59 meses de edad",
+     contexto: {edad_meses: 41, categoria: SIN_ANEMIA, nivel_riesgo: BAJO, hb_ajustada_g_dl: 12.3,
+                recibe_suplementacion_hierro: true},
+     pregunta: "¿Con qué periodicidad se le revisa la hemoglobina en esta etapa?"}
+  - {id: B13, tipo: CALENDARIO, edad_meses: 56, fila: "36-59 meses de edad",
+     contexto: {edad_meses: 56, categoria: SIN_ANEMIA, nivel_riesgo: MODERADO, hb_ajustada_g_dl: 12.8,
+                recibe_suplementacion_hierro: false, sintomas: [Hiporexia]},
+     pregunta: "¿El primer análisis va antes de la primera dosis de hierro?"}
+  # Tratamiento, libres
+  - {id: B14, tipo: TRATAMIENTO, edad_meses: 20,
+     consulta: "Pequeño de 20 meses con anemia leve que ya toma su hierro terapéutico, ¿qué seguimiento de laboratorio corresponde?"}
+  - {id: B15, tipo: TRATAMIENTO, edad_meses: 49,
+     consulta: "Preescolar de 49 meses diagnosticada con anemia moderada, en su segundo mes de hierro: ¿ya le toca un nuevo análisis?"}
+  # Tratamiento, estructuradas
+  - {id: B16, tipo: TRATAMIENTO, edad_meses: 34,
+     contexto: {edad_meses: 34, categoria: ANEMIA_LEVE, nivel_riesgo: MODERADO, hb_ajustada_g_dl: 10.5,
+                recibe_suplementacion_hierro: true}}
+  - {id: B17, tipo: TRATAMIENTO, edad_meses: 37,
+     contexto: {edad_meses: 37, categoria: ANEMIA_MODERADA, nivel_riesgo: ALTO, hb_ajustada_g_dl: 8.4,
+                recibe_suplementacion_hierro: false}}
+  - {id: B18, tipo: TRATAMIENTO, edad_meses: 39,
+     contexto: {edad_meses: 39, categoria: ANEMIA_SEVERA, nivel_riesgo: MUY_ALTO, hb_ajustada_g_dl: 6.4,
+                recibe_suplementacion_hierro: false, requiere_derivacion: true,
+                sintomas: [Fatiga o somnolencia, Palidez]}}
+  # Tratamiento, combinadas
+  - {id: B19, tipo: TRATAMIENTO, edad_meses: 8,
+     contexto: {edad_meses: 8, categoria: ANEMIA_MODERADA, nivel_riesgo: ALTO, hb_ajustada_g_dl: 8.7,
+                recibe_suplementacion_hierro: false},
+     pregunta: "¿En qué semanas o meses del tratamiento se repite el examen de sangre?"}
+  - {id: B20, tipo: TRATAMIENTO, edad_meses: 53,
+     contexto: {edad_meses: 53, categoria: ANEMIA_LEVE, nivel_riesgo: MODERADO, hb_ajustada_g_dl: 10.3,
+                recibe_suplementacion_hierro: true},
+     pregunta: "¿Hasta cuándo sigue con el hierro y qué exámenes de seguimiento necesita?"}

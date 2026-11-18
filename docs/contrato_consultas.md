@@ -159,7 +159,7 @@ Se emite ante una falla inesperada. La consulta queda en ERROR.
 | `seccion` | texto o null | Ruta de secciones |
 | `pagina_inicio`, `pagina_fin` | entero o null | Páginas del PDF |
 | `idioma` | `"es"` o `"en"` | Idioma del fragmento |
-| `puntaje_reranker` | decimal o null | Relevancia del fragmento según el reranker, de 0 a 1, con 3 decimales (columna «Relevancia» de M05) |
+| `puntaje_reranker` | decimal o null | Relevancia del fragmento según el reranker, de 0 a 1, con 3 decimales (columna «Relevancia» de M05). En los fragmentos de la RM 429-2024/MINSA se calcula sobre la primera línea y el cuerpo, sin la instrucción de modificación; `extracto` sigue siendo el texto completo (parte G) |
 | `origen` | `"RERANKER"` o `"PUNTERO"` | RERANKER: fragmento seleccionado por la recuperación. PUNTERO: agregado porque otro fragmento enviado remite a esa tabla (parte G, `backend/app/rag/punteros.yaml`) |
 | `agregado_por_referencia_de` | texto o null | Con origen PUNTERO, la etiqueta del fragmento enviado que contiene el puntero; null en los demás |
 

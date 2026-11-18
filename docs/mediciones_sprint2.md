@@ -54,6 +54,358 @@ MSYS_NO_PATHCONV=1 docker compose run --rm --no-deps -T -v "$APP" backend \
   python -m app.scripts.medir_recuperacion calendario --entorno normal-con-puntero > data/mediciones/g_calendario_con_puntero.json
 ```
 
+### Conjunto de aceptación B (fase 5, 18/11/2026)
+
+`backend/app/rag/consultas_calendario_b.yaml`: 20 consultas sintéticas para aceptar la variante
+d1 + c1 (reranker sobre el cuerpo de los fragmentos de la RM 429 y preguntas nuevas de
+`construir_consulta`). No se usa para elegir variantes: para eso hay un conjunto de desarrollo de
+20 consultas (D01 a D20) que no se versiona.
+
+- **SHA-256 de B** (contenido con fin de línea LF): `352334c8d26c41b59b32721edc79e55cddeb96d4db85f393f1f75018af4b5593`.
+- **SHA-256 del conjunto de desarrollo** (fuera del repositorio): `7df34363a30db45ee1c51ab3d6935583ee5165308354b7ae4bf63708d6123fc5`.
+- Ambas con `sha256sum <archivo>` sobre archivos sin retornos de carro, igual que `huella_archivo`.
+  `medir_recuperacion calendario` escribe las de A y B en su salida (`huellas`).
+- Medición: `medir_recuperacion calendario --conjunto a,b,referencias` (por omisión,
+  `a,referencias`), una vez para la línea base y una vez por variante aprobada.
+
+**Historia.** La versión 1 se escribió el 17/11/2026 a las 22:18, después del diagnóstico de los
+fallos de A y antes de las simulaciones de la fase 3 (SHA-256
+`6affa4439ab4820703c9b2ef788c27a4ff396c8ae1b9388d4dd78c60dd45735b`). La versión 2 se reescribió
+el 18/11/2026 con los resultados de las simulaciones (sobre el desarrollo, A y las 20 de
+referencia) ya vistos, para quitar parecidos con A, las 20 de referencia y el desarrollo. Se
+mantuvieron las edades, los tipos y las formas. Cambiaron:
+
+- la redacción de B02, B03, B04, B10 a B15, B19 y B20;
+- campos del contexto de B06, B07, B08, B11, B13 y B18 (altitud, síntomas o riesgo).
+
+B no se ejecutó antes de congelarse. Se escribió sin abrir el conjunto de prueba, el de
+validación, los casos de punta a punta ni los casos del OE3.
+
+**Parecido.** Se usó el índice de Jaccard sobre palabras de contenido, comparando cada pregunta
+de B con las de A, las 20 de referencia, el desarrollo y las dos frases nuevas de c1. Las
+palabras se toman en minúsculas y sin tildes, sin palabras vacías, sin «meses» y con 3 letras o
+más.
+
+- Umbral fijado antes de reescribir: menor a 0,30. Máximo en la versión 2: 0,27 (B03 frente a
+  A02). En la versión 1 había 10 consultas en 0,30 o más, con un máximo de 0,70 (B15 frente a A14).
+- Las consultas estructuradas comparten la plantilla de `construir_consulta`. En ellas se
+  comprobó que ninguna tenga una gemela en A o en el desarrollo: mismo tramo de edad, misma
+  categoría y riesgo, y mismos antecedentes.
+
+**Cobertura** (libre / estructurada / combinada):
+
+| Tramo | Calendario | Tratamiento |
+| --- | --- | --- |
+| 6 a 11 meses | 1 / 1 / 0 | 0 / 0 / 1 |
+| 12 a 23 meses | 1 / 1 / 1 | 1 / 0 / 0 |
+| 24 a 35 meses | 1 / 1 / 1 | 0 / 1 / 0 |
+| 36 a 59 meses | 1 / 2 / 2 | 1 / 2 / 1 |
+| Total | 4 / 5 / 4 (13) | 2 / 3 / 2 (7) |
+
+**Criterios**, sobre los fragmentos enviados al modelo (hasta 5):
+
+- **Calendario:** un fragmento de la RM 429 con la fila de la Tabla N° 4 de la edad.
+- **Tratamiento, estricto:** un fragmento de la NTS 213 con el título de la Tabla N° 20 («Control
+  de hemoglobina en el tratamiento de anemia»).
+- **Tratamiento, aceptado:** un fragmento de la NTS 213 que menciona «Tabla N° 20». Hoy son dos:
+  la tabla y el fragmento «Seguimiento de casos de anemia», que la cita.
+- Se informan siempre los dos. El criterio aceptado quedó fijado antes de medir B.
+
+**Sesgos posibles**
+
+- La versión 2 se escribió conociendo las simulaciones y qué vocabulario falla. Al reescribir B12
+  se quitó la única aparición de «dosaje», un término que en el diagnóstico de A puntuaba bajo
+  (A01). B puede resultar más fácil que A en preguntas libres.
+- La misma persona que diseñó las variantes escribió B.
+- La edad de 8 meses se repite con el desarrollo: es la única del tramo de 6 a 11 meses que A no
+  usa.
+- Las consultas estructuradas difieren solo en la edad, la Hb y los campos del contexto.
+
+**Lo que B no cubre**
+
+- La fila de recién nacidos con bajo peso o prematuros (menores de 6 meses). Tampoco la cubre A.
+- La consulta combinada de calendario de 6 a 11 meses.
+- La anemia severa en forma libre o combinada.
+- El tratamiento de 6 a 11 meses en forma libre o estructurada, el de 12 a 23 meses en forma
+  estructurada o combinada y el de 24 a 35 meses en forma libre o combinada.
+- La altitud en las consultas de tratamiento.
+
+### Línea base de B y paso d1 (fase 6, 18/11/2026)
+
+Dos corridas de `medir_recuperacion calendario --conjunto a,b,referencias` en la misma sesión,
+unos 40 minutos aparte, sin la suite de pruebas, otros procesos pesados ni indexación en curso:
+la línea base con el código de la fase 5 y la corrida con d1. Cada una se hizo una sola vez. Las
+huellas de A (`de2e1dbc…`) y B (`352334c8…`) son las mismas en las dos. La línea base reproduce
+los puntajes de la validación de la fase 5 (diferencia 0 en 288 puntajes de A y las 20 de
+referencia).
+
+**d1.** `texto_para_reranker` (`backend/app/rag/recuperacion.py`): en los fragmentos de la RM 429
+el reranker lee la primera línea («NTS 213 modificada por RM 429-2024/MINSA, numeral …») y, en
+una tabla, el texto desde «Tabla N° X» al inicio de línea; en un texto, lo que sigue a «conforme
+al siguiente detalle:». Sin esas marcas, y en los demás documentos, lee el texto completo. El
+texto guardado, la solicitud al modelo, las citas, M05 y la verificación usan el texto completo;
+cambia el `puntaje_reranker` (el que se guarda, se muestra en M05 y se compara con el umbral).
+
+- **Efecto en la base:** de los 183 fragmentos recuperables cambian 12, todos de la RM 429 (4
+  tablas y 8 textos). Los otros 2 de la RM 429 (`cb28754f` y `c3d32c63`, Tablas 12 y 13) no
+  cambian porque la tabla empieza en la segunda línea. No cambia ningún fragmento de otro
+  documento.
+
+**Por conjunto** (línea base → d1):
+
+| Medida | A | B | Referencias |
+| --- | --- | --- | --- |
+| Calendario: fila correcta | 7/12 → **10/12** (siguen A01, A12) | 7/13 → **9/13** (siguen B01, B04, B06, B08) | |
+| Tratamiento, estricto | 2/4 → 2/4 | 1/7 → 1/7 | |
+| Tratamiento, aceptado | 3/4 → 3/4 (falla A15) | 6/7 → 6/7 (falla B15) | |
+| Acierto en el top 5 | | | 18/20 → 18/20 (fallan R01, R19) |
+| Punteros sin tabla | 0 → 0 | 0 → 0 | 0 → 0 |
+| Tablas de otra edad | 0 → 0 | 0 → 0 | 0 → 0 |
+| Agregados por puntero | A03, A07, A09, A11 → A03, A09 | B05, B07, B13 → B07, B13 | R09 → R09 |
+| EVIDENCIA_INSUFICIENTE antes del modelo | ninguna → ninguna | ninguna → ninguna | ninguna → ninguna |
+| Reranker p50 / p90 | 4,04 / 4,16 → 3,99 / 4,11 s | 4,05 / 4,16 → 3,86 / 4,14 s | 4,04 / 4,36 → 3,80 / 3,94 s |
+
+En la línea base fallaban en el calendario A01, A05, A08, A10 y A12, y B01, B04, B06, B08, B11 y
+B12. Aciertos ganados con d1: A05, A08, A10, B11 y B12. Aciertos perdidos: ninguno.
+
+**B por consulta** (relevancia máxima de la última pasada; el estado previo al modelo es
+PASA_AL_MODELO en todas, en las dos corridas):
+
+| Id | Forma | Acierto (base → d1) | T20 estricto | T20 aceptado | Relevancia máxima (base → d1) |
+| --- | --- | --- | --- | --- | --- |
+| B01 | libre | no → no | | | 0,4334 → 0,4334 |
+| B02 | libre | sí → sí | | | 0,4856 → 0,3883 |
+| B03 | libre | sí → sí | | | 0,7784 → 0,8013 |
+| B04 | libre | no → no | | | 0,6052 → 0,6052 |
+| B05 | estructurada | sí → sí | | | 0,9680 → 0,9703 |
+| B06 | estructurada | no → no | | | 0,9783 → 0,9831 |
+| B07 | estructurada | sí → sí | | | 0,9089 → 0,9157 |
+| B08 | estructurada | no → no | | | 0,9240 → 0,9240 |
+| B09 | estructurada | sí → sí | | | 0,9391 → 0,9455 |
+| B10 | combinada | sí → sí | | | 0,9925 → 0,9914 |
+| B11 | combinada | no → **sí** | | | 0,8390 → 0,8379 |
+| B12 | combinada | no → **sí** | | | 0,9069 → 0,9276 |
+| B13 | combinada | sí → sí | | | 0,8826 → 0,8826 |
+| B14 | libre | no → no | no → no | sí → sí | 0,7996 → 0,7996 |
+| B15 | libre | no → no | no → no | no → no | 0,2343 → 0,2343 (2 pasadas) |
+| B16 | estructurada | no → no | no → no | sí → sí | 0,9620 → 0,9652 |
+| B17 | estructurada | no → no | no → no | sí → sí | 0,8952 → 0,9131 |
+| B18 | estructurada | no → no | no → no | sí → sí | 0,9815 → 0,9800 |
+| B19 | combinada | sí → sí | sí → sí | sí → sí | 0,8514 → 0,8514 |
+| B20 | combinada | no → no | no → no | sí → sí | 0,9461 → 0,9484 |
+
+**Condición de d1** (fijada en la fase 5: ninguna consulta pasa de PASA_AL_MODELO a
+EVIDENCIA_INSUFICIENTE y no se pierde ningún acierto):
+
+- Cambios de estado previo al modelo: 0, en los dos sentidos.
+- Relevancias máximas que cruzan 0,15: ninguna. Las más bajas después de d1: R14 (0,3556 →
+  0,2306), B15 (0,2343, sin cambio), A01 (0,2664, sin cambio) y B02 (0,4856 → 0,3883).
+- El número de pasadas no cambia en ninguna consulta.
+- Puntajes individuales que cruzan 0,15 sin cambiar ningún estado (la relevancia máxima de la
+  consulta sigue por encima del umbral):
+  - Suben de menos de 0,15 a 0,15 o más (7): A05 (Tabla N° 4, 0,129 → 0,276), A06 (Tabla N° 8
+    de la RM 429, 0,040 → 0,247), A14 (Tabla N° 8 de la RM 429, 0,012 → 0,358), R03 (Tabla N° 1
+    de la RM 429, 0,140 → 0,309), B17 (OMS 2016, 0,146 → 0,173), R10 (NTS 213, 0,148 → 0,173) y
+    R17 (NTS 213, 0,142 → 0,257).
+  - Bajan de 0,15 o más a menos de 0,15 (3): A06 (NTS 213, 0,230 → 0,128), B07 (OMS 2016,
+    0,177 → 0,128) y R03 (OMS 2024, 0,179 → 0,109).
+- También se mueven puntajes de fragmentos que d1 no cambia (diferencia máxima 0,137 en 394
+  pares, por ejemplo el máximo de R14, que es un fragmento de la NTS). Ver «Composición del lote»
+  más abajo.
+
+**Latencia** (paso del reranker, 57 pasadas en cada corrida): p50 de 4,04 a 3,88 s (0,16 s
+menos) y p90 de 4,20 a 4,06 s (0,14 s menos). Dentro del criterio de no subir más de 0,3 s. Los
+textos de la RM 429 que llegan al reranker son más cortos.
+
+- Datos: `data/mediciones/g_calendario_b_linea_base.json` y `g_calendario_b_d1.json` (con sus
+  `.err`).
+
+```bash
+APP="$(pwd -W)/backend/app:/app/app:ro"
+MSYS_NO_PATHCONV=1 docker compose run --rm --no-deps -T -v "$APP" backend \
+  python -m app.scripts.medir_recuperacion calendario --conjunto a,b,referencias --entorno d1 > data/mediciones/g_calendario_b_d1.json
+```
+
+**Composición del lote** (experimento de solo lectura, fase 7, 18/11/2026). Para explicar por
+qué d1 movió puntajes de fragmentos que no cambia, se puntuaron 3 fragmentos fijos de otros
+documentos (`d7bc3ff4` y `917f5f0c` de la NTS 213, `0144688c` de la OMS 2016) con 2 consultas
+fijas y 256 tokens, solos y en lotes de 8 con 7 acompañantes: cortos (35 a 167 caracteres),
+medianos (unos 1900), largos (2979 a 4471), mezclados, y la mezcla en 6 órdenes distintos.
+
+| Fragmento y consulta | Solo (3 veces) | Mínimo y máximo con acompañantes | Rango | Mismo lote, otro orden |
+| --- | --- | --- | --- | --- |
+| `d7bc3ff4`, control de Hb en tratamiento | 0,9624 | 0,9519 a 0,9675 | 0,016 | sin cambio |
+| `917f5f0c`, control de Hb en tratamiento | 0,0063 | 0,0042 a 0,0073 | 0,003 | sin cambio |
+| `0144688c`, control de Hb en tratamiento | 0,0229 | 0,0229 a 0,0435 | 0,021 | sin cambio |
+| `d7bc3ff4`, suplementación preventiva | 0,3845 | 0,3626 a 0,4815 | 0,119 | sin cambio |
+| `917f5f0c`, suplementación preventiva | 0,1468 | 0,1400 a 0,1866 | 0,047 | sin cambio |
+| `0144688c`, suplementación preventiva | 0,0469 | 0,0274 a 0,0497 | 0,022 | sin cambio |
+
+- El mismo par, solo y repetido, da siempre el mismo valor, y la repetición de cada lote también.
+- Con otros acompañantes el puntaje cambia hasta 0,119. `917f5f0c` queda debajo o encima de
+  0,15 según el lote (0,140 con 7 textos cortos de una palabra, 0,187 con la mezcla).
+- Con el mismo contenido en distinto orden y en distinta posición no cambia.
+- Con acompañantes más cortos que el objetivo (el relleno del lote no cambia para él) el puntaje
+  también se mueve. Es compatible con la cuantización dinámica de las activaciones del modelo
+  int8 (`quantize_dynamic`), cuya escala se calcula sobre todo el lote; no se comparó con fp32.
+- Limitación anotada en `docs/cierre_sprint2.md`. No se cambió el código.
+
+**Regla de decisión de c1** (fijada el 18/11/2026, después de ver la línea base de B y los
+resultados de d1, y antes de medir c1):
+
+- c1 se integra solo si, frente a d1, no pierde aciertos en A, B ni las referencias, no cambia
+  ningún estado previo al modelo y mejora el calendario estructurado de B o el tratamiento
+  estricto de B. En el tratamiento aceptado basta con no empeorar.
+- Si no cumple, se revierte y la parte G se cierra con d1.
+- Latencia: el p50 del reranker no sube más de 0,3 s respecto de d1 medida en la misma sesión.
+- La aceptación global frente a la línea base original sigue siendo la fijada en la fase 4.
+
+### Paso c1 y cierre de la parte G (fase 8, 18/11/2026)
+
+**c1.** `construir_consulta` (`backend/app/rag/consulta_estructurada.py`) con la pregunta final en
+dos frases, una por la suplementación o el tratamiento y otra por el control de hemoglobina. Los
+textos se aprobaron antes de medir y no se cambiaron después:
+
+- Sin anemia o sin clasificación: «¿Qué suplementación preventiva con hierro le corresponde a su
+  edad y en qué dosis? ¿Cuándo se hace la medición de hemoglobina de su grupo de edad durante la
+  suplementación?» (antes: «¿Qué suplementación preventiva con hierro le corresponde a su edad, en
+  qué dosis, y cuándo se mide la hemoglobina?»).
+- Con anemia: «¿Qué tratamiento con hierro le corresponde, en qué dosis y por cuánto tiempo?
+  ¿Cuándo se hace el control de hemoglobina durante el tratamiento?» (antes: «¿Qué tratamiento con
+  hierro le corresponde, en qué dosis y por cuánto tiempo, y cómo es el seguimiento con control de
+  hemoglobina?»).
+- La pregunta de referencia y la del antiparasitario no cambian. Las preguntas libres tampoco: en
+  A, B y las referencias los puntajes de las consultas libres son los mismos que con d1.
+
+**Corridas.** Una sola corrida de `medir_recuperacion calendario --conjunto a,b,referencias` con
+d1 + c1. Su p50 global (3,52 s) difería en más de 0,2 s del de d1 en la fase 6 (3,88 s), así que
+en la misma sesión se volvió a medir d1 con la versión anterior de `consulta_estructurada.py`
+(copia de git) y después se dejó c1 de nuevo. Orden: d1 + c1 (15:16 a 15:21 UTC) y enseguida d1
+(15:21 a 15:25), sin la suite de pruebas. El indexador se detuvo antes de empezar, pero a las
+15:17:29, en medio de la corrida de d1 + c1, se levantaron `backend`, `nginx` y el indexador y se
+abrió la aplicación. El indexador quedó en espera sin tomar trabajos; el calentamiento del backend
+usó `modelos` de 15:17:34 a 15:18:08 (embeddings, reranker y 21 s de clasificación de dominio) y
+coincidió con las pasadas de A13 a B08 de d1 + c1 (hasta 5,69 s en B01). La corrida de d1 se hizo
+con esos servicios en reposo. Los puntajes no dependen de la carga: las 34 consultas libres dan
+exactamente los mismos puntajes en las dos corridas. Huellas de A y B iguales a las de
+la fase 6. La corrida de d1 de esta sesión reproduce la de la fase 6: diferencia 0 en 456 puntajes
+y los mismos resultados en las 56 consultas. El resultado de B no se usó para ajustar textos ni
+parámetros.
+
+**Por conjunto** (línea base de la fase 6 → d1 → d1 + c1):
+
+| Medida | A | B | Referencias |
+| --- | --- | --- | --- |
+| Calendario: fila correcta | 7/12 → 10/12 → 11/12 (sigue A01) | 7/13 → 9/13 → 10/13 (fallan B01, B04, B11) | |
+| Calendario estructurado | 3/6 → 5/6 → 6/6 | 3/5 → 3/5 → 5/5 | |
+| Tratamiento, estricto | 2/4 → 2/4 → 3/4 (falla A15) | 1/7 → 1/7 → 3/7 (fallan B14, B15, B18, B20) | |
+| Tratamiento, aceptado | 3/4 → 3/4 → 3/4 (falla A15) | 6/7 → 6/7 → 6/7 (falla B15) | |
+| Acierto en el top 5 | | | 18/20 → 18/20 → 18/20 (fallan R01, R19) |
+| Punteros sin tabla | 0 → 0 → 0 | 0 → 0 → 0 | 0 → 0 → 0 |
+| Tablas de otra edad | 0 → 0 → 0 | 0 → 0 → 0 | 0 → 0 → 0 |
+| Agregados por puntero | A03, A07, A09, A11 → A03, A09 → A03 | B05, B07, B13 → B07, B13 → ninguno | R09 → R09 → R09 |
+| EVIDENCIA_INSUFICIENTE antes del modelo | ninguna en las tres | ninguna en las tres | ninguna en las tres |
+
+**Latencia del reranker** (p50 / p90, 57 pasadas en cada corrida):
+
+| Conjunto | Línea base (fase 6) | d1 (fase 6) | d1 (fase 8) | d1 + c1 (fase 8) |
+| --- | --- | --- | --- | --- |
+| A | 4,04 / 4,16 s | 3,99 / 4,11 s | 3,59 / 3,91 s | 3,44 / 4,02 s |
+| B | 4,05 / 4,16 s | 3,86 / 4,14 s | 3,17 / 3,32 s | 3,65 / 4,14 s |
+| Referencias | 4,04 / 4,36 s | 3,80 / 3,94 s | 3,19 / 3,33 s | 3,42 / 3,64 s |
+| Global | 4,04 / 4,20 s | 3,88 / 4,06 s | 3,23 / 3,67 s | 3,52 / 4,02 s |
+
+- En la misma sesión, d1 + c1 sube el p50 global 0,298 s frente a d1 (3,23 → 3,52 s).
+- Sin las consultas que coincidieron con el calentamiento del backend (A13 a B08, 45 pasadas en
+  cada corrida), el p50 es 3,22 s con d1 y 3,45 s con d1 + c1 (0,23 s más).
+- Las referencias tienen el mismo texto y los mismos puntajes en las dos corridas, y su p50 sube
+  0,23 s: casi toda la diferencia es ruido entre corridas. El mismo código (d1) dio 3,88 s en la
+  fase 6 y 3,23 s en la fase 8, una variación entre sesiones mayor que el margen de 0,3 s.
+
+**B por consulta con d1 + c1** (relevancia máxima de la última pasada; el estado previo al modelo
+es PASA_AL_MODELO en todas, en las tres corridas; en negrita, lo que cambia frente a d1):
+
+| Id | Forma | Acierto (d1 → d1 + c1) | T20 estricto | T20 aceptado | Relevancia máxima (d1 → d1 + c1) |
+| --- | --- | --- | --- | --- | --- |
+| B01 | libre | no → no | | | 0,4334 → 0,4334 |
+| B02 | libre | sí → sí | | | 0,3883 → 0,3883 |
+| B03 | libre | sí → sí | | | 0,8013 → 0,8013 |
+| B04 | libre | no → no | | | 0,6052 → 0,6052 |
+| B05 | estructurada | sí → sí | | | 0,9703 → 0,9717 |
+| B06 | estructurada | no → **sí** | | | 0,9831 → 0,9747 |
+| B07 | estructurada | sí → sí | | | 0,9157 → 0,9082 |
+| B08 | estructurada | no → **sí** | | | 0,9240 → 0,9097 |
+| B09 | estructurada | sí → sí | | | 0,9455 → 0,9236 |
+| B10 | combinada | sí → sí | | | 0,9914 → 0,9910 |
+| B11 | combinada | sí → **no** | | | 0,8379 → 0,9562 |
+| B12 | combinada | sí → sí | | | 0,9276 → 0,9442 |
+| B13 | combinada | sí → sí | | | 0,8826 → 0,9079 |
+| B14 | libre | no → no | no → no | sí → sí | 0,7996 → 0,7996 |
+| B15 | libre | no → no | no → no | no → no | 0,2343 → 0,2343 (2 pasadas) |
+| B16 | estructurada | no → **sí** | no → **sí** | sí → sí | 0,9652 → 0,9522 |
+| B17 | estructurada | no → **sí** | no → **sí** | sí → sí | 0,9131 → 0,9189 |
+| B18 | estructurada | no → no | no → no | sí → sí | 0,9800 → 0,9781 |
+| B19 | combinada | sí → sí | sí → sí | sí → sí | 0,8514 → 0,8500 |
+| B20 | combinada | no → no | no → no | sí → sí | 0,9484 → 0,9345 |
+
+**Cambios id por id.**
+
+- Estado previo al modelo: ningún cambio, ni de c1 frente a d1 ni de d1 + c1 frente a la línea
+  base. Ninguna relevancia máxima cruza 0,15 y el número de pasadas no cambia.
+- c1 frente a d1, aciertos ganados: A12 (calendario), A16 (Tabla N° 20 estricta), B06 y B08
+  (calendario), B16 y B17 (Tabla N° 20 estricta). Perdido: B11.
+- d1 + c1 frente a la línea base, aciertos ganados: A05, A08, A10, A12, A16, B06, B08, B12, B16 y
+  B17. Perdidos: ninguno (B11 falla en la línea base y con d1 + c1).
+- B11 (combinada, 25 meses, sin anemia, recibe suplementación): con c1 entra a los candidatos el
+  fragmento de la NTS 213 de suplementación preventiva (6.1.1 B, 0,956), y la Tabla N° 4 baja del
+  5.º al 6.º lugar (0,594 con d1, 0,676 con d1 + c1) y queda fuera de los enviados. La NTS de ese
+  fragmento no dice «según Tabla N° 4», así que el puntero no la agrega.
+
+**Regla de decisión de c1, condición por condición:**
+
+| Condición | Resultado | ¿Cumple? |
+| --- | --- | --- |
+| No pierde aciertos en A frente a d1 | Gana A12 y A16, no pierde ninguno | Sí |
+| No pierde aciertos en B frente a d1 | Pierde B11 | **No** |
+| No pierde aciertos en las referencias | 18/20 con los mismos fallos (R01, R19) | Sí |
+| No cambia ningún estado previo al modelo | 0 cambios | Sí |
+| Mejora el calendario estructurado de B o el tratamiento estricto de B | Los dos: 3/5 → 5/5 y 1/7 → 3/7 | Sí |
+| El tratamiento aceptado de B no empeora | 6/7 → 6/7 | Sí |
+| El p50 no sube más de 0,3 s frente a d1 en la misma sesión | +0,298 s (3,23 → 3,52 s); +0,23 s sin la ventana del calentamiento del backend | Sí, al límite |
+
+**Decisión:** c1 no cumple la regla (pierde B11) y se revirtió: `consulta_estructurada.py` vuelve
+a la versión anterior y se quitaron sus pruebas. La parte G se cierra con la regla del puntero y
+d1. Las preguntas de `construir_consulta` y las mediciones anteriores que dependen de ellas no
+cambian.
+
+**Criterio global de la fase 4 con d1, frente a la línea base original** (la de la fase 6):
+
+| Condición | Resultado | ¿Cumple? |
+| --- | --- | --- |
+| Referencias 18/20 o más, sin perder aciertos | 18/20, mismos fallos | Sí |
+| A sin perder aciertos y con 10/12 o más | 10/12, gana A05, A08 y A10 | Sí |
+| B mejora en el calendario | 7/13 → 9/13 (gana B11 y B12) | Sí |
+| B mejora en el tratamiento estricto | 1/7 → 1/7 | **No** |
+| B no empeora en el tratamiento aceptado (aclaración de la regla de c1) | 6/7 → 6/7 | Sí |
+| Punteros sin tabla igual a 0 | 0 en los tres conjuntos | Sí |
+| p50 no más de 0,3 s sobre la línea base en la misma sesión (fase 6) | 4,04 → 3,88 s | Sí |
+
+Con d1 la aceptación global queda incompleta en el tratamiento estricto de B: la Tabla N° 20 sigue
+sin llegar en las consultas estructuradas de tratamiento (A15, A16, B16, B17 y B18) salvo por el
+fragmento que la cita (criterio aceptado). Con d1 + c1 se habrían cumplido todas las condiciones
+de la fase 4 (11/12 en A, 10/13 y 3/7 en B, 18/20 en las referencias), pero c1 no pasa su propia
+regla. El p50 de d1 + c1 no se puede comparar con la línea base en la misma sesión porque la
+línea base no se volvió a medir.
+
+- Datos: `data/mediciones/g_calendario_b_d1_c1.json` y `g_calendario_b_d1_sesion_c1.json` (d1
+  de la fase 8), con sus `.err`.
+
+```bash
+APP="$(pwd -W)/backend/app:/app/app:ro"
+MSYS_NO_PATHCONV=1 docker compose run --rm --no-deps -T -v "$APP" backend \
+  python -m app.scripts.medir_recuperacion calendario --conjunto a,b,referencias --entorno d1-c1 > data/mediciones/g_calendario_b_d1_c1.json
+```
+
 ## Parte D2: API de consultas por etapas (13/11/2026)
 
 Comprobaciones hechas sin la API de Anthropic:
