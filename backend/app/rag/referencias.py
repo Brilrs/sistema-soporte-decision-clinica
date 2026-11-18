@@ -88,6 +88,44 @@ def cargar_conjunto_prueba(ruta: Path = PRUEBA) -> list[ConsultaReferencia]:
     return casos + [_consulta(c, c["consulta"]) for c in datos["libres"]]
 
 
+CALENDARIO = DIR / "consultas_calendario.yaml"
+CALENDARIO_TIPO = "CALENDARIO"
+TRATAMIENTO_TIPO = "TRATAMIENTO"
+RM429 = "RM 429-2024/MINSA"
+NTS213 = "NTS 213-MINSA/DGIESP-2024"
+TITULO_TABLA_20 = "Control de hemoglobina en el tratamiento de anemia"
+
+
+@dataclass(frozen=True)
+class ConsultaCalendario:
+    """Consulta del conjunto de aceptación del calendario de control de hemoglobina (parte G)."""
+    id: str
+    tipo: str
+    consulta: str
+    edad_meses: int
+    fila: str | None = None
+    estructurada: bool = False
+
+    def acierta(self, fragmento) -> bool:
+        if self.tipo == CALENDARIO_TIPO:
+            return fragmento.codigo_documento == RM429 and f"| {self.fila} |" in fragmento.texto
+        return fragmento.codigo_documento == NTS213 and TITULO_TABLA_20 in fragmento.texto
+
+
+def huella_archivo(ruta: Path) -> str:
+    """SHA-256 del contenido con fin de línea LF (el que guarda git), igual en Windows y en Linux."""
+    import hashlib
+    return hashlib.sha256(ruta.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+
+
+def cargar_conjunto_calendario(ruta: Path = CALENDARIO) -> list[ConsultaCalendario]:
+    datos = yaml.safe_load(ruta.read_text(encoding="utf-8"))["consultas"]
+    return [ConsultaCalendario(
+        id=c["id"], tipo=c["tipo"], edad_meses=int(c["edad_meses"]), fila=c.get("fila"),
+        consulta=construir_consulta(contexto_desde_yaml(c["contexto"])) if "contexto" in c else c["consulta"],
+        estructurada="contexto" in c) for c in datos]
+
+
 def cargar_consultas_latencia(ruta: Path = DIR / "consultas_latencia.yaml") -> list[str]:
     return [str(c) for c in yaml.safe_load(ruta.read_text(encoding="utf-8"))["consultas"]]
 

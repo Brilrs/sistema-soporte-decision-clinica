@@ -1,0 +1,31 @@
+# Reglas de punteros entre documentos (Sprint 2, parte G, pendiente P4).
+#
+# Un fragmento enviado al modelo puede remitir a una tabla con «según Tabla N° X», pero la tabla
+# vigente está en otro documento (la RM 429-2024/MINSA modificó tablas de la NTS 213). Cada regla
+# dice, de forma explícita y por documento, a qué fragmento lleva ese puntero: nunca se resuelve
+# por el número de la tabla solo (la «Table 4» de la OMS 2024 es otra tabla).
+#
+# Si un fragmento enviado es del documento de origen y su texto cumple el patrón, y el fragmento
+# destino no está ya entre los enviados, el destino reemplaza al último de los enviados (el 5.º;
+# si hay menos de cinco, se agrega). Como máximo un fragmento agregado por intento, de hasta
+# MAX_TOKENS_AGREGADO (600) tokens; las reglas se prueban en el orden de esta lista.
+#
+# Campos:
+#   id:                 identificador de la regla (queda en el registro de la solicitud)
+#   documento_origen:   codigo_documento del fragmento que contiene el puntero
+#   patron:             expresión regular del puntero (sin distinguir mayúsculas)
+#   mapa:               mapa de modificaciones del indexador (app/indexador/modificaciones)
+#   modificacion:       número de la modificación del mapa que contiene la tabla destino
+#   numeral:            numeral de esa modificación en el mapa; si el mapa cambia, la regla no carga
+# El documento destino es el documento modificatorio del mapa (su campo codigo), y el fragmento
+# destino es el único fragmento recuperable de ese documento cuya sección lleva la marca de la
+# modificación («(mod. RM 429-2024/MINSA, modificación N.° 5)»). Si la tabla quedara partida en
+# varios fragmentos, la regla no agrega nada (el tope es un fragmento).
+
+reglas:
+  - id: nts213-tabla4
+    documento_origen: NTS 213-MINSA/DGIESP-2024
+    patron: 'según\s+Tabla\s+N\s*[°º]\s*4\b'
+    mapa: rm429_2024.yaml
+    modificacion: 5
+    numeral: "6.1.1 A Tabla 4"

@@ -46,7 +46,13 @@ export type Cita = {
   idioma: Idioma;
   // Relevancia según el reranker, de 0 a 1 con 3 decimales (columna «Relevancia» de M05).
   puntaje_reranker: number | null;
+  // RERANKER: seleccionado por la recuperación. PUNTERO: agregado porque otro fragmento enviado
+  // remite a esta tabla («según Tabla N° 4»); agregado_por_referencia_de es la etiqueta de ese fragmento.
+  origen: OrigenCita;
+  agregado_por_referencia_de: string | null;
 };
+
+export type OrigenCita = "RERANKER" | "PUNTERO";
 
 export type ResultadoIntento = "APROBADO" | "REINTENTO" | "EVIDENCIA_INSUFICIENTE" | "ERROR";
 

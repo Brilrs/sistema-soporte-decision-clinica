@@ -3,6 +3,57 @@
 Resumen de las mediciones de rendimiento. Los datos completos están en `data/mediciones/`,
 que no se versiona.
 
+## Parte G: puntero «según Tabla N° 4» (pendiente P4, 17/11/2026)
+
+### Conjunto de aceptación (congelado antes de cambiar el código)
+
+`backend/app/rag/consultas_calendario.yaml`: 16 consultas sintéticas escritas a partir de la
+Tabla N° 4 de la RM 429 y la Tabla N° 20 de la NTS 213, sin abrir el conjunto de prueba, el de
+validación, los casos de punta a punta ni los casos del OE3. 12 del calendario (6 libres y 6
+estructuradas, de 6 a 59 meses, con y sin suplementación y 2 con bajo peso al nacer) y 4 de
+tratamiento que deben llevar a la Tabla N° 20 (2 libres y 2 estructuradas). Las consultas de
+diagnóstico D01 a D08 de la fase 1 son de desarrollo y no cuentan para la aceptación.
+
+- **SHA-256** (contenido con fin de línea LF, como lo guarda git):
+  `de2e1dbce63571b8449c7e4d9be11cb91cdfa5bf3e3a933741a1ffb270fb7ca2`. El comando
+  `medir_recuperacion calendario` la escribe en su salida (`huella_conjunto`).
+
+### Resultados (17/11/2026, entorno normal, misma huella en las dos corridas)
+
+Recuperación real como en el grafo (`recuperar_con_ampliacion`, parámetros vigentes: 20 por
+método, 8 al reranker de 256 tokens, umbral 0,15, `BONIFICACION_EDAD` 0,7), sin indexar durante
+la medición (P14). Se cuenta lo que se envía al modelo (hasta 5 fragmentos). «Fila correcta»: un
+fragmento de la RM 429 con la fila de la Tabla N° 4 de la edad (hoy la tabla es un solo
+fragmento, así que es la tabla entera). Latencia: el paso del reranker de cada pasada (36).
+
+| Medida | Línea base (sin la regla) | Con la regla del puntero |
+| --- | --- | --- |
+| Calendario: fila correcta entre los enviados | 3 de 12 (A02, A04, A06) | **7 de 12** (más A03, A07, A09 y A11) |
+| Calendario: puntero «según Tabla N° 4» sin la tabla | 4 (A03, A07, A09, A11) | **0** |
+| Tratamiento: Tabla N° 20 entre los enviados | 2 de 4 (A13, A14) | 2 de 4 (las mismas) |
+| 20 de referencia: acierto en el top 5 | 17 (fallan R01, R09, R19) | 18 (fallan R01, R19; R09 tenía el puntero sin la tabla) |
+| Aciertos perdidos | | Ninguno |
+| Reranker p50 / p90 | 3,69 / 3,81 s | 3,54 / 3,69 s |
+
+- La regla se activó en 5 de las 36 consultas (A03, A07, A09, A11 y R09), siempre con la Tabla
+  N° 4 fuera de los 8 candidatos del reranker: el agregado queda sin puntaje. En A03 había 2
+  enviados y se agrega como tercero; en las otras reemplaza al 5.º (un fragmento de gestión de la
+  sección 6.3.3 en A07, uno de tratamiento 6.1.2 en A09 y A11, y uno de prevención 6.1.1 en R09,
+  que igual acierta).
+- No cambia la latencia: buscar el destino es una consulta a PostgreSQL. La diferencia de p50
+  (0,15 s menos) es ruido entre corridas.
+- **Lo que la regla no resuelve:** en A01, A05, A08, A10 y A12 no llegan ni la tabla ni el
+  puntero (el fragmento que tiene el puntero queda fuera de los enviados), y en A15 y A16 (las
+  consultas estructuradas de tratamiento) no llega la Tabla N° 20. Son el resto del pendiente P4
+  y un hallazgo nuevo; ver `docs/cierre_sprint2.md`.
+- Datos: `data/mediciones/g_calendario_linea_base.json` y `g_calendario_con_puntero.json`.
+
+```bash
+APP="$(pwd -W)/backend/app:/app/app:ro"
+MSYS_NO_PATHCONV=1 docker compose run --rm --no-deps -T -v "$APP" backend \
+  python -m app.scripts.medir_recuperacion calendario --entorno normal-con-puntero > data/mediciones/g_calendario_con_puntero.json
+```
+
 ## Parte D2: API de consultas por etapas (13/11/2026)
 
 Comprobaciones hechas sin la API de Anthropic:

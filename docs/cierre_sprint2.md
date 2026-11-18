@@ -8,7 +8,7 @@ documentos del repositorio donde está cada dato.
 
 | Documento | Qué contiene |
 | --- | --- |
-| [`cambios_respecto_al_OE2.md`](cambios_respecto_al_OE2.md) | Cada diferencia con el documento de diseño (OE2), con su motivo y estado (filas 1 a 100), las diferencias con los mockups y los pendientes P1 a P14 |
+| [`cambios_respecto_al_OE2.md`](cambios_respecto_al_OE2.md) | Cada diferencia con el documento de diseño (OE2), con su motivo y estado (filas 1 a 102), las diferencias con los mockups y los pendientes P1 a P14 |
 | [`mediciones_sprint2.md`](mediciones_sprint2.md) | Mediciones de latencia, calidad de la recuperación, memoria y costo, con el procedimiento para repetirlas |
 | [`contrato_consultas.md`](contrato_consultas.md) y [`contrato_conocimiento.md`](contrato_conocimiento.md) | Contratos de la API de consultas y de la base de conocimiento (M11) |
 | [`../jobs/README.md`](../jobs/README.md) | Indexador de guías, transcripciones de las tablas críticas y medición de la indexación |
@@ -147,6 +147,11 @@ primeros en el 86 % (30 de 35; intervalo de confianza del 95 %: 71 a 94 %), con 
 bonificación por edad de 0,7 (MS, C2 «Antes y después»). El conjunto de prueba final se mide una
 sola vez en la evaluación del OE3.
 
+Calendario de control de hemoglobina (parte G, pendiente P4): con un conjunto de aceptación nuevo
+de 16 consultas, congelado antes del cambio, la Tabla N° 4 llega al modelo en 7 de 12 consultas
+del calendario con la regla del puntero (antes 3 de 12), y la Tabla N° 20 en 2 de 4 de
+tratamiento, igual que antes (MS, parte G).
+
 ### Memoria
 
 | Servicio | Uso medido | Límite | Fuente |
@@ -201,7 +206,7 @@ la evaluación del OE3 ni el despliegue.
 | P1 | Filtro de privacidad de la nota de la decisión | Resuelto en F1 (fila 86) | Desarrollo | Hecho |
 | P2 | Consultas de prueba fuera de las métricas | Resuelto en F1 (fila 87); las métricas del OE3 deben usar la misma regla | Desarrollo | Hecho; regla a aplicar en el OE3 |
 | P3 | Filtro de dominio frente a preguntas genéricas («¿Cómo lo manejo?») | Abierto: idea a medir con un conjunto de validación nuevo | Desarrollo | Evaluación del OE3 |
-| P4 | Recuperación de la Tabla N° 4 de la RM 429 (calendario de control de Hb) | Abierto: la respuesta es segura pero incompleta | Desarrollo | Antes de la evaluación del OE3 |
+| P4 | Recuperación de la Tabla N° 4 de la RM 429 (calendario de control de Hb) | En parte resuelto (parte G, 17/11/2026). La medición corrigió el diagnóstico: en las consultas de diagnóstico la tabla llegaba en 5 de 7, y el fallo real era el puntero «según Tabla N° 4» sin la tabla. Con la regla del puntero (fila 101), en el conjunto de aceptación del calendario la tabla llega en 7 de 12 (antes 3) y no queda ningún puntero sin tabla (antes 4). Queda abierto: en 5 de 12 no llegan ni la tabla ni el puntero | Desarrollo | Antes de la evaluación del OE3 |
 | P5 | Reanudar con la pregunta guardada | Resuelto en F1 (fila 88) | Desarrollo | Hecho |
 | P6 | Aviso de cambio de grupo de edad | Resuelto en F1 (fila 89) | Desarrollo | Hecho |
 | P7 | Códigos internos (SIN_ANEMIA) en el texto del modelo | Abierto | Desarrollo | Evaluación del OE3 (versión del prompt) |
@@ -220,7 +225,8 @@ la evaluación del OE3 ni el despliegue.
 | Carga de guías de nivel 1 desde M11, con revisión | Hoy las de nivel 1 se cargan por línea de comandos con transcripciones verificadas. Falta un flujo de revisión en pantalla («Aprobar») antes de que una guía se pueda citar | Desarrollo | Sprint 3 |
 | Retiro de guías (HU17) | «Retirar» está deshabilitado en M11; la limpieza del cierre se hizo a mano (anexo A) | Desarrollo | Sprint 3 |
 | Recorte de márgenes por documento | Las guías del manifiesto tienen su recorte de la zona del cuerpo (`fuentes_iniciales.yaml`); las cargadas desde M11 se extraen a página completa | Desarrollo | Sprint 3, junto con la carga de nivel 1 |
-| Recuperación de la Tabla N° 4 de la RM 429 | Es el pendiente P4 | Desarrollo | Antes de la evaluación del OE3 |
+| Recuperación de la Tabla N° 4 de la RM 429 | Es el resto del pendiente P4 (5 de 12 consultas del calendario sin la tabla ni el puntero). Opciones ya medidas en memoria: que el reranker puntúe el cuerpo sin el preámbulo de la RM 429, sin reindexar, o partir la tabla en dos bloques por edad, reindexando solo la RM 429 | Desarrollo | Antes de la evaluación del OE3 |
+| Tabla N° 20 en las consultas estructuradas de tratamiento | Hallazgo de la parte G: en las 2 consultas estructuradas de tratamiento del conjunto de aceptación (anemia leve a los 9 meses y moderada a los 28) no llega la Tabla N° 20 (control de hemoglobina en el tratamiento); en las 2 preguntas libres sí | Desarrollo | Antes de la evaluación del OE3 |
 | Prioridad de las consultas frente a la indexación | Es el pendiente P14: lotes más chicos, prioridad en `modelos` o horario del trabajador, a medir | Desarrollo | Antes del despliegue en Azure |
 | Fechas completas en la nota de la decisión | El filtro de privacidad reemplaza también las fechas completas de la nota por [FECHA] (por ejemplo «control el 20/12/2026»), igual que en la consulta (fila 86). Puede quitarle información útil a la nota | Asesor y personal de salud | A conversar antes de la validación con usuarios |
 | RNF3 no cumplido | p90 de 11,7 a 18,9 s frente al objetivo de menos de 10 s (sección 3). La redacción propuesta está en la fila 61 | Asesor | Revisión del documento OE2 |

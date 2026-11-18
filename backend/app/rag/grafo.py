@@ -54,6 +54,7 @@ from app.rag.normalizacion import normalizar as normalizar_consulta
 from app.rag.parametros import ParametrosRecuperacion, leer_parametros, parametros_recuperacion
 from app.rag.proteccion import construir_solicitud, controlar_identificadores, entidades_de_documentos, \
     leer_datos_clinicos
+from app.rag.punteros import PUNTERO
 from app.rag.recuperacion import AMPLIADA, INICIAL, Servicios, comprobar_fragmentos, recuperar as recuperar_fragmentos
 from app.rag.validacion import DATOS_FALTANTES, FUERA_DE_ALCANCE, TAMIZAJE_NO_VIGENTE, obtener_clasificacion, \
     validar_tamizaje
@@ -353,9 +354,17 @@ def _busqueda(numero: int, rec, resultado: str) -> dict:
             "resultado": resultado, "valida_citas": None, "valida_consistencia": None, "valida_evidencia": None}
 
 
+def _referencia(solicitud, f) -> str | None:
+    """Etiqueta del fragmento enviado que contiene el puntero, si f se agregó por una regla."""
+    if f.origen != PUNTERO:
+        return None
+    return next((e for e, otro in solicitud.etiquetas.items() if otro.id_fragmento == f.referido_por), None)
+
+
 def _fragmentos_enviados(solicitud) -> list[dict]:
     return [{"etiqueta": e, "documento": f.codigo_documento, "seccion": f.seccion,
-             "puntaje_reranker": f.puntaje_reranker, "texto_inicio": f.texto[:LARGO_INICIO_FRAGMENTO]}
+             "puntaje_reranker": f.puntaje_reranker, "origen": f.origen,
+             "agregado_por_referencia_de": _referencia(solicitud, f), "texto_inicio": f.texto[:LARGO_INICIO_FRAGMENTO]}
             for e, f in solicitud.etiquetas.items()]
 
 
@@ -416,7 +425,8 @@ def _cita(cita: dict, solicitud) -> dict:
     f = solicitud.etiquetas[cita["etiqueta"]]
     return {"etiqueta": cita["etiqueta"], "extracto": cita["extracto"], "extracto_traducido": cita["extracto_traducido"],
             "etiqueta_traduccion": ETIQUETA_TRADUCCION if cita["extracto_traducido"] else None,
-            "puntaje_reranker": _tres(f.puntaje_reranker),
+            "puntaje_reranker": _tres(f.puntaje_reranker), "origen": f.origen,
+            "agregado_por_referencia_de": _referencia(solicitud, f),
             "fuente": f.codigo_documento, "documento": f.documento, "seccion": f.seccion,
             "pagina_inicio": f.pagina_inicio, "pagina_fin": f.pagina_fin, "idioma": f.idioma}
 

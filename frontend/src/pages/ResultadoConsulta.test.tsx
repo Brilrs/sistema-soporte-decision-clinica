@@ -18,7 +18,7 @@ import {
   resultadoFixture,
   simularBackend,
 } from "../pruebas/simulador";
-import { decimal, fechaHora } from "../utilidades/formato";
+import { VACIO, decimal, fechaHora } from "../utilidades/formato";
 
 const RUTA = `/consultas/${ID_CONSULTA}`;
 
@@ -128,6 +128,26 @@ describe("M05 · Resultado de la consulta (VERIFICADA)", () => {
     expect(traduccion).toHaveAttribute("lang", "es");
     expect(within(traduccion).getByText("Traducción de apoyo, no oficial")).toBeInTheDocument();
     expect(within(traduccion).getByText(cita.extracto_traducido!)).toBeInTheDocument();
+  });
+
+  it("un fragmento agregado por puntero muestra la relevancia vacía y el rótulo con la etiqueta que remite a él", async () => {
+    const r = resultadoFixture("VERIFICADA");
+    expect(r.citas[0].origen).toBe("RERANKER"); // el contrato trae el origen en cada cita
+    const referente = { ...r.citas[0], etiqueta: "F-02", puntaje_reranker: 0.412 };
+    const agregado = { ...r.citas[0], etiqueta: "F-05", origen: "PUNTERO" as const, puntaje_reranker: null,
+      agregado_por_referencia_de: "F-02", extracto: "| 6 a 11 meses de edad | 3 mediciones |", idioma: "es" as const,
+      extracto_traducido: null, etiqueta_traduccion: null };
+    conResultado({ ...r, citas: [agregado, referente] });
+    renderizar();
+    await screen.findByRole("heading", { name: "Evidencias citadas" });
+    const fila = document.querySelector("#cita-F-05") as HTMLElement;
+    const celda = fila.querySelector(".tabla-citas__relevancia") as HTMLElement;
+    expect(celda).toHaveTextContent(`${VACIO}Agregado por referencia de F-02`);
+    expect(within(celda).getByText("Agregado por referencia de F-02")).toBeInTheDocument();
+    // La fila que contiene el puntero conserva su relevancia del reranker y no lleva rótulo.
+    const otra = document.querySelector("#cita-F-02 .tabla-citas__relevancia") as HTMLElement;
+    expect(otra).toHaveTextContent(decimal(0.412, 3));
+    expect(otra).not.toHaveTextContent("Agregado");
   });
 
   it("no altera un extracto con filas de tabla, espacios y saltos de línea", async () => {

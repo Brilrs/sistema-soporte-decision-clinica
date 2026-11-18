@@ -1,4 +1,4 @@
-# Contrato de la API de consultas (partes D2, E0 y F1)
+# Contrato de la API de consultas (partes D2, E0, F1 y G)
 
 Formato de las rutas de consultas clínicas, para la interfaz (parte E). OpenAPI lo refleja en
 `/docs` y `/openapi.json`. El NDJSON aparece como `EventoConsulta`, con discriminador `tipo`.
@@ -160,6 +160,16 @@ Se emite ante una falla inesperada. La consulta queda en ERROR.
 | `pagina_inicio`, `pagina_fin` | entero o null | Páginas del PDF |
 | `idioma` | `"es"` o `"en"` | Idioma del fragmento |
 | `puntaje_reranker` | decimal o null | Relevancia del fragmento según el reranker, de 0 a 1, con 3 decimales (columna «Relevancia» de M05) |
+| `origen` | `"RERANKER"` o `"PUNTERO"` | RERANKER: fragmento seleccionado por la recuperación. PUNTERO: agregado porque otro fragmento enviado remite a esa tabla (parte G, `backend/app/rag/punteros.yaml`) |
+| `agregado_por_referencia_de` | texto o null | Con origen PUNTERO, la etiqueta del fragmento enviado que contiene el puntero; null en los demás |
+
+**Fragmento agregado por un puntero (parte G).** Si un fragmento enviado remite a una tabla de
+otro documento con «según Tabla N° 4» y esa tabla no está entre los enviados, la recuperación la
+agrega en lugar del último enviado: nunca hay más de cinco (F-01 a F-05), como máximo uno agregado
+por intento y de hasta 600 tokens. Su `puntaje_reranker` es null si no era candidato (la tabla
+que remite no pasa por el reranker) y M05 muestra en la columna «Relevancia» el valor vacío con
+el rótulo «Agregado por referencia de F-0X». El control 6.1 lo trata como cualquier fragmento
+enviado; el 6.3 no cambia (la relevancia máxima es la de los candidatos evaluados).
 
 ### Intento
 

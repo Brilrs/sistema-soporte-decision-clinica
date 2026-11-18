@@ -51,7 +51,9 @@
       "pagina_inicio": 1,
       "pagina_fin": 1,
       "idioma": "en",
-      "puntaje_reranker": 0.105
+      "puntaje_reranker": 0.105,
+      "origen": "RERANKER",
+      "agregado_por_referencia_de": null
     }
   ],
   "intentos": [

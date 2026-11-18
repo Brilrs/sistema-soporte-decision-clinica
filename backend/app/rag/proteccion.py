@@ -12,7 +12,9 @@ observaciones:
   edad gestacional) y síntomas del catálogo (sin el detalle libre);
 - el tamizaje anterior como meses transcurridos, con su Hb y su clasificación;
 - el texto filtrado de la consulta y el idioma de la respuesta;
-- los fragmentos enviados, con etiquetas únicas F-01 a F-05.
+- los fragmentos enviados, con etiquetas únicas F-01 a F-05. Un fragmento agregado por una regla
+  de punteros (parte G) lleva además agregado_por_referencia_de: la etiqueta del fragmento
+  enviado que contiene el puntero.
 
 No se envían observaciones, talla, fechas, distrito ni identificadores.
 
@@ -32,6 +34,7 @@ from sqlalchemy import Connection, text
 from sqlalchemy.orm import Session
 
 from app.rag.filtro_texto import HuellasPaciente, clave_huellas, huella, normalizar_palabra
+from app.rag.punteros import PUNTERO
 from app.rag.recuperacion import FragmentoRecuperado
 
 VERSION_SOLICITUD = "1"
@@ -160,6 +163,7 @@ def construir_solicitud(datos: DatosClinicos, consulta: str, idioma_respuesta: s
                         fragmentos: list[FragmentoRecuperado], entidades: dict[str, str]) -> SolicitudProtegida:
     """Solicitud mínima con la lista blanca; fragmentos en el orden final del reranker."""
     etiquetas = {etiqueta(i): f for i, f in enumerate(fragmentos, start=1)}
+    por_id = {f.id_fragmento: e for e, f in etiquetas.items()}
     contenido = {
         "version_solicitud": VERSION_SOLICITUD,
         "idioma_respuesta": idioma_respuesta,
@@ -188,7 +192,8 @@ def construir_solicitud(datos: DatosClinicos, consulta: str, idioma_respuesta: s
         },
         "evidencia": [
             {"etiqueta": e, "fuente": f.codigo_documento, "tipo_fuente": tipo_fuente(entidades.get(f.id_documento)),
-             "seccion": f.seccion, "idioma": f.idioma, "texto": f.texto}
+             "seccion": f.seccion, "idioma": f.idioma, "texto": f.texto,
+             **({"agregado_por_referencia_de": por_id.get(f.referido_por)} if f.origen == PUNTERO else {})}
             for e, f in etiquetas.items()
         ],
     }
