@@ -50,8 +50,10 @@ export default function DecisionClinica({ idConsulta, decision, opciones, alRegi
 
   if (decision) {
     const etiqueta = TIPOS_DECISION[decision.tipo_decision]?.etiqueta ?? decision.tipo_decision;
-    // Solo el profesional de la consulta la ve (404 para los demás) y solo él decide: es el usuario actual.
-    const quien = usuario && usuario.id_usuario === decision.id_usuario ? usuario.nombre_completo : "Profesional que realizó la consulta";
+    // El nombre de quien la registró viene del backend (registrada_por, P12). Sin ese dato, como antes:
+    // solo el profesional de la consulta la ve (404 para los demás) y solo él decide, así que es el usuario actual.
+    const quien = decision.registrada_por
+      ?? (usuario && usuario.id_usuario === decision.id_usuario ? usuario.nombre_completo : "Profesional que realizó la consulta");
     const cambiada = notaEnviada !== undefined && (notaEnviada ?? null) !== (decision.nota ?? null);
     return (
       <section className="decision-registrada" aria-labelledby={`decision-registrada-${idConsulta}`}>

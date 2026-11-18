@@ -159,10 +159,12 @@ export const HISTORIAL_FIXTURE: Historial = {
 // ---------------------------------------------------------------------------
 // fetch falso
 // ---------------------------------------------------------------------------
-type Manejador = (init: RequestInit | undefined) => Response | Promise<Response>;
+type Manejador = (init: RequestInit | undefined, url: URL) => Response | Promise<Response>;
 
 // Rutas base de M04 (sesión, ficha, historial y consultas previas); las pruebas agregan o
-// reemplazan las demás con la clave «MÉTODO /ruta».
+// reemplazan las demás con la clave «MÉTODO /ruta». Si no hay una clave con la cadena de consulta
+// exacta, se usa la de la ruta sin ella (por ejemplo «GET /api/consultas» para cualquier filtro), y el
+// manejador recibe la URL para leer los parámetros.
 export function simularBackend(rutas: Record<string, Manejador> = {}) {
   const base: Record<string, Manejador> = {
     "GET /api/auth/me": () => respuestaJson(200, USUARIO),
@@ -174,10 +176,12 @@ export function simularBackend(rutas: Record<string, Manejador> = {}) {
   };
   const todas = { ...base, ...rutas };
   const fetchFalso = vi.fn(async (ruta: RequestInfo | URL, init?: RequestInit) => {
-    const clave = `${init?.method ?? "GET"} ${String(ruta)}`;
-    const manejador = todas[clave];
+    const metodo = init?.method ?? "GET";
+    const clave = `${metodo} ${String(ruta)}`;
+    const url = new URL(String(ruta), "http://localhost");
+    const manejador = todas[clave] ?? todas[`${metodo} ${url.pathname}`];
     if (!manejador) return respuestaJson(404, { detail: `Ruta no simulada: ${clave}` });
-    return manejador(init);
+    return manejador(init, url);
   });
   vi.stubGlobal("fetch", fetchFalso);
   return fetchFalso;

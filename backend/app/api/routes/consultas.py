@@ -11,6 +11,8 @@
   enlazada a la previa (parte F1, P5).
 - POST /api/consultas/{id}/decision: decisión del profesional (M07 mínimo).
 - GET /api/pacientes/{id}/consultas: consultas del paciente hechas por el usuario (M04 y M08).
+- GET /api/consultas: consultas del usuario de todos sus pacientes, paginadas y con filtros
+  («Historial de consultas», P10, Sprint 3 parte B).
 
 Permiso REALIZAR_CONSULTA (el Administrador no lo tiene: 403). Cada profesional ve y
 decide solo sus consultas: la de otro responde 404, sin revelar que existe, y queda el
@@ -24,7 +26,8 @@ from decimal import Decimal
 from typing import Annotated, Any, Literal, Union
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
@@ -46,6 +49,9 @@ ENTIDAD = "asistencia.consulta"
 MENSAJE_NO_ENCONTRADA = "La consulta no existe"
 Estado = Literal["VERIFICADA", "EVIDENCIA_INSUFICIENTE", "ERROR", "DATOS_FALTANTES", "TAMIZAJE_NO_VIGENTE",
                  "FUERA_DE_DOMINIO", "SOLICITUD_BLOQUEADA"]
+EstadoGuardado = Literal["EN_PROCESO", "VERIFICADA", "EVIDENCIA_INSUFICIENTE", "ERROR", "DATOS_FALTANTES",
+                         "TAMIZAJE_NO_VIGENTE", "FUERA_DE_DOMINIO", "SOLICITUD_BLOQUEADA"]
+LIMITE_POR_OMISION, LIMITE_MAXIMO = 20, 100
 TipoDecision = Literal["ACEPTA_RECOMENDACION", "MODIFICA_RECOMENDACION", "CRITERIO_CLINICO_PROPIO"]
 Nodo = Literal["validar", "clasificar", "normalizar", "recuperar", "proteger", "generar", "verificar", "salida"]
 
@@ -240,6 +246,7 @@ class Decision(BaseModel):
     tipo_decision: TipoDecision
     nota: str | None = None
     fecha_registro: datetime
+    registrada_por: str | None = Field(None, description="Nombre visible de quien registró la decisión (P12)")
 
 
 class ResultadoConsulta(BaseModel):
@@ -286,6 +293,30 @@ class ConsultaListada(BaseModel):
     categoria: str | None = Field(None, description="Clasificación del tamizaje")
     tipo_decision: TipoDecision | None = None
     modo_prueba: bool
+
+
+class ConsultaPropia(BaseModel):
+    """Una consulta del usuario autenticado («Historial de consultas», P10). Del paciente solo lleva
+    el nombre y la historia clínica, los mismos datos de identidad que muestra M02."""
+    id_consulta: str
+    id_paciente: str
+    nombres_apellidos: str
+    numero_hc: str
+    edad_meses: int = Field(description="Edad en meses en la fecha de la consulta (día de America/Lima)")
+    estado: EstadoGuardado
+    categoria: str | None = Field(None, description="Clasificación del tamizaje, si hay resultado")
+    nivel_riesgo: str | None = Field(None, description="Nivel de riesgo del tamizaje, si hay resultado")
+    fecha_hora_inicio: datetime
+    modo_prueba: bool = Field(description="true si la generó el cliente falso; se lista con la marca, no se oculta")
+    pregunta: str | None = Field(None, description="Pregunta tras el filtro de identificadores, recortada a unos "
+                                                   "100 caracteres")
+
+
+class PaginaConsultas(BaseModel):
+    total: int = Field(description="Consultas que cumplen los filtros, sin paginar")
+    limite: int
+    desplazamiento: int
+    consultas: list[ConsultaPropia]
 
 
 def esquemas_eventos() -> dict:
@@ -369,6 +400,32 @@ async def iniciar_consulta(id_paciente: UUID, datos: ConsultaEntrada, request: R
                       "confirma_tamizaje_no_vigente": solicitud.confirma_tamizaje_no_vigente}, _ip(request))
     sesion.commit()
     return _stream(solicitud, entorno, id_tamizaje)
+
+
+@router.get("/api/consultas", response_model=PaginaConsultas, responses=_ERRORES)
+def consultas_propias(request: Request,
+                      estado: EstadoGuardado | None = Query(None, description="Solo las consultas en este estado"),
+                      fecha_desde: date | None = Query(None, description="Día de inicio (America/Lima), inclusive"),
+                      fecha_hasta: date | None = Query(None, description="Último día (America/Lima), inclusive"),
+                      limite: int = Query(LIMITE_POR_OMISION, ge=1, le=LIMITE_MAXIMO),
+                      desplazamiento: int = Query(0, ge=0),
+                      usuario: UsuarioActual = Depends(realiza_consulta),
+                      sesion: Session = Depends(sesion_clinica)) -> dict:
+    """Consultas del usuario autenticado de todos sus pacientes, de la más reciente a la más antigua
+    (con la misma fecha y hora, por id). El usuario sale de la sesión: no hay parámetro para pedir
+    las de otro. La auditoría guarda los filtros y los conteos, sin datos del paciente."""
+    if fecha_desde and fecha_hasta and fecha_desde > fecha_hasta:
+        raise RequestValidationError([{"type": "value_error", "loc": ("query", "fecha_hasta"), "msg": "",
+                                       "ctx": {"error": "no puede ser anterior a fecha_desde"}}])
+    with engines()["generacion"].connect() as c:
+        consultas, total = res.consultas_del_usuario(sesion, c, usuario.id_usuario, estado=estado, desde=fecha_desde,
+                                                     hasta=fecha_hasta, limite=limite, desplazamiento=desplazamiento)
+    registrar_evento(sesion, "CONSULTAS_LISTADAS", usuario.id_usuario, "usuario", usuario.id_usuario,
+                     {"estado": estado, "fecha_desde": fecha_desde and fecha_desde.isoformat(),
+                      "fecha_hasta": fecha_hasta and fecha_hasta.isoformat(), "limite": limite,
+                      "desplazamiento": desplazamiento, "total": total, "consultas": len(consultas)}, _ip(request))
+    sesion.commit()
+    return {"total": total, "limite": limite, "desplazamiento": desplazamiento, "consultas": consultas}
 
 
 def listar(sesion: Session, id_paciente: str, usuario: UsuarioActual) -> list[dict]:

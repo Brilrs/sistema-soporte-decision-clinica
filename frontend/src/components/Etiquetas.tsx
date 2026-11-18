@@ -1,5 +1,12 @@
-// Etiquetas de clasificación de anemia, de vigencia del tamizaje y de estado de una consulta.
-import { CATEGORIAS, ESTADOS_CONSULTA } from "../utilidades/formato";
+// Etiquetas de clasificación de anemia, de vigencia del tamizaje, de nivel de riesgo y de estado de
+// una consulta. Siempre llevan el texto: el color nunca es la única señal.
+import { CATEGORIAS, ESTADOS_CONSULTA, NIVELES_RIESGO } from "../utilidades/formato";
+
+// Nivel de riesgo de la clasificación («Historial de consultas», P10). Sin nivel, «Sin clasificación».
+export function EtiquetaRiesgo({ nivel }: { nivel: string | null }) {
+  if (!nivel) return <span className="etiqueta etiqueta--sin">Sin clasificación</span>;
+  return <span className={`etiqueta etiqueta--riesgo-${nivel}`}>Riesgo {(NIVELES_RIESGO[nivel] ?? nivel).toLowerCase()}</span>;
+}
 
 export function EtiquetaClasificacion({ categoria, sinTexto = "Sin evaluación" }: { categoria: string | null; sinTexto?: string }) {
   if (!categoria) return <span className="etiqueta etiqueta--sin">{sinTexto}</span>;

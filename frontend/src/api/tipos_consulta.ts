@@ -208,6 +208,8 @@ export type Decision = {
   tipo_decision: TipoDecision;
   nota: string | null;
   fecha_registro: string;
+  // Nombre visible de quien la registró (P12, Sprint 3 parte B). Opcional para los datos anteriores.
+  registrada_por?: string | null;
 };
 
 // GET /api/consultas/{id}
@@ -236,6 +238,33 @@ export type ResultadoConsulta = {
   tramo_edad: TramoEdad | null;
   decision: Decision | null;
   opciones_decision: OpcionDecision[];
+};
+
+// GET /api/consultas: consultas del usuario de todos sus pacientes (P10, Sprint 3 parte B). Del
+// paciente solo trae el nombre y la historia clínica, los mismos datos que muestra M02.
+export type ConsultaPropia = {
+  id_consulta: string;
+  id_paciente: string;
+  nombres_apellidos: string;
+  numero_hc: string;
+  edad_meses: number; // en la fecha de la consulta
+  estado: EstadoConsulta;
+  categoria: string | null;
+  nivel_riesgo: string | null;
+  fecha_hora_inicio: string;
+  modo_prueba: boolean;
+  pregunta: string | null; // pregunta filtrada, recortada a unos 100 caracteres
+};
+
+export type PaginaConsultas = { total: number; limite: number; desplazamiento: number; consultas: ConsultaPropia[] };
+
+// Filtros de GET /api/consultas: fechas AAAA-MM-DD (días de Lima, inclusivos).
+export type FiltrosConsultas = {
+  estado?: EstadoConsulta | "";
+  fecha_desde?: string;
+  fecha_hasta?: string;
+  limite?: number;
+  desplazamiento?: number;
 };
 
 // GET /api/pacientes/{id}/consultas (y «consultas» del historial)

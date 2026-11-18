@@ -25,6 +25,7 @@ from app.rag.verificacion import EVIDENCIA_INSUFICIENTE, ERROR, MENSAJE_EVIDENCI
 from app.services.clasificacion import tramo_de_edad
 from app.services.consultas import intento_publico, verificacion_de
 from app.services.decisiones import leer_decision, opciones_decision
+from app.services.pacientes import nombres_e_historias
 
 ETIQUETAS = {campo: etiqueta for campo, etiqueta, _ in DATOS_MINIMOS}
 DATOS_FALTANTES = "DATOS_FALTANTES"
@@ -224,6 +225,85 @@ def consultas_del_paciente(clinica: Session | Connection, generacion: Session | 
     de_prueba = set(generacion.execute(text(_MODO_PRUEBA), {"ids": [f["id_consulta"] for f in filas],
                                                             "m": MODELO_FALSO}).scalars())
     return [{**f, "modo_prueba": f["id_consulta"] in de_prueba} for f in filas]
+
+
+# ---------------------------------------------------------------------------
+# Consultas propias de todos los pacientes (P10, Sprint 3 parte B)
+# ---------------------------------------------------------------------------
+LARGO_PREGUNTA = 100
+# Orden explícito y determinista: más reciente primero y, con la misma fecha y hora, el id (uuid se
+# compara por bytes, no por la colación de la base). Ningún orden por texto.
+_PROPIAS = """
+    SELECT q.id_consulta::text, t.id_paciente::text, q.estado, q.texto_filtrado, q.fecha_hora_inicio,
+           (q.fecha_hora_inicio AT TIME ZONE 'America/Lima')::date AS fecha_consulta, p.fecha_nacimiento,
+           c.nombre AS categoria, r.nivel_riesgo
+      FROM asistencia.consulta q
+      JOIN clinico.tamizaje t ON t.id_tamizaje = q.id_tamizaje
+      JOIN clinico.paciente p ON p.id_paciente = t.id_paciente
+      LEFT JOIN clinico.resultado_clasificacion r ON r.id_tamizaje = q.id_tamizaje
+      LEFT JOIN configuracion.categoria_anemia c ON c.id_categoria = r.id_categoria
+     WHERE {filtro}
+     ORDER BY q.fecha_hora_inicio DESC, q.id_consulta DESC
+     LIMIT :limite OFFSET :desplazamiento
+"""
+_CONTEO_PROPIAS = "SELECT count(*) FROM asistencia.consulta q WHERE {filtro}"
+
+
+def recortar_pregunta(texto: str | None, largo: int = LARGO_PREGUNTA) -> str | None:
+    """Pregunta filtrada en una línea y, si pasa de `largo` caracteres, cortada en el último espacio
+    (si no queda muy corta) con puntos suspensivos."""
+    if texto is None:
+        return None
+    limpio = " ".join(texto.split())
+    if len(limpio) <= largo:
+        return limpio
+    corte = limpio[:largo]
+    espacio = corte.rfind(" ")
+    if espacio >= largo * 0.6:
+        corte = corte[:espacio]
+    return corte.rstrip(" ,.;:") + "…"
+
+
+def _filtro_propias(id_usuario: str, estado: str | None, desde: date | None, hasta: date | None) -> tuple[str, dict]:
+    """El usuario sale siempre de la sesión. Las fechas son días calendario de Lima, inclusivos:
+    desde las 00:00 del primero hasta antes de las 00:00 del día siguiente al último."""
+    condiciones, valores = ["q.id_usuario = CAST(:u AS uuid)"], {"u": id_usuario}
+    if estado is not None:
+        condiciones.append("q.estado = :estado")
+        valores["estado"] = estado
+    if desde is not None:
+        condiciones.append("q.fecha_hora_inicio >= CAST(:desde AS timestamp) AT TIME ZONE 'America/Lima'")
+        valores["desde"] = desde
+    if hasta is not None:
+        condiciones.append("q.fecha_hora_inicio < (CAST(:hasta AS timestamp) + interval '1 day') AT TIME ZONE 'America/Lima'")
+        valores["hasta"] = hasta
+    return " AND ".join(condiciones), valores
+
+
+def consultas_del_usuario(clinica: Session | Connection, generacion: Session | Connection, id_usuario: str, *,
+                          estado: str | None = None, desde: date | None = None, hasta: date | None = None,
+                          limite: int = 20, desplazamiento: int = 0) -> tuple[list[dict], int]:
+    """Página de las consultas del usuario (de todos sus pacientes) y el total con los mismos filtros.
+    Con cdss_clinica: la consulta, el tamizaje, la clasificación y el nombre y la historia clínica
+    (los de M02). Con cdss_generacion: solo la marca de prueba, como en consultas_del_paciente."""
+    filtro, valores = _filtro_propias(id_usuario, estado, desde, hasta)
+    total = clinica.execute(text(_CONTEO_PROPIAS.format(filtro=filtro)), valores).scalar_one()
+    filas = clinica.execute(text(_PROPIAS.format(filtro=filtro)),
+                            {**valores, "limite": limite, "desplazamiento": desplazamiento}).all()
+    if not filas:
+        return [], total
+    identidad = nombres_e_historias(clinica, sorted({f.id_paciente for f in filas}))
+    de_prueba = set(generacion.execute(text(_MODO_PRUEBA), {"ids": [f.id_consulta for f in filas],
+                                                            "m": MODELO_FALSO}).scalars())
+    return [{
+        "id_consulta": f.id_consulta, "id_paciente": f.id_paciente,
+        "nombres_apellidos": identidad[f.id_paciente]["nombres_apellidos"],
+        "numero_hc": identidad[f.id_paciente]["numero_hc"],
+        "edad_meses": edad_en_meses(f.fecha_nacimiento, f.fecha_consulta),
+        "estado": f.estado, "categoria": f.categoria, "nivel_riesgo": f.nivel_riesgo,
+        "fecha_hora_inicio": f.fecha_hora_inicio, "modo_prueba": f.id_consulta in de_prueba,
+        "pregunta": recortar_pregunta(f.texto_filtrado),
+    } for f in filas], total
 
 
 def completar_datos(sesion: Session | Connection, f: FichaConsulta, hemoglobina_g_dl, metodo_medicion: str | None

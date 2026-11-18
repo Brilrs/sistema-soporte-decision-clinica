@@ -222,6 +222,40 @@ describe("estilos · desbordes horizontales", () => {
     expect(posicion(".boton--peligro:disabled")).toBeGreaterThan(posicion(".boton:disabled"));
   });
 
+  // «Historial de consultas» (P10, Sprint 3 parte B): tabla desde 800 px y tarjetas por debajo.
+  it("Historial de consultas: tabla que cabe desde unos 1000 px, tarjetas sin desborde, 44 px y etiquetas de riesgo legibles", () => {
+    const px = (v: string | null) => Number(v?.replace("px", ""));
+    // Contenido a 1000 px de ventana, como M08: 1000 - menú 230 - márgenes 64 - relleno de la tarjeta 40 - bordes 2.
+    expect(px(valor(".consultas-propias__tabla table", "min-width"))).toBeLessThanOrEqual(1000 - 230 - 64 - 40 - 2);
+    expect(valor(".consultas-propias__pregunta", "-webkit-line-clamp")).toBe("2");
+    expect(valor(".consultas-propias__pregunta", "line-clamp")).toBe("2");
+    expect(valor(".consultas-propias__pregunta", "overflow")).toBe("hidden");
+    expect(valor(".consultas-propias__pregunta", "overflow-wrap")).toBe("anywhere");
+    expect(valor(".consultas-propias__paciente", "overflow-wrap")).toBe("anywhere");
+    expect(valor(".consultas-propias__tarjeta-pregunta", "overflow-wrap")).toBe("anywhere");
+    // Las tarjetas y los filtros pueden encogerse y pasar a otra línea.
+    expect(valor(".consultas-propias__tarjetas", "grid-template-columns")).toBe("minmax(0, 1fr)");
+    expect(valor(".consultas-propias__tarjeta", "min-width")).toBe("0");
+    expect(valor(".consultas-propias__campo", "min-width")).toBe("0");
+    for (const sel of [".consultas-propias__filtros", ".consultas-propias__botones", ".consultas-propias__etiquetas",
+                       ".consultas-propias__tarjeta-cabecera", ".consultas-propias__paginacion", ".tabla__acciones"]) {
+      expect(valor(sel, "flex-wrap"), sel).toBe("wrap");
+    }
+    const angosta = /max-width: 799px/;
+    expect(valor(".consultas-propias .boton", "min-height", angosta)).toBe("44px");
+    expect(valor(".consultas-propias__campo select", "min-height", angosta)).toBe("44px");
+    expect(valor(".consultas-propias__campo input", "min-height", angosta)).toBe("44px");
+    const tokens = (nombre: string) => {
+      for (const r of REGLAS) if (r.selector === ":root" && r.media === null) { const v = propiedad(r.cuerpo, nombre); if (v) return v; }
+      throw new Error(`Token ${nombre} no definido`);
+    };
+    const color = (v: string | null) => tokens(v!.replace(/^var\((--[\w-]+)\)$/, "$1"));
+    for (const nivel of ["BAJO", "MODERADO", "ALTO", "MUY_ALTO"]) {
+      const clase = `.etiqueta--riesgo-${nivel}`;
+      expect(contraste(color(valor(clase, "color")), color(valor(clase, "background"))), clase).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
   // Un grid-area global sobre una tarjeta compartida (la de riesgo también se usa en
   // .estado-consulta) crea filas y columnas implícitas en la rejilla de una columna.
   it("M05: las áreas de la rejilla de dos columnas solo se aplican a los hijos de .resultado__cuerpo", () => {

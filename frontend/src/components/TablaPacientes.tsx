@@ -1,17 +1,20 @@
-// Tabla de pacientes de M02 (también se usa en el historial de consultas).
+// Tabla de pacientes de M02 (también se usa en el buscador de «Nueva consulta», /consultas/nueva).
 import { useNavigate } from "react-router-dom";
 import type { PacienteListado } from "../api/pacientes";
 import { VACIO, decimal, edad, fechaRelativa } from "../utilidades/formato";
 import { EtiquetaClasificacion, EtiquetaVigencia } from "./Etiquetas";
 
 // «Abrir» lleva a la consulta clínica (M04) si se indica abrirConsulta (panel de pacientes y rol
-// que realiza consultas); si no, al historial del paciente (M08).
-export default function TablaPacientes({ pacientes, puedeRegistrar, vacio, abrirConsulta = false, textoAbrir = "Abrir" }: {
+// que realiza consultas); si no, al historial del paciente (M08). Con verHistorial se agrega además
+// «Ver historial» (M08), como en el buscador de «Nueva consulta».
+export default function TablaPacientes({ pacientes, puedeRegistrar, vacio, abrirConsulta = false, textoAbrir = "Abrir",
+  verHistorial = false }: {
   pacientes: PacienteListado[];
   puedeRegistrar: boolean;
   vacio: string;
   abrirConsulta?: boolean;
-  textoAbrir?: string; // «Ver historial» en el historial de consultas
+  textoAbrir?: string; // «Nueva consulta» en el buscador de /consultas/nueva
+  verHistorial?: boolean;
 }) {
   const navegar = useNavigate();
   if (pacientes.length === 0) return <p className="vacio">{vacio}</p>;
@@ -51,6 +54,10 @@ export default function TablaPacientes({ pacientes, puedeRegistrar, vacio, abrir
                             onClick={() => navegar(`/pacientes/${p.id_paciente}/${abrirConsulta ? "consulta" : "historial"}`)}>
                       {textoAbrir}
                     </button>
+                    {verHistorial && (
+                      <button className="boton boton--neutro boton--chico" aria-label={`Ver historial: ${p.nombres_apellidos}`}
+                              onClick={() => navegar(`/pacientes/${p.id_paciente}/historial`)}>Ver historial</button>
+                    )}
                     {puedeRegistrar && (
                       <button className="boton boton--neutro boton--chico" aria-label={`Nuevo tamizaje: ${p.nombres_apellidos}`}
                               onClick={() => navegar(`/pacientes/${p.id_paciente}/tamizajes/nuevo`)}>+ Tamizaje</button>

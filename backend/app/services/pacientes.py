@@ -216,6 +216,21 @@ def ficha(sesion: Session, id_paciente: str) -> dict | None:
             "edad_meses_actual": edad_en_meses(permanentes["fecha_nacimiento"], hoy())}
 
 
+def nombres_e_historias(sesion: Session | Connection, ids_paciente: list[str]) -> dict[str, dict]:
+    """Nombre y N.° de historia clínica descifrados en el servidor, por paciente: los mismos dos datos
+    de identidad que ya muestra la tabla de M02 (_LISTADO). Los usa la lista de consultas propias
+    (P10); nunca el DNI ni la dirección."""
+    if not ids_paciente:
+        return {}
+    filas = sesion.execute(
+        text(f"""SELECT id_paciente::text, {_descifrar('nombres_apellidos_cifrado')} AS nombres_apellidos,
+                        {_descifrar('numero_hc_cifrado')} AS numero_hc
+                   FROM clinico.paciente_identidad WHERE id_paciente = ANY(CAST(:ids AS uuid[]))"""),
+        {"ids": ids_paciente, "k": _clave()},
+    ).mappings()
+    return {f["id_paciente"]: {"nombres_apellidos": f["nombres_apellidos"], "numero_hc": f["numero_hc"]} for f in filas}
+
+
 CAMPOS_IDENTIDAD = {"nombres_apellidos": "nombres_apellidos_cifrado", "dni": "dni_cifrado",
                     "numero_hc": "numero_hc_cifrado", "direccion": "direccion_cifrada"}
 CAMPOS_PERMANENTES = ("ubigeo_residencia", "fecha_nacimiento", "sexo", "edad_gestacional_nacer", "bajo_peso_nacer")

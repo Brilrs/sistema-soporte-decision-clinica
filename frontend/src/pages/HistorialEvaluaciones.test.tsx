@@ -169,17 +169,18 @@ describe("M08 · evaluaciones realizadas", () => {
 });
 
 // ---------------------------------------------------------------------------
-// «Historial de consultas» (/consultas)
+// Buscador de «Nueva consulta» (/consultas/nueva). Hasta la parte B del Sprint 3 estaba en
+// /consultas, que ahora es la lista de consultas propias (HistorialConsultas.test.tsx).
 // ---------------------------------------------------------------------------
-describe("Historial de consultas (/consultas)", () => {
+describe("Buscador de «Nueva consulta» (/consultas/nueva)", () => {
   it("busca pacientes y «Ver historial» abre M08 con sus consultas", async () => {
     conHistorial(CONSULTAS, {
       "GET /api/pacientes": () => respuestaJson(200, [{ id_paciente: ID_PACIENTE, nombres_apellidos: FICHA.nombres_apellidos,
         numero_hc: FICHA.numero_hc, sexo: "M", edad_meses_actual: 16, ultimo_tamizaje: null }]),
     });
-    renderizar("/consultas");
-    expect(await screen.findByRole("heading", { level: 1, name: "Historial de consultas" })).toBeInTheDocument();
-    expect(screen.getByText(/consultas clínicas que usted le realizó/)).toBeInTheDocument();
+    renderizar("/consultas/nueva");
+    expect(await screen.findByRole("heading", { level: 1, name: "Nueva consulta" })).toBeInTheDocument();
+    expect(screen.getByText(/las consultas que usted le realizó/)).toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: `Ver historial: ${FICHA.nombres_apellidos}` }));
     const { filas } = await tablaEvaluaciones();
     expect(filas()).toHaveLength(3);
@@ -309,10 +310,12 @@ describe("títulos de pestaña", () => {
     [RUTA_M14, "Nuevo tamizaje"],
     [`/pacientes/${ID_PACIENTE}/consulta`, "Consulta clínica"],
     ["/consultas", "Historial de consultas"],
+    ["/consultas/nueva", "Nueva consulta"],
     ["/pacientes", "Pacientes"],
   ])("%s: «%s · CDSS Anemia Infantil», sin datos del paciente", async (ruta, pantalla) => {
     conHistorial([], {
       "GET /api/pacientes": () => respuestaJson(200, []),
+      "GET /api/consultas": () => respuestaJson(200, { total: 0, limite: 20, desplazamiento: 0, consultas: [] }),
       "GET /api/catalogos/sintomas": () => respuestaJson(200, []),
       "GET /api/catalogos/distritos": () => respuestaJson(200, []),
     });

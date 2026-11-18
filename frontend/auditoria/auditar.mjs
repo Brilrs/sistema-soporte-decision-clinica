@@ -86,7 +86,21 @@ const streamFix = (estado) => fs.readFileSync(path.join(FIX, `consulta_${estado.
 const NOTA_LARGA = "Indico sulfato ferroso en gotas y control de hemoglobina en un mes. " +
   "Explico a la madre la administración separada de los lácteos. " + "Palabrasinespaciosmuylargaparaprobarelcorte".repeat(3);
 const DECISION = { id_decision: "d-1", id_usuario: "x", tipo_decision: "MODIFICA_RECOMENDACION", nota: NOTA_LARGA,
-  fecha_registro: "2026-11-15T10:30:00-05:00" };
+  fecha_registro: "2026-11-15T10:30:00-05:00",
+  registrada_por: "Lic. María de los Ángeles Huamaní Quispecondori de la Villanueva" };
+// «Historial de consultas» (P10, Sprint 3 parte B): nombres e historias largas, una pregunta de 100
+// caracteres con una palabra sin espacios, la marca «Prueba» y paginación (45 en total).
+const consultasPropias = [0, 1, 2, 3].map((i) => ({
+  id_consulta: `00000000-0000-4000-8000-00000000020${i}`, id_paciente: paciente,
+  nombres_apellidos: i === 0 ? "María de los Ángeles Huamaní Quispecondori de la Villanueva" : ficha.nombres_apellidos,
+  numero_hc: i === 0 ? "HC-2026-000123456789" : ficha.numero_hc, edad_meses: [7, 23, 40, 59][i],
+  estado: ["VERIFICADA", "EVIDENCIA_INSUFICIENTE", "TAMIZAJE_NO_VIGENTE", "SOLICITUD_BLOQUEADA"][i],
+  categoria: ["ANEMIA_MODERADA", "SIN_ANEMIA", null, "ANEMIA_SEVERA"][i], nivel_riesgo: ["ALTO", "BAJO", null, "MUY_ALTO"][i],
+  fecha_hora_inicio: `2026-11-1${i}T10:42:00-05:00`, modo_prueba: i % 2 === 0,
+  pregunta: i === 1 ? null : i === 2 ? "Suplementación" + "conhierropreventivaparaniñosdeseismeses".repeat(2) + "…"
+    : LARGA.slice(0, 99) + "…",
+}));
+const paginaPropias = { total: 45, limite: 20, desplazamiento: 0, consultas: consultasPropias };
 const fichaFix = { ...ficha, id_paciente: ID_PAC_FIX };
 const historialFix = { ...historial, id_paciente: ID_PAC_FIX,
   tamizajes: historial.tamizajes.map((t, i) => (i === 0 ? { ...t, id_tamizaje: "00000000-0000-4000-8000-000000000003" } : t)) };
@@ -178,6 +192,13 @@ const PANTALLAS = {
   m11_detalle: m11({ abrir: "detalle" }),
   m11_vacio: m11({ docs: [] }),
   en_construccion: { ruta: "/reportes", esperar: null },
+  // Parte B del Sprint 3: lista de consultas propias, sus estados y el buscador de «Nueva consulta».
+  consultas_lista: { ruta: "/consultas", esperar: "Mostrando 1 a 4 de 45 consultas", lista: paginaPropias },
+  consultas_filtros_error: { ruta: "/consultas?desde=2026-11-15&hasta=2026-11-01", esperar: "Mostrando 1 a 4 de 45 consultas",
+    lista: paginaPropias, filtrar: true },
+  consultas_vacia: { ruta: "/consultas", esperar: "Aún no realizó consultas clínicas", lista: { ...paginaPropias, total: 0, consultas: [] } },
+  consultas_error: { ruta: "/consultas", esperar: "No se pudieron cargar las consultas", lista: "error" },
+  consultas_nueva: { ruta: "/consultas/nueva", esperar: "Pacientes atendidos recientemente" },
 };
 if (SOLO) for (const n of SOLO) if (!PANTALLAS[n]) throw new Error(`Pantalla desconocida: ${n}. Disponibles: ${Object.keys(PANTALLAS).join(", ")}`);
 
@@ -270,6 +291,8 @@ async function simular(p, ruta) {
     if (u.pathname === "/api/conocimiento/trabajos") return json(p.activos);
     if (u.pathname.startsWith("/api/conocimiento/documentos/")) return json(DETALLE_M11);
   }
+  if (p.lista && u.pathname === "/api/consultas")
+    return p.lista === "error" ? json({ detail: "Error interno del servidor" }, 500) : json(p.lista);
   if (p.resultado && u.pathname === `/api/consultas/${ID_CON}`) return json(resultadoFix(p.resultado, p.cambios));
   if (u.pathname === `/api/pacientes/${ID_PAC_FIX}`) return json(fichaFix);
   if (u.pathname === `/api/pacientes/${ID_PAC_FIX}/historial`) return json(historialFix);
@@ -307,6 +330,10 @@ async function preparar(pagina, p) {
   }
   if (p.cerrarVentana || p.ventana) await pagina.getByRole("dialog").waitFor();
   if (p.detalle) await pagina.getByText("Detalle de la búsqueda").click();
+  if (p.filtrar) {
+    await pagina.getByRole("button", { name: "Filtrar" }).click();
+    await pagina.getByText("La fecha «Hasta» no puede ser anterior a «Desde».").waitFor();
+  }
   if (p.decision) {
     await pagina.getByRole("button", { name: "Registrar decisión clínica" }).click();
     if (p.decision === "confirmacion") {

@@ -1,26 +1,29 @@
-// M02 · Panel de pacientes (HU02, HU04, HU18). En modo «historial» es el buscador de
-// «Historial de consultas»: sin indicadores ni registro, abre el historial del paciente (M08),
-// donde están sus consultas. El contrato no tiene una lista de las consultas del usuario de todos
-// los pacientes (solo por paciente), por eso esta página busca pacientes y no consultas.
-// La búsqueda se envía por POST y el texto no se guarda en la URL ni en el navegador.
+// M02 · Panel de pacientes (HU02, HU04, HU18). En modo «nueva» es el buscador de «Nueva consulta»
+// (/consultas/nueva, Sprint 3 parte B): el que estaba en /consultas antes de la lista de consultas
+// propias (P10). Sin indicadores ni registro; cada paciente tiene «Nueva consulta» (M04) y «Ver
+// historial» (M08, el flujo que ya tenía). La búsqueda se envía por POST y el texto no se guarda en
+// la URL ni en el navegador.
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { mensajeError } from "../api/cliente";
 import { pacientesApi, type Indicadores, type PacienteListado } from "../api/pacientes";
 import { useAuth } from "../auth/AuthContext";
+import Migas from "../components/Migas";
 import TablaPacientes from "../components/TablaPacientes";
 import TarjetaIndicador from "../components/TarjetaIndicador";
 import { decimal } from "../utilidades/formato";
 import { useTituloPagina } from "../utilidades/useTituloPagina";
 
-export default function PanelPacientes({ modo = "panel" }: { modo?: "panel" | "historial" }) {
-  useTituloPagina(modo === "panel" ? "Pacientes" : "Historial de consultas");
+export default function PanelPacientes({ modo = "panel" }: { modo?: "panel" | "nueva" }) {
+  useTituloPagina(modo === "panel" ? "Pacientes" : "Nueva consulta");
   const { tienePermiso } = useAuth();
   const navegar = useNavigate();
   const puedeRegistrar = tienePermiso("REGISTRAR_PACIENTE") && modo === "panel";
-  // En el panel, «Abrir paciente» abre la consulta clínica (M04); en el historial de consultas, M08.
-  const abrirConsulta = tienePermiso("REALIZAR_CONSULTA") && modo === "panel";
-  const textoAbrir = modo === "panel" ? "Abrir" : "Ver historial";
+  // «Abrir» (panel) y «Nueva consulta» (buscador de /consultas/nueva) abren la consulta clínica (M04);
+  // el buscador agrega «Ver historial» (M08).
+  const abrirConsulta = tienePermiso("REALIZAR_CONSULTA");
+  const textoAbrir = modo === "panel" ? "Abrir" : "Nueva consulta";
+  const verHistorial = modo === "nueva";
   const [texto, setTexto] = useState("");
   const [busqueda, setBusqueda] = useState<PacienteListado[] | null>(null);
   const [recientes, setRecientes] = useState<PacienteListado[] | null>(null);
@@ -60,11 +63,12 @@ export default function PanelPacientes({ modo = "panel" }: { modo?: "panel" | "h
 
   return (
     <section>
-      <h1>{modo === "panel" ? "Pacientes" : "Historial de consultas"}</h1>
+      {modo === "nueva" && <Migas items={[{ texto: "Historial de consultas", ruta: "/consultas" }, { texto: "Nueva consulta" }]} />}
+      <h1>{modo === "panel" ? "Pacientes" : "Nueva consulta"}</h1>
       <p className="texto-tenue">
         {modo === "panel"
           ? "Busque un paciente, registre uno nuevo o agregue el tamizaje de un nuevo control"
-          : "Busque un paciente para ver la evolución de su hemoglobina y las consultas clínicas que usted le realizó"}
+          : "Busque al paciente para iniciar la consulta clínica o ver la evolución de su hemoglobina y las consultas que usted le realizó"}
       </p>
 
       <form className="tarjeta tarjeta--ancha buscador" onSubmit={buscar} role="search">
@@ -102,11 +106,11 @@ export default function PanelPacientes({ modo = "panel" }: { modo?: "panel" | "h
           {busqueda && <button className="boton boton--neutro boton--chico" onClick={limpiar}>Ver recientes</button>}
         </div>
         {busqueda
-          ? <TablaPacientes pacientes={busqueda} puedeRegistrar={puedeRegistrar} abrirConsulta={abrirConsulta} textoAbrir={textoAbrir}
+          ? <TablaPacientes pacientes={busqueda} puedeRegistrar={puedeRegistrar} abrirConsulta={abrirConsulta} textoAbrir={textoAbrir} verHistorial={verHistorial}
                             vacio="No se encontró ningún paciente. Revise el DNI, el N.° de historia clínica o el nombre." />
           : recientes === null
             ? <p className="vacio">Cargando…</p>
-            : <TablaPacientes pacientes={recientes} puedeRegistrar={puedeRegistrar} abrirConsulta={abrirConsulta} textoAbrir={textoAbrir}
+            : <TablaPacientes pacientes={recientes} puedeRegistrar={puedeRegistrar} abrirConsulta={abrirConsulta} textoAbrir={textoAbrir} verHistorial={verHistorial}
                               vacio="Aún no hay pacientes registrados." />}
       </div>
     </section>
