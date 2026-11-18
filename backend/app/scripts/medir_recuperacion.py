@@ -27,11 +27,14 @@ edad: recuperación real (recuperar, con el reranker y el umbral vigentes) de la
 consultas de ajuste (R) y de validación (V) para cada peso de --pesos de la
 bonificación por edad, en memoria y sin tocar la base; la edad sale del texto de la
 consulta. Da los aciertos en el top 5 y la posición del primer fragmento esperado.
-calendario: parte G (pendiente P4). Conjunto de aceptación del calendario de control de
-hemoglobina (consultas_calendario.yaml, con su huella SHA-256) y las 20 consultas de
-referencia, con la recuperación real como en el grafo: fila correcta entre los enviados,
-puntero «según Tabla N° 4» sin la tabla, Tabla N° 20 en las de tratamiento y latencia del
-reranker (p50 y p90).
+calendario: parte G (pendiente P4). Conjuntos de aceptación del calendario de control de
+hemoglobina (--conjunto a: consultas_calendario.yaml; b: consultas_calendario_b.yaml; con sus
+huellas SHA-256) y las 20 consultas de referencia (referencias), con la recuperación real como
+en el grafo. Por consulta: fila correcta entre los enviados, Tabla N° 20 en las de tratamiento
+(estricto: la tabla; aceptado: la tabla o el fragmento que la cita), puntero «según Tabla N° 4»
+sin la tabla, tablas de otra edad, agregados por puntero, relevancia máxima y puntajes de los
+evaluados por pasada, estado antes del modelo (PASA_AL_MODELO o EVIDENCIA_INSUFICIENTE, control
+6.3) y latencia del reranker (p50 y p90).
 El informe en Markdown se arma con app.scripts.informe_recuperacion."""
 import argparse
 import json
@@ -52,9 +55,11 @@ from app.rag.normalizacion import normalizar
 from app.rag.parametros import parametros_recuperacion
 from app.rag.recuperacion import (FILTRO_VECTORIAL, Servicios, buscar_candidatos, recuperar, recuperar_con_ampliacion,
                                   seleccionar, signo_edad)
-from app.rag.referencias import (CALENDARIO, NTS213, PRUEBA, RM429, VALIDACION, cargar_conjunto_calendario,
+from app.rag.referencias import (CALENDARIO, CALENDARIO_B, NTS213, PRUEBA, RM429, VALIDACION,
+                                 cargar_conjunto_calendario,
                                  cargar_conjunto_prueba, cargar_consultas_latencia, cargar_consultas_referencia,
                                  cargar_validacion_dominio, huella_archivo)
+from app.rag.verificacion import control_evidencia
 from app.scripts.variantes_recuperacion import ACTUAL, evaluados, rejilla, rejilla_edad
 
 LONGITUDES = (1024, 512, 384, 256)
@@ -328,44 +333,129 @@ def _percentil(valores: list[float], q: float) -> float | None:
     return round(orden[i] + (orden[min(i + 1, len(orden) - 1)] - orden[i]) * (k - i), 1)
 
 
+PASA_AL_MODELO = "PASA_AL_MODELO"
+EVIDENCIA_INSUFICIENTE = "EVIDENCIA_INSUFICIENTE"
+CONJUNTOS_CALENDARIO = ("a", "b", "referencias")
+
+
+def conjuntos_calendario(texto: str) -> list[str]:
+    """--conjunto: nombres separados por comas (a, b, referencias), sin repetir."""
+    nombres = [x.strip().lower() for x in texto.split(",") if x.strip()]
+    if not nombres or any(n not in CONJUNTOS_CALENDARIO for n in nombres) or len(set(nombres)) != len(nombres):
+        raise argparse.ArgumentTypeError(f"conjuntos válidos: {', '.join(CONJUNTOS_CALENDARIO)} (separados por comas)")
+    return nombres
+
+
+def estado_previo(ultima) -> str:
+    """Estado antes de llamar al modelo, como lo decide el grafo con la última pasada: el
+    control 6.3 sin respuesta (puntaje máximo del reranker frente al umbral)."""
+    if control_evidencia(None, ultima.relevancia_maxima, ultima.umbral_relevancia):
+        return EVIDENCIA_INSUFICIENTE
+    return PASA_AL_MODELO
+
+
+def tablas_otra_edad(enviados: list, edad: int | None, dudosos: set[str]) -> list[str]:
+    """Tablas enviadas cuyo grupo etario excluye la edad (signo -1 de la bonificación por edad)."""
+    return [f.id_fragmento for f in enviados if f.tipo_contenido == "TABLA"
+            and signo_edad(edad, f.edad_min_meses, f.edad_max_meses, f.poblacion, f.id_fragmento in dudosos) == -1]
+
+
+def _pasada(r) -> dict:
+    evaluados = sorted((f for f in r.fragmentos if f.puntaje_reranker is not None),
+                       key=lambda f: (f.posicion_final or 0, f.id_fragmento))
+    return {"tipo_busqueda": r.tipo_busqueda, "relevancia_maxima": r.relevancia_maxima,
+            "reranker_ms": r.tiempos_ms.get("reranker"),
+            "puntajes": [{"id": f.id_fragmento, "documento": f.codigo_documento, "seccion": (f.seccion or "")[:90],
+                          "puntaje_reranker": f.puntaje_reranker, "seleccionado": f.seleccionado}
+                         for f in evaluados]}
+
+
+def fila_calendario(conjunto: str, ref, edad: int | None, pasadas: list, dudosos: set[str]) -> dict:
+    """Resultado de una consulta (la última pasada es la que cuenta, como en el grafo).
+    acierta: fila correcta en el calendario, Tabla N° 20 (estricto) en el tratamiento o acierto
+    de la consulta de referencia."""
+    enviados = pasadas[-1].seleccionados
+    tipo = getattr(ref, "tipo", "REFERENCIA")
+    fila = {"conjunto": conjunto, "tipo": tipo, "forma": getattr(ref, "forma", "libre"), "edad_meses": edad,
+            "acierta": any(ref.acierta(f) for f in enviados),
+            "t20_estricto": None, "t20_aceptado": None,
+            "puntero_sin_tabla": puntero_sin_tabla(enviados),
+            "tablas_otra_edad": tablas_otra_edad(enviados, edad, dudosos),
+            "agregados_puntero": [f.id_fragmento for f in enviados if getattr(f, "origen", "RERANKER") == "PUNTERO"],
+            "estado_previo": estado_previo(pasadas[-1]), "pasadas": len(pasadas),
+            "detalle_pasadas": [_pasada(r) for r in pasadas],
+            "enviados": [{"id": f.id_fragmento, "documento": f.codigo_documento, "seccion": (f.seccion or "")[:90],
+                          "puntaje_reranker": f.puntaje_reranker, "origen": getattr(f, "origen", "RERANKER")}
+                         for f in enviados],
+            "reranker_ms": [r.tiempos_ms.get("reranker") for r in pasadas]}
+    if tipo == "TRATAMIENTO":
+        fila["t20_estricto"] = any(ref.acierta_estricto(f) for f in enviados)
+        fila["t20_aceptado"] = any(ref.acierta_aceptado(f) for f in enviados)
+    return fila
+
+
+def resumen_calendario(consultas: dict[str, dict]) -> dict:
+    """Por conjunto: calendario (fila correcta), tratamiento (estricto y aceptado), referencias
+    (acierto), punteros sin tabla, tablas de otra edad, agregados por puntero, EVIDENCIA_INSUFICIENTE
+    antes del modelo y latencia del reranker (p50 y p90 de todas las pasadas)."""
+    resumen: dict = {}
+    for conjunto in dict.fromkeys(v["conjunto"] for v in consultas.values()):
+        filas = {k: v for k, v in consultas.items() if v["conjunto"] == conjunto}
+        bloque: dict = {}
+        for tipo in ("CALENDARIO", "TRATAMIENTO", "REFERENCIA"):
+            del_tipo = {k: v for k, v in filas.items() if v["tipo"] == tipo}
+            if not del_tipo:
+                continue
+            b = {"total": len(del_tipo), "aciertos": sum(v["acierta"] for v in del_tipo.values()),
+                 "fallan": sorted(k for k, v in del_tipo.items() if not v["acierta"])}
+            if tipo == "TRATAMIENTO":
+                b["estricto"] = sum(v["t20_estricto"] for v in del_tipo.values())
+                b["aceptado"] = sum(v["t20_aceptado"] for v in del_tipo.values())
+                b["fallan_aceptado"] = sorted(k for k, v in del_tipo.items() if not v["t20_aceptado"])
+            bloque[tipo] = b
+        tiempos = [ms for v in filas.values() for ms in v["reranker_ms"] if ms is not None]
+        bloque.update({
+            "punteros_sin_tabla": sorted(k for k, v in filas.items() if v["puntero_sin_tabla"]),
+            "tablas_otra_edad": sorted(k for k, v in filas.items() if v["tablas_otra_edad"]),
+            "agregados_puntero": sorted(k for k, v in filas.items() if v["agregados_puntero"]),
+            "evidencia_insuficiente": sorted(k for k, v in filas.items()
+                                             if v["estado_previo"] == EVIDENCIA_INSUFICIENTE),
+            "reranker_ms": {"p50": _percentil(tiempos, 0.5), "p90": _percentil(tiempos, 0.9), "n": len(tiempos)}})
+        resumen[conjunto] = bloque
+    tiempos = [ms for v in consultas.values() for ms in v["reranker_ms"] if ms is not None]
+    resumen["reranker_ms"] = {"p50": _percentil(tiempos, 0.5), "p90": _percentil(tiempos, 0.9), "n": len(tiempos)}
+    return resumen
+
+
 def cmd_calendario(args, motor, cliente) -> dict:
-    """Parte G: conjunto de aceptación del calendario de control de hemoglobina y las 20 consultas
-    de referencia, con la recuperación real (recuperar_con_ampliacion, como el grafo) y los
-    parámetros vigentes. Cuenta los fragmentos enviados al modelo (seleccionados)."""
+    """Parte G: conjuntos de aceptación del calendario de control de hemoglobina (A y B) y las 20
+    consultas de referencia, con la recuperación real (recuperar_con_ampliacion, como el grafo) y
+    los parámetros vigentes. Cuenta los fragmentos enviados al modelo (seleccionados)."""
     servicios = _servicios(cliente)
-    calendario = cargar_conjunto_calendario()
-    referencias = cargar_consultas_referencia()
-    salida = {"tipo": "calendario", **_entorno(cliente, args.entorno), "huella_conjunto": huella_archivo(CALENDARIO),
-              "consultas": {}}
+    archivos = {"a": CALENDARIO, "b": CALENDARIO_B}
+    salida = {"tipo": "calendario", **_entorno(cliente, args.entorno), "conjuntos": args.conjunto,
+              "huellas": {n: huella_archivo(archivos[n]) for n in args.conjunto if n in archivos}, "consultas": {}}
+    casos = []
+    for nombre in args.conjunto:
+        if nombre == "referencias":
+            casos += [("REFERENCIA", r.id, r.consulta, edad_mencionada_meses(r.consulta), r)
+                      for r in cargar_consultas_referencia()]
+        else:
+            casos += [(nombre.upper(), q.id, q.consulta, q.edad_meses, q)
+                      for q in cargar_conjunto_calendario(archivos[nombre])]
     with motor.connect() as c:
         p = parametros_recuperacion(c)
+        dudosos = set(c.execute(text("SELECT id_fragmento::text FROM conocimiento.fragmento WHERE rango_dudoso"))
+                      .scalars())
         for texto in cargar_consultas_latencia()[:args.calentamiento]:
             recuperar(c, normalizar(texto), servicios, p)
-        tiempos = []
-        casos = [(q.id, q.consulta, q.edad_meses, q) for q in calendario] + \
-                [(r.id, r.consulta, edad_mencionada_meses(r.consulta), r) for r in referencias]
-        for id_, texto, edad, ref in casos:
+        for conjunto, id_, texto, edad, ref in casos:
             pasadas = recuperar_con_ampliacion(c, normalizar(texto), servicios, p, edad)
-            r = pasadas[-1]
-            enviados = r.seleccionados
-            tiempos += [x.tiempos_ms.get("reranker", 0.0) for x in pasadas]
-            fila = {"edad_meses": edad, "tipo": getattr(ref, "tipo", "REFERENCIA"), "acierta": any(ref.acierta(f) for f in enviados),
-                    "puntero_sin_tabla": puntero_sin_tabla(enviados), "pasadas": len(pasadas),
-                    "enviados": [{"documento": f.codigo_documento, "seccion": (f.seccion or "")[:90],
-                                  "puntaje_reranker": f.puntaje_reranker, "origen": getattr(f, "origen", "RERANKER")}
-                                 for f in enviados],
-                    "reranker_ms": [x.tiempos_ms.get("reranker") for x in pasadas]}
+            fila = fila_calendario(conjunto, ref, edad, pasadas, dudosos)
             salida["consultas"][id_] = fila
-            _avance(f"{id_}: acierta {fila['acierta']}, puntero sin tabla {fila['puntero_sin_tabla']}")
-    cons = salida["consultas"]
-
-    def resumen(tipo: str) -> dict:
-        filas = {k: v for k, v in cons.items() if v["tipo"] == tipo}
-        return {"aciertos": sum(v["acierta"] for v in filas.values()), "total": len(filas),
-                "fallan": sorted(k for k, v in filas.items() if not v["acierta"]),
-                "punteros_sin_tabla": sorted(k for k, v in filas.items() if v["puntero_sin_tabla"])}
-    salida["resumen"] = {t: resumen(t) for t in ("CALENDARIO", "TRATAMIENTO", "REFERENCIA")}
-    salida["resumen"]["reranker_ms"] = {"p50": _percentil(tiempos, 0.5), "p90": _percentil(tiempos, 0.9), "n": len(tiempos)}
+            _avance(f"{id_}: acierta {fila['acierta']}, aceptado {fila['t20_aceptado']}, "
+                    f"puntero sin tabla {fila['puntero_sin_tabla']}, {fila['estado_previo']}")
+    salida["resumen"] = resumen_calendario(salida["consultas"])
     _avance(json.dumps(salida["resumen"], ensure_ascii=False))
     return salida
 
@@ -420,8 +510,11 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("edad")
     p.add_argument("--pesos", type=lambda t: [float(x) for x in t.split(",")], default=[0.0, 0.1, 0.3, 0.5, 0.7],
                    help="pesos de la bonificación por edad, separados por comas (de 0 a 1)")
-    p = sub.add_parser("calendario", help="conjunto de aceptación del calendario de Hb y las 20 de referencia (parte G)")
+    p = sub.add_parser("calendario", help="conjuntos de aceptación del calendario de Hb y las 20 de referencia (parte G)")
     p.add_argument("--calentamiento", type=int, default=2)
+    p.add_argument("--conjunto", type=conjuntos_calendario, default=["a", "referencias"],
+                   help="a, b y referencias, separados por comas (por defecto a,referencias). B es el conjunto "
+                        "de aceptación: se mide una vez por variante aprobada, nunca para elegir variantes")
     p = sub.add_parser("dominio")
     p.add_argument("--conjunto", choices=["ajuste", "validacion"], default="ajuste",
                    help="consultas usadas para calibrar o el conjunto de validación")
