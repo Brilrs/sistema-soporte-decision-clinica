@@ -93,8 +93,16 @@ describe("M11 · tabla de guías", () => {
     await tabla();
     expect(screen.getByRole("button", { name: "Ver: NTS 213-MINSA/DGIESP-2024" })).toBeEnabled();
     const retirar = screen.getByRole("button", { name: "Retirar: NTS 213-MINSA/DGIESP-2024" });
-    expect(retirar).toBeDisabled();
+    // aria-disabled: se anuncia como no disponible, recibe el foco (para leer la nota) y no hace nada.
+    expect(retirar).toHaveAttribute("aria-disabled", "true");
+    expect(retirar).toHaveClass("boton--peligro");
     expect(retirar).toHaveAccessibleDescription(NOTA_RETIRAR);
+    retirar.focus();
+    expect(retirar).toHaveFocus();
+    const llamadas = vi.mocked(fetch).mock.calls.length;
+    fireEvent.click(retirar);
+    expect(vi.mocked(fetch).mock.calls.length).toBe(llamadas);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /^Retirar: / })).toHaveLength(4);
     expect(screen.queryByRole("button", { name: /^Reintentar/ })).not.toBeInTheDocument();
   });
