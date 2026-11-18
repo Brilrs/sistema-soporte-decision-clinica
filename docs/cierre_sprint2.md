@@ -8,7 +8,7 @@ documentos del repositorio donde está cada dato.
 
 | Documento | Qué contiene |
 | --- | --- |
-| [`cambios_respecto_al_OE2.md`](cambios_respecto_al_OE2.md) | Cada diferencia con el documento de diseño (OE2), con su motivo y estado (filas 1 a 102), las diferencias con los mockups y los pendientes P1 a P14 |
+| [`cambios_respecto_al_OE2.md`](cambios_respecto_al_OE2.md) | Cada diferencia con el documento de diseño (OE2), con su motivo y estado (filas 1 a 103), las diferencias con los mockups y los pendientes P1 a P14 |
 | [`mediciones_sprint2.md`](mediciones_sprint2.md) | Mediciones de latencia, calidad de la recuperación, memoria y costo, con el procedimiento para repetirlas |
 | [`contrato_consultas.md`](contrato_consultas.md) y [`contrato_conocimiento.md`](contrato_conocimiento.md) | Contratos de la API de consultas y de la base de conocimiento (M11) |
 | [`../jobs/README.md`](../jobs/README.md) | Indexador de guías, transcripciones de las tablas críticas y medición de la indexación |
@@ -16,9 +16,11 @@ documentos del repositorio donde está cada dato.
 
 ## 1. Qué se entregó
 
-El Sprint 2 abarcaba las historias HU03, HU06 a HU09, HU12 y HU15. Se entregaron todas, más el
-registro de la decisión clínica (HU16), que estaba previsto para el Sprint 3 y se adelantó porque
-cierra el flujo de la consulta.
+El Sprint 2 abarcaba las historias HU03, HU06 a HU09, HU12, HU15 y HU16 (en el OE2, HU16 es
+«Recibir aviso de evidencia insuficiente», la pantalla M07). Se entregaron todas, más el registro
+de la decisión clínica, que estaba previsto para el Sprint 3 y se adelantó porque cierra el flujo
+de la consulta. El registro de la decisión no tiene historia propia en el OE2: es la acción
+«Registrar decisión clínica» de M05 y M07 (RF8).
 
 ### Motor RAG (sin pantalla propia)
 
@@ -43,8 +45,8 @@ cierra el flujo de la consulta.
 | M04 Consulta clínica | HU03, HU06 | El profesional escribe su pregunta y ve el avance por etapas mientras se procesa | 2 |
 | M05 Resultado de la consulta | HU07, HU08, HU09 | Recomendación con nivel de riesgo, evidencias citadas de las guías, verificación y aviso si el niño cambió de grupo de edad desde el tamizaje | 2 |
 | M06 Datos faltantes | HU15 | Ventana que pide solo el dato que falta (la hemoglobina) y reanuda la consulta | 2 |
-| M07 Evidencia insuficiente | HU07 a HU09 | Resultado sin recomendación cuando las guías no bastan, con el detalle de la búsqueda | 2 |
-| Registrar decisión clínica | HU16 | Ventana en dos pasos; la nota se guarda con los datos personales reemplazados por marcas | 2 (adelantada) |
+| M07 Evidencia insuficiente | HU16 | Resultado sin recomendación cuando las guías no bastan, con el detalle de la búsqueda | 2 |
+| Registrar decisión clínica | Sin historia propia (RF8) | Ventana en dos pasos; la nota se guarda con los datos personales reemplazados por marcas | 2 (adelantada) |
 | M08 Historial del paciente | HU04 | Evolución de la hemoglobina y tamizajes; en el Sprint 2 se agregaron las «Evaluaciones realizadas» | 1, ampliada en el 2 |
 | M10 Gestión de usuarios | HU11 | Altas, cambios de rol, desactivación y restablecimiento de contraseña | 1 |
 | M11 Base de conocimiento | HU12 | Lista de guías, carga de guías de nivel 2, avance de la indexación cada 3 s y detalle de cada guía | 2 |
@@ -218,7 +220,7 @@ la evaluación del OE3 ni el despliegue.
 | P10 | Lista de todas las consultas del usuario | Abierto (necesita una ruta nueva) | Desarrollo | Sprint 3 |
 | P11 | «Exportar reporte» (M09) | Abierto, deshabilitado en M05 | Desarrollo | Sprint 3 |
 | P12 | Nombre de quien registró la decisión | Abierto | Desarrollo | Sprint 3 (con M09) |
-| P13 | La auditoría de desbordes no mide los elementos absolutos que escapan de su contenedor | Abierto: la auditoría sigue fuera del repositorio | Desarrollo | Si la auditoría se versiona (Sprint 3) |
+| P13 | La auditoría de desbordes no mide los elementos absolutos que escapan de su contenedor | Abierto al cierre. Resuelto en la parte A del Sprint 3: la auditoría pasa a `frontend/auditoria/` y mide esos elementos | Desarrollo | Sprint 3, parte A |
 | P14 | Indexación y consultas a la vez (la recuperación pasa de unos 4 s a unos 24 s) | Abierto, con aviso en M11 y como máximo 2 trabajos activos | Desarrollo | Antes del despliegue en Azure |
 
 ### Nuevos al cierre del Sprint 2

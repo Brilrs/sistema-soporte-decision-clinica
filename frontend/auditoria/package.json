@@ -1,0 +1,14 @@
+{
+  "name": "cdss-anemia-auditoria",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Auditoría visual de la interfaz: desbordes, elementos absolutos que escapan de su contenedor y axe-core",
+  "type": "module",
+  "scripts": {
+    "auditar": "node auditar.mjs"
+  },
+  "dependencies": {
+    "axe-core": "4.10.2",
+    "playwright-core": "1.49.1"
+  }
+}
