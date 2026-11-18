@@ -88,6 +88,18 @@ empiece.
   - el PDF lleva el nombre y la historia clínica descifrados;
   - ReportLab en un backend con 512 MB de límite: medir la memoria;
   - las frases del cuidador dependen de una revisión clínica.
+- **Hecho en la parte C1** (contrato en `docs/contrato_reportes.md`, filas 112 y 113 de
+  `cambios_respecto_al_OE2.md`):
+  - migración 013: secuencia global con el año de emisión como prefijo, en lugar de un contador por
+    año;
+  - ruta nueva de vista previa en JSON (`GET .../reportes/vista-previa`) para la pantalla de C2;
+  - la respuesta del POST es el PDF con `X-Reporte-Numero` y `X-Reporte-Hash`; solo PDF;
+  - ReportLab 5.1.0 trae Pillow 13.0.0, con extensiones en C; fuente DejaVu Sans en
+    `backend/app/reportes/fuentes/`;
+  - en el reporte del cuidador, los pasos solo se reformulan con la decisión ACEPTA_RECOMENDACION;
+  - medido: 1,2 s y unos 20 MB la primera vez en el proceso (carga de la fuente) y de 12 a 26 ms
+    después;
+  - las frases del cuidador siguen con `revisado: false` hasta la revisión clínica.
 
 ### M13 auditoría (HU13): L, riesgo bajo
 

@@ -46,6 +46,8 @@ def consultas_d2(super_engine, guia):  # noqa: F811
     with super_engine.begin() as c:
         p = {"ids": ids}
         intentos = "(SELECT id_intento FROM asistencia.intento_generacion WHERE id_consulta::text = ANY(:ids))"
+        # Reportes exportados de esas consultas (parte C1 del Sprint 3), que las referencian.
+        c.execute(text("DELETE FROM asistencia.reporte WHERE id_consulta::text = ANY(:ids)"), p)
         c.execute(text("DELETE FROM asistencia.decision_clinica WHERE id_consulta::text = ANY(:ids)"), p)
         c.execute(text(f"DELETE FROM asistencia.cita_evidencia WHERE id_intento IN {intentos}"), p)
         c.execute(text("DELETE FROM asistencia.recomendacion WHERE id_consulta::text = ANY(:ids)"), p)

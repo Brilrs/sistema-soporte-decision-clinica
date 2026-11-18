@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     modelos_timeout_s: float = Field(120.0, alias="MODELOS_TIMEOUT_S", gt=0)
     cors_origenes: list[str] = Field(default_factory=lambda: ["http://localhost:5173"], alias="CORS_ORIGENES")
 
+    # Nombre del establecimiento en los reportes exportados (M09, Sprint 3 parte C1).
+    establecimiento: str = Field("Centro de Salud San Luis · Servicio CRED", alias="CDSS_ESTABLECIMIENTO",
+                                 min_length=3, max_length=120)
+
     # Guías cargadas desde M11 (parte F2): carpeta del volumen datos_guias_cargadas y tamaño
     # máximo de la subida (Nginx admite 25 MB en esa ruta; el backend corta en este valor).
     dir_guias_cargadas: str = Field("/datos/guias_cargadas", alias="CDSS_DIR_GUIAS_CARGADAS")

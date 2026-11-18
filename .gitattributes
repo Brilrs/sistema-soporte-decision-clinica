@@ -2,3 +2,6 @@
 *.sh text eol=lf
 *.sql text eol=lf
 backend/app/rag/*.yaml text eol=lf
+# Fuentes empaquetadas (reportes PDF, parte C1 del Sprint 3): binarias, sin conversión de fin de línea
+*.ttf binary
+backend/app/reportes/*.yaml text eol=lf

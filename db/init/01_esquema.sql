@@ -757,6 +757,20 @@ COMMENT ON COLUMN asistencia.reporte.fecha_generacion IS 'Fecha y hora de emisi�
 CREATE INDEX ix_reporte_id_consulta ON asistencia.reporte (id_consulta);
 CREATE INDEX ix_reporte_id_usuario ON asistencia.reporte (id_usuario);
 
+-- Número correlativo EV-AAAA-NNNNN (migración 013): secuencia global con el año de emisión en hora
+-- de Perú como prefijo; nextval es atómico, así dos reportes simultáneos no repiten número.
+CREATE SEQUENCE IF NOT EXISTS asistencia.reporte_numero_seq AS bigint START WITH 1 MINVALUE 1 NO CYCLE;
+COMMENT ON SEQUENCE asistencia.reporte_numero_seq IS 'Correlativo global de asistencia.reporte.numero_reporte (EV-AAAA-NNNNN). Puede tener huecos por transacciones revertidas.';
+CREATE OR REPLACE FUNCTION asistencia.siguiente_numero_reporte(OUT numero_reporte varchar, OUT fecha_emision timestamptz)
+LANGUAGE sql VOLATILE AS $$
+  WITH n AS (SELECT nextval('asistencia.reporte_numero_seq') AS v, now() AS f)
+  SELECT 'EV-' || to_char(n.f AT TIME ZONE 'America/Lima', 'YYYY') || '-' ||
+         lpad(n.v::text, greatest(5, length(n.v::text)), '0'),
+         n.f
+    FROM n;
+$$;
+COMMENT ON FUNCTION asistencia.siguiente_numero_reporte() IS 'Reserva el siguiente número de reporte (EV-AAAA-NNNNN, año en hora de Perú) y devuelve la fecha y hora de emisión.';
+
 -- ---------------------------------------------------------------------------
 -- auditoria.evento_auditoria
 -- ---------------------------------------------------------------------------
@@ -975,6 +989,12 @@ GRANT INSERT ON auditoria.evento_auditoria TO rol_app_clinica, rol_app_generacio
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA seguridad, clinico, asistencia, conocimiento, configuracion, auditoria
   TO rol_app_clinica, rol_app_generacion, rol_app_admin;
 GRANT USAGE ON SEQUENCE auditoria.evento_auditoria_id_evento_seq TO rol_app_indexador;
+-- El número del reporte (migración 013) solo lo reserva el componente clínico.
+REVOKE ALL ON SEQUENCE asistencia.reporte_numero_seq FROM PUBLIC;
+REVOKE ALL ON FUNCTION asistencia.siguiente_numero_reporte() FROM PUBLIC;
+REVOKE ALL ON SEQUENCE asistencia.reporte_numero_seq FROM rol_app_generacion, rol_app_admin;
+GRANT USAGE ON SEQUENCE asistencia.reporte_numero_seq TO rol_app_clinica;
+GRANT EXECUTE ON FUNCTION asistencia.siguiente_numero_reporte() TO rol_app_clinica;
 
 -- ============================================================================
 -- Datos iniciales de catálogos

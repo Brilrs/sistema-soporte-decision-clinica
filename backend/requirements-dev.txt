@@ -1,2 +1,4 @@
 -r requirements-jobs.txt
 pytest>=8.0
+# Solo pruebas: extraer el texto de los PDF de los reportes (licencia BSD-3-Clause).
+pypdf==6.21.4

@@ -218,7 +218,7 @@ la evaluación del OE3 ni el despliegue.
 | P8 | Preguntas de dos partes con una parte sin evidencia | Abierto | Desarrollo | Evaluación del OE3 |
 | P9 | Consultas de seguimiento encadenadas | Abierto | Desarrollo | Sprint 3 |
 | P10 | Lista de todas las consultas del usuario | Abierto al cierre. Resuelto en la parte B del Sprint 3: `GET /api/consultas` y «Historial de consultas» en `/consultas` (filas 109 y 110 de `cambios_respecto_al_OE2.md`) | Desarrollo | Sprint 3, parte B |
-| P11 | «Exportar reporte» (M09) | Abierto, deshabilitado en M05 | Desarrollo | Sprint 3 |
+| P11 | «Exportar reporte» (M09) | Abierto al cierre. Avanzado en la parte C1 del Sprint 3: API del reporte (vista previa, PDF con número y hash, lista; `docs/contrato_reportes.md`, filas 112 y 113). Falta la pantalla M09 y activar «Exportar reporte» en M05 (parte C2) | Desarrollo | Sprint 3, parte C2 |
 | P12 | Nombre de quien registró la decisión | Abierto al cierre. Resuelto en la parte B del Sprint 3: `registrada_por` en la decisión y «Registrada por» en M05 (fila 111) | Desarrollo | Sprint 3, parte B |
 | P13 | La auditoría de desbordes no mide los elementos absolutos que escapan de su contenedor | Abierto al cierre. Resuelto en la parte A del Sprint 3: la auditoría pasa a `frontend/auditoria/` y mide esos elementos | Desarrollo | Sprint 3, parte A |
 | P14 | Indexación y consultas a la vez (la recuperación pasa de unos 4 s a unos 24 s) | Abierto, con aviso en M11 y como máximo 2 trabajos activos | Desarrollo | Antes del despliegue en Azure |

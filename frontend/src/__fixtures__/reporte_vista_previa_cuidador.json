@@ -1,0 +1,86 @@
+{
+  "id_consulta": "00000000-0000-4000-8000-000000000001",
+  "destino": "CUIDADOR",
+  "secciones": [
+    "PACIENTE",
+    "CLASIFICACION",
+    "RECOMENDACION",
+    "FIRMA"
+  ],
+  "modo_prueba": true,
+  "revision_pendiente": true,
+  "titulo": "Información para la familia",
+  "introduccion": "Este documento resume el resultado de la evaluación de anemia de su niña o niño en el servicio CRED. El personal de salud le explicará cada punto.",
+  "establecimiento": "Centro de Salud San Luis · Servicio CRED",
+  "fecha_consulta": "2026-10-20T10:00:00-05:00",
+  "avisos": [
+    "MODO DE PRUEBA, no es un documento clínico",
+    "Texto en revisión clínica: no entregar a pacientes"
+  ],
+  "bloques": [
+    {
+      "seccion": "PACIENTE",
+      "titulo": "Datos de su niña o niño",
+      "campos": [
+        {
+          "etiqueta": "Nombre",
+          "valor": "Paciente Ficticio Dos"
+        },
+        {
+          "etiqueta": "Historia clínica",
+          "valor": "HC-PRUEBA-2"
+        },
+        {
+          "etiqueta": "Edad",
+          "valor": "49 meses"
+        },
+        {
+          "etiqueta": "Fecha de la evaluación",
+          "valor": "20/10/2026 10:00"
+        }
+      ],
+      "parrafos": [],
+      "items": []
+    },
+    {
+      "seccion": "CLASIFICACION",
+      "titulo": "Resultado de la evaluación",
+      "campos": [],
+      "parrafos": [
+        "La prueba de hemoglobina de su niña o niño dio un resultado sin anemia."
+      ],
+      "items": []
+    },
+    {
+      "seccion": "RECOMENDACION",
+      "titulo": "Indicaciones del personal de salud",
+      "campos": [],
+      "parrafos": [],
+      "items": [
+        {
+          "texto": "Le indicaron medidas para prevenir la anemia. Sígalas tal como se las explicó el personal de salud.",
+          "detalle": []
+        }
+      ]
+    },
+    {
+      "seccion": "RECUERDE",
+      "titulo": "Recuerde",
+      "campos": [],
+      "parrafos": [],
+      "items": [
+        {
+          "texto": "Acuda a todos los controles de su niña o niño en el establecimiento de salud.",
+          "detalle": []
+        },
+        {
+          "texto": "Siga las indicaciones del personal de salud. Si tiene dudas, pregúntelas en su próximo control.",
+          "detalle": []
+        }
+      ]
+    }
+  ],
+  "frase_final": "La decisión final corresponde al profesional tratante.",
+  "firma": true,
+  "generado_por": "Lic. Usuaria Prueba"
+}

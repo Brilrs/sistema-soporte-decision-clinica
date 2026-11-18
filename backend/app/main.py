@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, catalogos, conocimiento, consultas, pacientes, salud, usuarios
+from app.api.routes import auth, catalogos, conocimiento, consultas, pacientes, reportes, salud, usuarios
 from app.core.config import get_settings
 from app.core.errores import manejar_error_validacion
 
@@ -62,6 +62,8 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
+    # Reporte exportable (M09): el número, el hash y el nombre del archivo se leen desde la interfaz.
+    expose_headers=["Content-Disposition", "X-Reporte-Numero", "X-Reporte-Hash"],
 )
 
 app.add_exception_handler(RequestValidationError, manejar_error_validacion)
@@ -73,6 +75,7 @@ app.include_router(pacientes.router)
 app.include_router(usuarios.router)
 app.include_router(consultas.router)
 app.include_router(conocimiento.router)
+app.include_router(reportes.router)
 
 
 def openapi_con_eventos() -> dict:
