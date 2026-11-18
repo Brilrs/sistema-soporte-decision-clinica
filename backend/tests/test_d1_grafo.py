@@ -9,6 +9,7 @@ import dataclasses
 import json
 import logging
 import re
+import threading
 import time
 from dataclasses import replace
 from datetime import date
@@ -403,15 +404,60 @@ def test_concurrencia_del_reranker_por_defecto(configurada, hilos, nucleos, espe
     assert srv.concurrencia_reranker(configurada, hilos, nucleos) == esperado
 
 
+class _SemaforoObservado(threading.BoundedSemaphore):
+    """Cuenta las consultas que esperan turno: suma cuando el acquire sin bloquear falla y resta
+    cuando la espera termina (solo puede terminar después de que se libere el turno)."""
+
+    def __init__(self, valor: int):
+        super().__init__(valor)
+        self.condicion = threading.Condition()
+        self.en_espera = 0
+
+    def acquire(self, blocking=True, timeout=None):
+        if not blocking:
+            obtenido = super().acquire(False)
+            if not obtenido:
+                with self.condicion:
+                    self.en_espera += 1
+                    self.condicion.notify_all()
+            return obtenido
+        obtenido = super().acquire(True, timeout)
+        with self.condicion:
+            self.en_espera = max(0, self.en_espera - 1)
+        return obtenido
+
+
 class _RerankerLento(RerankerFalso):
+    """Reranker que tarda 0,4 s (lo usa test_d2_api para que el cliente cierre antes del final)."""
+
     def puntuar(self, consulta, textos, max_longitud=None):
         time.sleep(0.4)
         return super().puntuar(consulta, textos, max_longitud)
 
 
+class _RerankerQueEsperaLaCola(RerankerFalso):
+    """La primera llamada retiene el turno de modelos hasta que la otra consulta está en cola y
+    luego 0,5 s más: la espera no depende de cuándo llega cada hilo (antes, un sleep fijo de 0,4 s
+    suponía que la segunda consulta llegaba a tiempo, lo que en un runner lento podía no pasar)."""
+
+    def __init__(self, semaforo: _SemaforoObservado):
+        super().__init__()
+        self.semaforo, self.primera = semaforo, threading.Lock()
+
+    def puntuar(self, consulta, textos, max_longitud=None):
+        if self.primera.acquire(blocking=False):  # solo la primera llamada, con el turno tomado
+            with self.semaforo.condicion:
+                assert self.semaforo.condicion.wait_for(lambda: self.semaforo.en_espera > 0, timeout=30),                     "la otra consulta nunca quedó en cola"
+            time.sleep(0.5)
+        return super().puntuar(consulta, textos, max_longitud)
+
+
 def test_una_consulta_sin_turno_emite_en_cola_y_cuenta_la_espera(entorno, consultas, super_engine):  # noqa: F811
-    servicios = replace(entorno.servicios, reranker=_RerankerLento())
-    entorno = replace(entorno, servicios=servicios, limites=g.Limites(1, 4))
+    limites = g.Limites(1, 4)
+    semaforo = _SemaforoObservado(1)
+    limites._semaforos[g.MODELOS] = semaforo
+    servicios = replace(entorno.servicios, reranker=_RerankerQueEsperaLaCola(semaforo))
+    entorno = replace(entorno, servicios=servicios, limites=limites)
     solicitudes = [_solicitud(super_engine, _caso("b")), _solicitud(super_engine, _caso("c"))]
 
     async def ambas():

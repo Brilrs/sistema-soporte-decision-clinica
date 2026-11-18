@@ -1,6 +1,7 @@
 // Tabla de guías de M11, compacta como las de M08: cabe sin desplazamiento interno desde unos
 // 1000 px; por debajo se desplaza dentro de su contenedor. Los botones nombran la guía para los
-// lectores de pantalla («Ver: NTS 213...»). «Retirar» queda deshabilitado hasta el Sprint 3 (HU17).
+// lectores de pantalla («Ver: NTS 213...»). «Retirar» queda deshabilitado hasta el Sprint 3 (HU17):
+// gris, con cursor no permitido y la nota como descripción accesible.
 import type { Documento } from "../../api/conocimiento";
 import { VACIO } from "../../utilidades/formato";
 import { ESTADOS_DOCUMENTO, ESTADOS_INDEXACION, NIVELES } from "./textos";
@@ -67,8 +68,11 @@ export default function TablaGuias({ documentos, ver, reintentar, reintentando, 
                       </button>
                     )}
                     {d.estado === "VIGENTE" && (
-                      <button type="button" className="boton boton--peligro boton--chico" disabled aria-label={`Retirar: ${nombre}`}
-                              aria-describedby={idNotaRetirar} title="Disponible en el Sprint 3">Retirar</button>
+                      // aria-disabled y no disabled: sigue recibiendo el foco, así el lector de pantalla
+                      // anuncia que no está disponible y lee la nota del Sprint 3. No hace nada al pulsarlo.
+                      <button type="button" className="boton boton--peligro boton--chico" aria-disabled="true"
+                              aria-label={`Retirar: ${nombre}`} aria-describedby={idNotaRetirar}
+                              title="Disponible en el Sprint 3">Retirar</button>
                     )}
                   </div>
                 </td>

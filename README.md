@@ -1,15 +1,16 @@
 # CDSS Anemia Infantil
 
-Sistema de soporte a la decisión clínica para la evaluación del riesgo de anemia infantil en el servicio CRED del Centro de Salud San Luis. Usa IA generativa con arquitectura RAG y desidentifica los datos del paciente antes de enviarlos al modelo de lenguaje.
+Sistema de soporte a la decisión clínica para la evaluación del riesgo de anemia infantil en el servicio CRED del Centro de Salud San Luis. Usa IA generativa con arquitectura RAG (recuperación de evidencia de las guías clínicas y generación con un modelo de lenguaje) y desidentifica los datos del paciente antes de enviarlos al modelo.
 
 | Capa | Tecnología |
 | --- | --- |
 | Interfaz | React + Vite (TypeScript) servida por Nginx |
 | API y orquestación | FastAPI + LangGraph (Python 3.12) |
 | Datos | PostgreSQL 16 (Azure Database for PostgreSQL en producción) |
-| Base vectorial | ChromaDB |
-| Modelos locales | bge-m3 (embeddings) y bge-reranker-v2-m3, PyTorch solo CPU, en el contenedor interno `modelos` |
-| Modelo de lenguaje | Claude Sonnet 5.5 (`claude-sonnet-5-5`) vía API de Anthropic (Sprint 2) |
+| Base vectorial | ChromaDB 0.6.3 |
+| Modelos locales | bge-m3 (embeddings) y bge-reranker-v2-m3 (ONNX int8), solo CPU, en el contenedor interno `modelos` |
+| Modelo de lenguaje | Claude Sonnet 5.5 (`claude-sonnet-5-5`) vía API de Anthropic; el ID está en el parámetro `MODELO_LLM` |
+| Procesos fuera de línea | Indexador de guías (permanente desde el Sprint 2) y línea de comandos `jobs` |
 
 ## Estado por Sprint
 
@@ -17,8 +18,33 @@ Sistema de soporte a la decisión clínica para la evaluación del riesgo de ane
 | --- | --- | --- |
 | 0 | Repositorio, Docker Compose, base de datos con catálogos, login y control de acceso por rol | Completado |
 | 1 | Gestión de pacientes y tamizajes (HU01, HU02, HU04, HU05, HU11, HU18), pantallas M02, M03, M08, M10 y M14 | Completado |
-| 2 | Base de conocimiento y motor RAG (HU03, HU06 a HU09, HU12, HU15) | Pendiente |
+| 2 | Base de conocimiento y motor RAG (HU03, HU06 a HU09, HU12, HU15), pantallas M04 a M07, M11 y M15 | Completado (cierre del 17/11/2026, con pendientes) |
 | 3 | Verificación, reportes y administración (HU10, HU13, HU14, HU16, HU17) | Pendiente |
+
+Lo entregado en el Sprint 2, cómo se verificó, las mediciones y los pendientes están en [`docs/cierre_sprint2.md`](docs/cierre_sprint2.md). Las diferencias con el documento de diseño (OE2) se registran en [`docs/cambios_respecto_al_OE2.md`](docs/cambios_respecto_al_OE2.md).
+
+## Arquitectura y servicios
+
+Nginx es el único punto de entrada (puerto 8080): sirve la interfaz y reenvía `/api` al backend. El backend y el indexador usan los modelos locales y ChromaDB por la red interna de Docker; solo el componente de generación llama a la API de Anthropic.
+
+| Servicio | Qué hace | Puerto | Memoria (`mem_limit`) |
+| --- | --- | --- | --- |
+| `nginx` | Interfaz compilada y proxy de `/api` (sin búfer en las rutas que transmiten la consulta por etapas) | 8080 | 64 MB |
+| `backend` | API FastAPI y grafo de la consulta (LangGraph) | interno (8000) | 512 MB |
+| `db` | PostgreSQL 16 con el esquema, los catálogos y un usuario de conexión por componente | 5432 | 768 MB |
+| `chromadb` | Colección `guias_clinicas` con los vectores de los fragmentos | 8001 | 768 MB |
+| `modelos` | bge-m3 y bge-reranker-v2-m3, sin conexión a internet; responde en `/salud` cuando los dos modelos están calientes | interno, sin puerto publicado | 5,5 GB |
+| `indexador` | Trabajador permanente: toma los trabajos de indexación pendientes (las guías cargadas desde M11) cada 5 s | sin puerto | 768 MB |
+
+Bajo demanda (perfiles de Docker Compose, no arrancan con el resto):
+
+| Servicio | Perfil | Uso |
+| --- | --- | --- |
+| `jobs` | `jobs` | Línea de comandos del indexador y otros procesos: `docker compose run --rm jobs python -m app.<módulo>` (768 MB) |
+| `descargar-modelos` | `descarga` | Descarga única de los pesos de los modelos (1 GB) |
+| `exportar-onnx` | `descarga` | Exportación única del reranker a ONNX int8 (6 GB) |
+
+Con el stack levantado, los límites suman 8,31 GB (más 0,75 GB si se usa `jobs` a la vez); Docker necesita al menos 8,5 GB asignados. Son topes, no reservas: el uso medido está en [`docs/mediciones_sprint2.md`](docs/mediciones_sprint2.md) y [`jobs/README.md`](jobs/README.md).
 
 ## Arranque rápido con Docker
 
@@ -28,50 +54,74 @@ Requisitos: [Docker Desktop](https://www.docker.com/products/docker-desktop/) y 
 # 1. Crear el archivo .env con secretos aleatorios (si ya existe, solo agrega las variables que falten)
 ./generar_env.sh
 
-# 2. Levantar todo (la primera vez crea la base de datos y sus catálogos)
+# 2. Descargar los modelos locales (una sola vez, unos 4,6 GB) y exportar el reranker a ONNX (unos 10 minutos)
+docker compose run --rm descargar-modelos
+docker compose run --rm exportar-onnx
+
+# 3. Levantar todo (la primera vez crea la base de datos, sus catálogos y los usuarios de conexión)
 docker compose up --build -d
 
-# 3. Cargar los usuarios de prueba y los 10 pacientes ficticios
+# 4. Cargar los usuarios de prueba y los 10 pacientes ficticios
 docker compose exec backend python -m app.scripts.seed_demo
+
+# 5. Indexar las 4 guías clínicas (ver «Indexador de guías»)
 ```
 
-Abra **http://localhost:8080** e inicie sesión con cualquiera de estas cuentas (contraseña: el valor de `SEED_CONTRASENA` en `.env`, por defecto `Cdss2026!`):
+Abra **http://localhost:8080**. Estado de los servicios: http://localhost:8080/api/salud. `docker compose ps` debe mostrar `db`, `backend`, `modelos` e `indexador` como `healthy` (el primer arranque de `modelos` tarda en cargar y calentar los modelos).
 
-| Usuario | Rol | Qué ve |
-| --- | --- | --- |
-| `enf.rojas` | Enfermera CRED | Pacientes, consultas y reportes |
-| `med.salazar` | Médico | Pacientes, consultas y reportes |
-| `nut.vilca` | Nutricionista | Pacientes, consultas y reportes |
-| `coord.ortiz` | Coordinador CRED | Consultas, reportes, parámetros y auditoría |
-| `admin.cdss` | Administrador | Usuarios, base de conocimiento, parámetros y auditoría |
-
-Estado de los servicios: http://localhost:8080/api/salud. La documentación interactiva de la API está en http://localhost:8000/docs cuando el backend corre en modo desarrollo (abajo).
-
-Para empezar de cero (borra la base de datos y la base vectorial): `docker compose down -v`.
+Para empezar de cero (borra la base de datos, la base vectorial y las guías cargadas desde M11): `docker compose down -v`. No borra `./data/modelos` ni `./data/guias`.
 
 ### Modelos locales
 
-El servicio `modelos` necesita los pesos de bge-m3 y bge-reranker-v2-m3 (unos 4,6 GB), fijados a una revisión exacta en `modelos/revisiones.json`. Se descargan una sola vez:
+Los pesos de bge-m3 y bge-reranker-v2-m3 están fijados a una revisión exacta en `modelos/revisiones.json` y quedan en `./data/modelos` (carpeta del equipo, no un volumen). El reranker corre en ONNX int8 (`MODELOS_RERANKER=onnx-int8`, valor por defecto); la exportación deja `./data/modelos/onnx/bge-reranker-v2-m3-int8` con un `manifiesto.json` (revisión de origen, versiones de las librerías y SHA-256), y el servicio no arranca si no coinciden. Con `MODELOS_RERANKER=fp32` usa el modelo original con PyTorch.
+
+### Modo de prueba con el modelo de lenguaje falso
+
+Para revisar la interfaz sin costo ni llamadas externas, agregue a `.env` y recree el backend (`docker compose up -d backend`):
 
 ```bash
-docker compose run --rm descargar-modelos
+CDSS_LLM=falso                    # cliente falso en lugar de la API de Anthropic
+CDSS_LLM_FALSO_MODO=normal        # normal, evidencia_insuficiente o error: el estado que se quiere ver
 ```
 
-Quedan en `./data/modelos` (carpeta del equipo, no un volumen de Docker), así que `docker compose down -v` no los borra. En ejecución el servicio los lee en solo lectura y sin conexión a internet.
+- Solo se acepta con `CDSS_ENTORNO=desarrollo` (el valor de `docker-compose.yml`); en otro entorno el backend no arranca.
+- Las consultas generadas así traen `modo_prueba: true`, se reconocen por `intento_generacion.modelo_llm = modelo-falso` y quedan fuera de los indicadores de M02 y de las métricas.
+- Con `CDSS_LLM=real` (valor por defecto) se necesita `ANTHROPIC_API_KEY` en `.env`. **Al modelo de lenguaje solo se le envían datos sintéticos** (los pacientes ficticios de `seed_demo`).
 
-El reranker corre en ONNX con pesos int8 (`MODELOS_RERANKER=onnx-int8`, valor por defecto). Después de la descarga se exporta y cuantiza una sola vez, desde la misma revisión fijada (unos 10 minutos; el servicio `exportar-onnx` tiene un límite de 6 GB porque carga el modelo fp32 completo):
+## Usuarios, roles y pantallas
 
-```bash
-docker compose run --rm exportar-onnx
-```
+Contraseña de todas las cuentas de prueba: el valor de `SEED_CONTRASENA` en `.env`.
 
-El resultado queda en `./data/modelos/onnx/bge-reranker-v2-m3-int8` (0,54 GB) con un `manifiesto.json` que guarda la revisión de origen, las versiones de las librerías (fijadas en `modelos/requirements-ml.txt`) y el SHA-256 del modelo; el servicio no arranca si no coinciden. Con `MODELOS_RERANKER=fp32` usa el modelo original con PyTorch. Al iniciar, `modelos` hace una inferencia de calentamiento de cada modelo y solo entonces responde en `/salud` (y Docker lo marca healthy); `/salud` informa los tiempos de carga y de calentamiento.
+| Usuario | Rol | Menú |
+| --- | --- | --- |
+| `enf.rojas` | Enfermera CRED | Pacientes, Historial de consultas, Reportes |
+| `med.salazar` | Médico | Pacientes, Historial de consultas, Reportes |
+| `nut.vilca` | Nutricionista | Pacientes, Historial de consultas, Reportes |
+| `coord.ortiz` | Coordinador CRED | Pacientes, Historial de consultas, Reportes, Parámetros clínicos, Auditoría |
+| `admin.cdss` | Administrador | Usuarios, Base de conocimiento, Parámetros clínicos, Auditoría |
 
-### Procesos fuera de línea
+El administrador no tiene acceso a los datos clínicos. El coordinador puede consultar y ver los pacientes, pero no registrarlos.
 
-El servicio `jobs` (indexador de guías) no arranca con el resto: se ejecuta bajo demanda con `docker compose run --rm jobs python -m app.<módulo>`.
+| Pantalla | Ruta | Permiso | Estado |
+| --- | --- | --- | --- |
+| M01 Inicio de sesión | `/login` | ninguno | Disponible |
+| M02 Panel de pacientes (indicadores del día) | `/pacientes` | registrar paciente o realizar consulta | Disponible |
+| M03 Registro del paciente | `/pacientes/nuevo` | REGISTRAR_PACIENTE | Disponible |
+| M08 Historial del paciente y evaluaciones realizadas | `/pacientes/:id/historial` | registrar paciente o realizar consulta | Disponible |
+| M14 Nuevo tamizaje | `/pacientes/:id/tamizajes/nuevo` | REGISTRAR_PACIENTE | Disponible |
+| M04 Consulta clínica, con avance por etapas | `/pacientes/:id/consulta` | REALIZAR_CONSULTA | Disponible |
+| M05 Resultado y M07 Evidencia insuficiente | `/consultas/:id` | REALIZAR_CONSULTA | Disponible |
+| M06 Datos faltantes y M15 Tamizaje no vigente | ventanas sobre M04 y M05 | REALIZAR_CONSULTA | Disponible |
+| Registrar decisión clínica | ventana sobre M05 y M07 | REALIZAR_CONSULTA | Disponible |
+| M10 Gestión de usuarios | `/admin/usuarios` | ADMINISTRAR_USUARIOS | Disponible |
+| M11 Base de conocimiento | `/admin/conocimiento` | ADMINISTRAR_GUIAS | Disponible («Retirar» en el Sprint 3) |
+| M09 Reporte exportable | `/reportes` | EXPORTAR_REPORTE | Sprint 3 |
+| M12 Parámetros clínicos | `/admin/parametros` | CONFIGURAR_PARAMETROS | Sprint 3 |
+| M13 Auditoría y trazabilidad | `/admin/auditoria` | VER_AUDITORIA | Sprint 3 |
 
-### Indexador y carga de las guías
+Quien no tiene el permiso de una pantalla vuelve al inicio. Los contratos de la API están en [`docs/contrato_consultas.md`](docs/contrato_consultas.md) (consultas) y [`docs/contrato_conocimiento.md`](docs/contrato_conocimiento.md) (M11).
+
+## Indexador de guías y M11
 
 Copie los 4 PDF a `./data/guias` (ver `data/README.md`) y, con el sistema levantado y los modelos descargados:
 
@@ -82,42 +132,31 @@ docker compose run --rm jobs python -m app.indexador comparar             # info
 docker compose run --rm jobs python -m app.indexador verificar-valores    # lista de comprobación de los valores críticos
 ```
 
-`--permitir-no-verificadas` es solo para desarrollo: las normas MINSA (nivel 1) solo quedan listas para producción cuando todas sus transcripciones están verificadas, y sin esa opción el indexador las rechaza. Volver a cargar el mismo archivo no duplica nada; `--reindexar` crea una versión nueva. Los comandos, las transcripciones y el mapa de modificaciones de la RM 429-2024/MINSA se explican en [`jobs/README.md`](jobs/README.md).
+- `--permitir-no-verificadas` es solo para desarrollo: sin esa opción, un documento de nivel 1 con transcripciones sin verificar queda en ERROR.
+- Volver a cargar el mismo archivo no duplica nada; `--reindexar` crea una versión de indexación nueva. `cdss_indexador` no tiene permiso de eliminación.
+- Las transcripciones de las tablas críticas van dentro de la imagen: después de editarlas, `docker compose build jobs` antes de indexar.
+- Estado actual: 4 guías de nivel 1 (NTS 213, RM 429, OMS 2024 y OMS 2016), versión 5, 202 fragmentos de la última versión y 183 vigentes. ChromaDB guarda los 202 vectores con su vigencia; la recuperación usa solo los vigentes.
 
-### Procesamiento de la consulta y recuperación
+**M11 (Base de conocimiento, `admin.cdss`):** lista las guías con su nivel, versión, fragmentos vigentes, citas de los últimos 30 días y estado; «Cargar guía» sube un PDF de **nivel 2** (metodológico: no se recupera ni se cita) y crea un trabajo que el servicio `indexador` procesa solo; la tarjeta de avance muestra las cinco etapas y se actualiza cada 3 s. Las guías de nivel 1 se cargan solo por línea de comandos, con transcripciones verificadas. Hay como máximo 2 trabajos activos a la vez.
 
-El código está en `backend/app/rag/` (secciones 4.2 y 4.3 de la guía OE2). Cada módulo recibe la sesión de base de datos como parámetro, para que el orquestador use la conexión que corresponde en cada nodo:
+> **Indexar retrasa las consultas** (pendiente P14): mientras se indexa, la recuperación de una consulta pasa de unos 4 s a unos 24 s. Cargue guías fuera del horario de atención.
 
-| Módulo | Qué hace | Conexión |
-| --- | --- | --- |
-| `dominio.py` | Filtro de dominio (2.1): reglas contra intentos de cambiar las instrucciones y similitud con 40 consultas de referencia (`dominio_referencia.yaml`) usando `UMBRAL_DOMINIO`, y regla de población fuera del alcance (incluidos los niños de 5 años o más). Resultado `FUERA_DE_DOMINIO` si no corresponde. | ninguna |
-| `validacion.py` | Datos mínimos (edad, sexo, altitud, hemoglobina y fecha del tamizaje) y vigencia del tamizaje con `DIAS_VIGENCIA_TAMIZAJE` (30 días se acepta, 31 no, salvo confirmación). Si falta `resultado_clasificacion`, lo calcula con `app/services/clasificacion.py` y lo guarda. Una edad fuera de 0 a 59 meses da `FUERA_DE_ALCANCE`. | `cdss_clinica` |
-| `consulta_estructurada.py` | `construir_consulta(contexto)`: consulta de recuperación armada con los datos estructurados del tamizaje (edad, clasificación y nivel de riesgo, altitud, antecedentes y síntomas). La usa el grafo de la parte D. | `cdss_generacion` |
-| `normalizacion.py` | Abreviaturas, sinónimos, descriptores MeSH y DeCS y equivalentes en inglés desde `diccionario_normalizacion.yaml`, sin UMLS (CUI vacío). | ninguna |
-| `bm25.py` | Índice léxico con los fragmentos recuperables (vigentes, nivel 1, documento VIGENTE, última versión), sin tildes, sin palabras vacías y con raíces en español e inglés. Se reconstruye cuando cambia la huella de la base de conocimiento. | `cdss_generacion` |
-| `recuperacion.py` | BM25 y ChromaDB, fusión RRF, comprobación en PostgreSQL, reranker, selección con `UMBRAL_RELEVANCIA` y búsqueda ampliada si no se alcanza. | `cdss_generacion` |
-| `parametros.py` | Parámetros vigentes de `parametro_sistema`, incluidos `CANDIDATOS_RERANKER` y `MAX_LONGITUD_RERANKER` (migración 004). Los valores definitivos (8 candidatos, 256 tokens, `UMBRAL_RELEVANCIA` 0,15 y `UMBRAL_DOMINIO` 0,65) se aplican con la migración 005 como versiones nuevas. | la del nodo |
+Comandos, transcripciones, el mapa de modificaciones de la RM 429-2024/MINSA y la medición del indexador: [`jobs/README.md`](jobs/README.md).
 
-Ningún módulo lee `asistencia.consulta.texto_consulta` ni `clinico.tamizaje.observaciones`: la recuperación usa `texto_filtrado` y datos estructurados. El alcance es el niño de 0 a 59 meses del CRED: las consultas sobre gestantes, puérperas, adolescentes y adultos quedan fuera del dominio. `consultas_validacion.yaml` es un conjunto de validación separado (15 consultas de recuperación y 30 del filtro de dominio) que no se usa para ajustar reglas ni umbrales, y `consultas_prueba.yaml` es el conjunto de prueba final (10 casos clínicos con la consulta de `construir_consulta` y 10 preguntas libres), que se mide una sola vez. La configuración del reranker y las mediciones de latencia están en [`docs/mediciones_sprint2.md`](docs/mediciones_sprint2.md).
+## Cómo funciona una consulta
 
-### Protección de datos, generación y verificación
+El grafo de LangGraph (`backend/app/rag/grafo.py`) recorre 8 nodos y transmite su avance por etapas (NDJSON) hasta M04:
 
-Código en `backend/app/rag/` (secciones 4.4 a 4.6 de la guía OE2). Hasta que llegue el grafo de LangGraph (parte D), `app/scripts/prueba_punta_a_punta.py` encadena las partes B y C con la conexión que corresponde a cada paso.
+1. **Validar** (con `cdss_clinica`): filtro de dominio, datos mínimos del tamizaje y vigencia de 30 días.
+2. **Clasificar:** clasificación de la hemoglobina ajustada por altitud y nivel de riesgo.
+3. **Normalizar:** abreviaturas, sinónimos y descriptores MeSH y DeCS, desde un diccionario local.
+4. **Recuperar** (con `cdss_generacion`): BM25 y ChromaDB, fusión RRF, bonificación por edad, reranker y umbral de relevancia; búsqueda ampliada si nada lo alcanza.
+5. **Proteger:** solicitud mínima con lista blanca, marcas en lugar de identificadores y control previo que bloquea el envío si aparece un dato del paciente.
+6. **Generar:** llamada al modelo con salida estructurada y el prompt versionado (`VERSION_PROMPT` v1.1).
+7. **Verificar:** citas, dosis, clasificación y umbral; un reintento si la respuesta no es válida.
+8. **Salida:** resultado guardado y eventos de auditoría.
 
-| Módulo | Qué hace | Conexión |
-| --- | --- | --- |
-| `filtro_texto.py` | Filtro del texto libre: reemplaza el nombre y los apellidos del paciente por [PACIENTE], el DNI y los números de 8 dígitos por [DNI], la historia clínica por [HC], los teléfonos por [TELEFONO], las fechas completas por [FECHA] y los nombres frecuentes de terceros (`nombres_frecuentes.yaml`, lista aproximada sin palabras comunes) por [NOMBRE]. Genera las huellas HMAC del paciente para el control previo, que solo viven en memoria, y decide el idioma de la respuesta. | `cdss_clinica` |
-| `proteccion.py` | Solicitud mínima con lista blanca explícita (Tabla 7), serialización canónica, SHA-256 y control previo: compara cada palabra y número de la solicitud, incluidos los fragmentos, con las huellas; una coincidencia bloquea el envío. | `cdss_generacion` |
-| `cliente_llm.py` | Cliente real (API de Anthropic, `max_retries` = 0; no se puede crear con `CDSS_ENTORNO=pruebas`) y cliente falso con respuestas programadas. | ninguna |
-| `generacion.py` | Messages API con salida estructurada (`esquema_respuesta.json`) y el prompt versionado (`prompts/clinico_v1.md`). Modelo, tokens, tiempo de espera, razonamiento, esfuerzo y precios salen de `parametro_sistema`; no se envía temperatura. | `cdss_generacion` |
-| `verificacion.py` | Controles 6.1 (citas y extractos, dosis, cifras de la traducción de apoyo y vigencia), 6.2 (clasificación, riesgo, tratamiento y derivación) y 6.3 (umbral y evidencia declarada), y decisión de la Tabla 10 con un único reintento. | la del nodo |
-| `registro.py` | Intentos, fragmentos recuperados, recomendación, citas y eventos de auditoría (SOLICITUD_BLOQUEADA, CONSULTA_PROCESADA). | `cdss_generacion` |
-
-Al modelo de lenguaje solo se le envían datos sintéticos. `claude-sonnet-5-5` no acepta temperatura y razona de forma adaptativa: la migración 006 agrega `RAZONAMIENTO_LLM` (`between_tools`) y `ESFUERZO_LLM` (`medium`) y la columna `intento_generacion.tokens_razonamiento`. El tiempo agotado, el rechazo del modelo y los errores de la API terminan la consulta en ERROR sin reintento, con el mensaje «No se pudo evaluar la consulta. Aplique su criterio clínico.». La clave `ANTHROPIC_API_KEY` va en `.env` (vacía por defecto en `docker-compose.yml`); CI no la define y ninguna prueba automática llama a la API. La confirmación de la API (`app/scripts/confirmar_api.py`) y la prueba de punta a punta se explican en [`docs/mediciones_sprint2.md`](docs/mediciones_sprint2.md).
-
-### Memoria
-
-Cada servicio tiene un límite (`mem_limit` en `docker-compose.yml`): `modelos` 5,5 GB, `db` y `chromadb` 0,75 GB cada uno, `backend` 0,5 GB, `nginx` 64 MB y `jobs` 0,75 GB. En total, 8,31 GB con el indexador en marcha; Docker necesita al menos 8,5 GB asignados. La exportación única del reranker a ONNX (`exportar-onnx`, bajo demanda) tiene un límite propio de 6 GB.
+El texto original de la consulta y las huellas del paciente solo viven en memoria. `cdss_generacion` no puede leer la identidad del paciente, el texto original ni las observaciones del tamizaje. El detalle por módulo está en `CLAUDE.md` (notas de trabajo) y en el código de `backend/app/rag/`.
 
 ## Desarrollo sin reconstruir contenedores
 
@@ -126,85 +165,94 @@ Con la base de datos y ChromaDB en Docker (`docker compose up -d db chromadb`):
 ```bash
 # Backend con recarga automática (http://localhost:8000/docs)
 cd backend
-python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+python -m venv .venv && source .venv/Scripts/activate   # Linux o macOS: .venv/bin/activate
 pip install -r requirements-dev.txt
 cp .env.test.example .env      # ajuste usuario, contraseña y host 127.0.0.1:5432 con los valores de ../.env
 uvicorn app.main:app --reload
 
 # Frontend con recarga automática (http://localhost:5173, /api va al backend)
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
 ## Pruebas
 
+**Backend** (necesita una base PostgreSQL de pruebas aparte, con el esquema aplicado por `db/aplicar_bd.sh`; en el equipo de desarrollo es el contenedor `cdss-pruebas-bd`, puerto 5433, que se arranca con `docker start cdss-pruebas-bd`):
+
 ```bash
 cd backend
-cp .env.test.example .env.test   # conexiones a la base de pruebas
+cp .env.test.example .env.test   # conexiones a la base de pruebas (incluidas TEST_DATABASE_URL_SUPER y DATABASE_URL_INDEXADOR)
 python -m app.scripts.seed_demo
-pytest -q
+pytest -q                        # 736 pruebas; excluye las marcas lenta y api_real
+pytest -q -m lenta               # PDF reales de data/guias y fragmentos indexados (no corren en CI)
+```
 
-# Pruebas lentas: PDF reales de data/guias y fragmentos indexados (no corren en CI)
-pytest -q -m lenta
-# Las de la recuperación necesitan los modelos reales y corren dentro de la red de Docker (ver jobs/README.md)
+Las pruebas de la recuperación con los modelos reales corren dentro de la red de Docker (ver [`jobs/README.md`](jobs/README.md)). Ninguna prueba automática llama a la API de Anthropic (marca `api_real`, nunca en CI).
 
-# Servicio de modelos, con el motor falso (sin PyTorch ni pesos descargados)
-cd modelos
-pip install -r requirements-dev.txt
-python -m pytest -q
+**Servicio de modelos** (motor falso, sin PyTorch ni pesos):
 
-# Frontend: Vitest con jsdom, sin backend (fetch simulado)
+```bash
+cd modelos && pip install -r requirements-dev.txt && python -m pytest -q
+```
+
+**Frontend** (Vitest 4 con jsdom, sin backend: fetch simulado):
+
+```bash
 cd frontend
 npm ci
-npm test                 # una corrida (vitest run); npx vitest para el modo observador
+npm test                 # 251 pruebas (vitest run)
 npm run build            # también comprueba los tipos de las pruebas
 ```
 
-Las pruebas del frontend están junto al código (`src/**/*.test.ts`) y usan los fixtures del contrato de consultas de `frontend/src/__fixtures__`, que genera `backend/tests/test_e0_fixtures.py`. Si el contrato cambia, se regeneran con `pytest tests/test_e0_fixtures.py` y luego se corre `npm test`.
+- Los fixtures del contrato de consultas (`frontend/src/__fixtures__`) los genera `backend/tests/test_e0_fixtures.py`; si el contrato cambia, se regeneran con `pytest tests/test_e0_fixtures.py` y luego se corre `npm test`.
+- `src/estilos.test.ts` comprueba reglas de la hoja de estilos contra desbordes horizontales, áreas táctiles de 44 px y contraste AA de las etiquetas.
+- Para cambiar dependencias del frontend use `npx -y npm@11.21.1 install` (npm 10.9.2 falla al resolver Vitest 4); `npm ci` funciona con npm 10.
 
-Las pruebas cubren: login correcto, mensaje genérico ante usuario o contraseña incorrectos, bloqueo tras 5 intentos fallidos, cuentas inactivas, permisos por rol, registro en la auditoría, separación de privilegios entre componentes, cifrado de la identidad del paciente, bitácora inmutable, unicidad de parámetros vigentes, cálculo de la edad en meses, idempotencia de las migraciones, permisos por columna de los componentes de generación e indexación, `generar_env.sh` y los endpoints del servicio de modelos, y del indexador: limpieza de páginas, tokens sospechosos del OCR, fragmentación 500/800/80, anclas de las modificaciones de la RM 429, transcripciones y valores críticos, consistencia entre PostgreSQL y ChromaDB, idempotencia por SHA-256 y reindexación por versiones, y de la recuperación: filtro de dominio e intentos de saltarse las instrucciones, datos mínimos y vigencia de 30 días, normalización, BM25 por idioma, fusión RRF, exclusión de fragmentos no vigentes, recomprobación en PostgreSQL, búsqueda ampliada y que ningún módulo lea el texto libre sin filtrar, y de la protección, generación y verificación: filtro del texto libre sin falsos positivos en cifras clínicas, bloqueo de identificadores en la consulta o en los fragmentos, lista blanca ante una columna nueva, hash reproducible, cada fila de la Tabla 10 (incluidos esquema inválido, respuesta cortada, tiempo agotado, rechazo y error de la API), controles de dosis y de cifras de la traducción, triggers de citas, que el cliente real no se pueda crear en pruebas y los 12 casos de punta a punta con el cliente falso. En el frontend cubren el lector NDJSON de las consultas: líneas partidas entre trozos, caracteres UTF-8 cortados, línea final sin salto, JSON inválido, eventos desconocidos, stream cortado, evento de error, errores 401, 404, 409 y 422, cancelación, plazo del cliente, recuperación del resultado tras un corte y los streams reales de los 7 estados. El flujo de GitHub Actions (`.github/workflows/ci.yml`) las ejecuta en cada push.
+GitHub Actions (`.github/workflows/ci.yml`) ejecuta el backend, el servicio de modelos y el frontend en cada push, con una base `postgres:16` (Debian).
 
 ## Estructura del repositorio
 
 ```
 backend/        API FastAPI
-  app/core/       configuración, conexiones por rol, seguridad, auditoría
-  app/api/        rutas (auth, salud, catálogos, pacientes, usuarios) y dependencias de permisos
-  app/services/   reglas del negocio (pacientes, clasificación, usuarios)
+  app/core/       configuración, conexiones por rol, seguridad, auditoría, cliente de modelos y almacén vectorial
+  app/api/        rutas (auth, salud, catálogos, pacientes, usuarios, consultas, conocimiento) y permisos
+  app/services/   reglas del negocio (pacientes, clasificación, usuarios, consultas, decisiones, conocimiento)
   app/rag/        filtro de dominio, validación, normalización, recuperación híbrida, protección de datos,
-                  generación y verificación (Sprint 2)
-  app/scripts/    seed_demo (usuarios y pacientes ficticios), mediciones, confirmación de la API y prueba de punta a punta
+                  generación, verificación y grafo de la consulta
+  app/indexador/  indexador de guías: extracción, transcripciones, mapa de modificaciones, fragmentación,
+                  grupos etarios, indexación y trabajador
+  app/scripts/    seed_demo, mediciones, confirmación de la API y prueba de punta a punta
   tests/          pruebas automáticas
 frontend/       React + Vite; Dockerfile con Nginx (único punto de entrada)
 db/
   init/           01 esquema (27 tablas), 02 catálogos, 03 usuarios de conexión, 04 migraciones
-  migraciones/    cambios idempotentes para bases existentes (001 a 007: Sprint 2)
+  migraciones/    cambios idempotentes para bases existentes (001 a 011: Sprint 2)
   sql/            usuarios de conexión con mínimo privilegio
   aplicar_bd.sh   aplica todo sobre una base nueva, o solo las migraciones (--solo-migraciones)
-modelos/        servicio interno de modelos locales (bge-m3 y bge-reranker-v2-m3); experimentos/ mide rerankers alternativos
-backend/app/indexador/  indexador de guías: extracción, transcripciones, mapa de modificaciones, fragmentación e indexación
-jobs/           documentación de los procesos fuera de línea (indexador, evaluación OE3 y respaldo)
-data/           guías en PDF, pesos de los modelos y mediciones (no se versiona, ver data/README.md)
-docs/           documentación del desarrollo
+modelos/        servicio interno de modelos locales; experimentos/ mide rerankers alternativos
+jobs/           documentación de los procesos fuera de línea
+data/           guías en PDF, pesos de los modelos, mediciones y respaldos (no se versiona, ver data/README.md)
+docs/           documentación del desarrollo (contratos, mediciones, cambios respecto al OE2, cierre del Sprint 2)
 ```
 
 ## Base de datos
 
 - **Esquema:** 27 tablas en 6 esquemas (`seguridad`, `clinico`, `asistencia`, `conocimiento`, `configuracion`, `auditoria`), triggers de integridad y vistas.
-- **Usuarios de conexión:** el backend usa un usuario por componente (`cdss_clinica`, `cdss_generacion`, `cdss_admin`, `cdss_auditor`) y el indexador usa `cdss_indexador`. El de generación no puede leer la identidad de los pacientes, el texto original de la consulta ni las observaciones del tamizaje; el indexador solo accede a la base de conocimiento.
+- **Usuarios de conexión:** un usuario por componente (`cdss_clinica`, `cdss_generacion`, `cdss_admin`, `cdss_auditor` y `cdss_indexador`). El de generación no puede leer la identidad de los pacientes, el texto original de la consulta ni las observaciones del tamizaje; el indexador y el administrador no acceden a los datos clínicos.
 - **Identidad del paciente:** nombre, DNI, historia clínica y dirección se cifran con pgcrypto (AES-256) usando `CDSS_CLAVE_PII`. El DNI y la historia clínica se guardan además como HMAC para buscarlos sin descifrar. **Guarde `CDSS_CLAVE_PII`: sin ella no se puede recuperar la identidad.**
-- **Catálogos iniciales:** roles y permisos, síntomas, distritos con altitud, puntos de corte de hemoglobina, ajuste por altitud y 25 parámetros del sistema vigentes.
-- **Migraciones:** `db/migraciones/` lleva una base existente al estado actual sin perder datos. Son idempotentes: se pueden aplicar varias veces.
+- **Auditoría:** `auditoria.evento_auditoria` no admite cambios ni eliminaciones.
+- **Catálogos iniciales:** roles y permisos, síntomas, distritos con altitud, puntos de corte de hemoglobina, ajuste por altitud y parámetros del sistema versionados.
+- **Migraciones:** `db/migraciones/` lleva una base existente al estado actual sin perder datos. Son idempotentes y se replican en `01_esquema.sql` y `02_catalogos.sql`.
 
 ```bash
 # Base local en Docker (PowerShell; en Git Bash anteponga MSYS_NO_PATHCONV=1 a cada comando)
-docker compose up -d db                                                         # recrea el contenedor con los montajes nuevos; el volumen de datos se conserva
+docker compose up -d db
 docker compose exec db bash /docker-entrypoint-initdb.d/04_migraciones.sh     # aplica las migraciones
-docker compose exec db bash /docker-entrypoint-initdb.d/03_usuarios_bd.sh     # crea los usuarios nuevos (cdss_indexador)
+docker compose exec db bash /docker-entrypoint-initdb.d/03_usuarios_bd.sh     # crea los usuarios nuevos
 ```
 
-> Los valores clínicos marcados con `[VERIFICAR]` en `db/init/02_catalogos.sql` (puntos de corte, ajuste por altitud, descriptores MeSH y altitud de distritos) deben contrastarse con el texto oficial de la NTS N.° 213-MINSA/DGIESP-2024 y la guía OMS 2024 antes de la validación con usuarios. Todos se pueden cambiar desde la pantalla de parámetros clínicos (M12).
+> Los valores clínicos marcados con `[VERIFICAR]` en `db/init/02_catalogos.sql` (puntos de corte, ajuste por altitud, descriptores MeSH y altitud de distritos) deben contrastarse con el texto oficial de la NTS N.° 213-MINSA/DGIESP-2024 y la guía OMS 2024 antes de la validación con usuarios.
 
 ### En Azure Database for PostgreSQL - Servidor flexible
 
@@ -219,9 +267,20 @@ export CDSS_DB_PWD_INDEXADOR=<...>
 ./db/aplicar_bd.sh --solo-migraciones    # base existente: aplica las migraciones y crea los usuarios nuevos
 ```
 
+Las mejoras pendientes para el despliegue en Azure están en [`docs/mejoras_despliegue.md`](docs/mejoras_despliegue.md).
+
+## Qué queda para el Sprint 3
+
+- **HU17:** retirar guías desde M11 y cargar guías de nivel 1 con revisión («Aprobar»), con el recorte de márgenes por documento.
+- **M09** reporte exportable (incluido «Exportar reporte» en M05), **M12** parámetros clínicos y **M13** auditoría y trazabilidad (historias HU10, HU13 y HU14 del Sprint 3).
+- Consultas de seguimiento encadenadas y una lista de todas las consultas del usuario (P9 y P10).
+- Respaldo del índice de ChromaDB y despliegue en Azure.
+
+Antes de la evaluación del OE3 y del despliegue quedan la recuperación de la Tabla N° 4 de la RM 429 (P4) y la prioridad de las consultas frente a la indexación (P14). La lista completa, con su dueño y fecha prevista, está en [`docs/cierre_sprint2.md`](docs/cierre_sprint2.md).
+
 ## Seguridad en desarrollo
 
-- `.env` nunca se sube al repositorio (está en `.gitignore`). En Azure, los secretos van en Key Vault.
+- `.env` nunca se sube al repositorio (está en `.gitignore`); solo `.env.example`. En Azure, los secretos van en Key Vault.
 - Las contraseñas se guardan con Argon2id y los tokens JWT duran 8 horas.
-- Todos los inicios de sesión, exitosos o no, quedan en `auditoria.evento_auditoria`, que no admite cambios ni eliminaciones.
+- Todos los inicios de sesión, exitosos o no, quedan en `auditoria.evento_auditoria`.
 - Durante el desarrollo, el modelo de lenguaje solo recibe datos sintéticos.

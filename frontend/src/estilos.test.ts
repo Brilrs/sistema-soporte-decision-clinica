@@ -207,6 +207,19 @@ describe("estilos · desbordes horizontales", () => {
                          ".etiqueta--indexacion-PENDIENTE", ".etiqueta--indexacion-EN_PROCESO", ".etiqueta--indexacion-ERROR"]) {
       expect(contraste(color(valor(clase, "color")), color(valor(clase, "background"))), clase).toBeGreaterThanOrEqual(4.5);
     }
+    // «Retirar» deshabilitado (aria-disabled, y también con disabled): gris, sin el rojo de una acción
+    // disponible, sin opacidad que baje el contraste del texto y con el cursor de no permitido.
+    for (const sel of ['.boton--peligro[aria-disabled="true"]', ".boton--peligro:disabled"]) {
+      const texto = valor(sel, "color");
+      const fondo = valor(sel, "background");
+      expect([texto, fondo, valor(sel, "border-color")], sel).not.toContain("var(--rojo)");
+      expect(contraste(color(texto), color(fondo)), sel).toBeGreaterThanOrEqual(4.5);
+      expect(valor(sel, "opacity"), sel).toBe("1");
+      expect(valor(sel, "cursor"), sel).toBe("not-allowed");
+    }
+    // La regla del botón de peligro deshabilitado va después de la general, para ganarle a su opacidad.
+    const posicion = (s: string) => REGLAS.findIndex((r) => r.media === null && selectores(r).includes(s));
+    expect(posicion(".boton--peligro:disabled")).toBeGreaterThan(posicion(".boton:disabled"));
   });
 
   // Un grid-area global sobre una tarjeta compartida (la de riesgo también se usa en

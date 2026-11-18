@@ -192,6 +192,11 @@ input:disabled, input[readonly] { background: var(--gris-100); color: var(--gris
 }
 .boton--auto { width: auto; }
 .boton--peligro { background: var(--blanco); color: var(--rojo); border: 1px solid var(--rojo); }
+/* Deshabilitado: gris y sin el rojo de una acción disponible. Sin opacidad, para que el texto
+   mantenga el contraste de 4.5:1 sobre su fondo (M11, «Retirar» hasta el Sprint 3). */
+.boton--peligro:disabled, .boton--peligro[aria-disabled="true"] {
+  background: var(--gris-100); color: var(--gris-600); border-color: var(--gris-300); opacity: 1; cursor: not-allowed;
+}
 .usuarios { display: grid; grid-template-columns: minmax(0, 3fr) minmax(300px, 2fr); gap: 1.25rem; align-items: start; }
 .usuarios .tarjeta { margin-top: 1.25rem; }
 .panel-usuario h2 { margin-bottom: 0; }
