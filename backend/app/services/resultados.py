@@ -151,8 +151,12 @@ _INTENTOS = """
 """
 _CITAS = """
     SELECT r.etiqueta_cita, ce.texto_citado, ce.extracto_traducido, d.codigo_documento, d.titulo, d.idioma,
-           f.seccion, f.pagina_inicio, f.pagina_fin, r.puntaje_reranker
+           f.seccion, f.pagina_inicio, f.pagina_fin, r.puntaje_reranker, r.origen,
+           (SELECT e ->> 'agregado_por_referencia_de'
+              FROM jsonb_array_elements(i.solicitud_enviada -> 'evidencia') e
+             WHERE e ->> 'etiqueta' = r.etiqueta_cita) AS agregado_por_referencia_de
       FROM asistencia.cita_evidencia ce
+      JOIN asistencia.intento_generacion i ON i.id_intento = ce.id_intento
       JOIN asistencia.fragmento_recuperado r ON r.id_intento = ce.id_intento AND r.id_fragmento = ce.id_fragmento
       JOIN conocimiento.fragmento f ON f.id_fragmento = ce.id_fragmento
       JOIN conocimiento.documento_fuente d ON d.id_documento = f.id_documento
@@ -184,7 +188,8 @@ def parte_generacion(sesion: Session | Connection, id_consulta: str) -> dict:
               "etiqueta_traduccion": g.ETIQUETA_TRADUCCION if c.extracto_traducido else None,
               "fuente": c.codigo_documento, "documento": c.titulo, "seccion": c.seccion,
               "pagina_inicio": c.pagina_inicio, "pagina_fin": c.pagina_fin, "idioma": c.idioma,
-              "puntaje_reranker": _numero(c.puntaje_reranker)}
+              "puntaje_reranker": _numero(c.puntaje_reranker), "origen": c.origen,
+              "agregado_por_referencia_de": c.agregado_por_referencia_de if c.origen == "PUNTERO" else None}
              for c in sesion.execute(text(_CITAS), {"i": fila.id_intento})]
     recomendacion = None if respuesta is None else {
         campo: respuesta.get(campo) for campo in ("resumen", "recomendacion", "advertencias", "factores_identificados")}

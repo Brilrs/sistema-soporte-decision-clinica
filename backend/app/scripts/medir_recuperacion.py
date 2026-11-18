@@ -27,10 +27,16 @@ edad: recuperación real (recuperar, con el reranker y el umbral vigentes) de la
 consultas de ajuste (R) y de validación (V) para cada peso de --pesos de la
 bonificación por edad, en memoria y sin tocar la base; la edad sale del texto de la
 consulta. Da los aciertos en el top 5 y la posición del primer fragmento esperado.
+calendario: parte G (pendiente P4). Conjunto de aceptación del calendario de control de
+hemoglobina (consultas_calendario.yaml, con su huella SHA-256) y las 20 consultas de
+referencia, con la recuperación real como en el grafo: fila correcta entre los enviados,
+puntero «según Tabla N° 4» sin la tabla, Tabla N° 20 en las de tratamiento y latencia del
+reranker (p50 y p90).
 El informe en Markdown se arma con app.scripts.informe_recuperacion."""
 import argparse
 import json
 import os
+import re
 import sys
 import time
 from dataclasses import replace
@@ -44,9 +50,11 @@ from app.rag.bm25 import CONDICION_RECUPERABLE, CacheBM25, terminos_consulta
 from app.rag.dominio import FiltroDominio, edad_mencionada_meses
 from app.rag.normalizacion import normalizar
 from app.rag.parametros import parametros_recuperacion
-from app.rag.recuperacion import FILTRO_VECTORIAL, Servicios, buscar_candidatos, recuperar, seleccionar, signo_edad
-from app.rag.referencias import (PRUEBA, VALIDACION, cargar_conjunto_prueba, cargar_consultas_latencia,
-                                 cargar_consultas_referencia, cargar_validacion_dominio)
+from app.rag.recuperacion import (FILTRO_VECTORIAL, Servicios, buscar_candidatos, recuperar, recuperar_con_ampliacion,
+                                  seleccionar, signo_edad)
+from app.rag.referencias import (CALENDARIO, NTS213, PRUEBA, RM429, VALIDACION, cargar_conjunto_calendario,
+                                 cargar_conjunto_prueba, cargar_consultas_latencia, cargar_consultas_referencia,
+                                 cargar_validacion_dominio, huella_archivo)
 from app.scripts.variantes_recuperacion import ACTUAL, evaluados, rejilla, rejilla_edad
 
 LONGITUDES = (1024, 512, 384, 256)
@@ -299,6 +307,69 @@ def cmd_edad(args, motor, cliente) -> dict:
     return salida
 
 
+_PUNTERO_TABLA_4 = re.compile(r"según\s+Tabla\s+N\s*[°º]\s*4\b", re.IGNORECASE)
+_TITULO_TABLA_4 = "Medición de hemoglobina por grupo de edad durante la suplementación"
+
+
+def puntero_sin_tabla(enviados: list) -> bool:
+    """Se envía el puntero «según Tabla N° 4» de la NTS 213 sin la Tabla N° 4 de la RM 429. Es una
+    comprobación independiente de la regla de app/rag/punteros.yaml, para medir su efecto."""
+    con_puntero = any(f.codigo_documento == NTS213 and _PUNTERO_TABLA_4.search(f.texto) for f in enviados)
+    con_tabla = any(f.codigo_documento == RM429 and _TITULO_TABLA_4 in f.texto for f in enviados)
+    return con_puntero and not con_tabla
+
+
+def _percentil(valores: list[float], q: float) -> float | None:
+    if not valores:
+        return None
+    orden = sorted(valores)
+    k = (len(orden) - 1) * q
+    i = int(k)
+    return round(orden[i] + (orden[min(i + 1, len(orden) - 1)] - orden[i]) * (k - i), 1)
+
+
+def cmd_calendario(args, motor, cliente) -> dict:
+    """Parte G: conjunto de aceptación del calendario de control de hemoglobina y las 20 consultas
+    de referencia, con la recuperación real (recuperar_con_ampliacion, como el grafo) y los
+    parámetros vigentes. Cuenta los fragmentos enviados al modelo (seleccionados)."""
+    servicios = _servicios(cliente)
+    calendario = cargar_conjunto_calendario()
+    referencias = cargar_consultas_referencia()
+    salida = {"tipo": "calendario", **_entorno(cliente, args.entorno), "huella_conjunto": huella_archivo(CALENDARIO),
+              "consultas": {}}
+    with motor.connect() as c:
+        p = parametros_recuperacion(c)
+        for texto in cargar_consultas_latencia()[:args.calentamiento]:
+            recuperar(c, normalizar(texto), servicios, p)
+        tiempos = []
+        casos = [(q.id, q.consulta, q.edad_meses, q) for q in calendario] + \
+                [(r.id, r.consulta, edad_mencionada_meses(r.consulta), r) for r in referencias]
+        for id_, texto, edad, ref in casos:
+            pasadas = recuperar_con_ampliacion(c, normalizar(texto), servicios, p, edad)
+            r = pasadas[-1]
+            enviados = r.seleccionados
+            tiempos += [x.tiempos_ms.get("reranker", 0.0) for x in pasadas]
+            fila = {"edad_meses": edad, "tipo": getattr(ref, "tipo", "REFERENCIA"), "acierta": any(ref.acierta(f) for f in enviados),
+                    "puntero_sin_tabla": puntero_sin_tabla(enviados), "pasadas": len(pasadas),
+                    "enviados": [{"documento": f.codigo_documento, "seccion": (f.seccion or "")[:90],
+                                  "puntaje_reranker": f.puntaje_reranker, "origen": getattr(f, "origen", "RERANKER")}
+                                 for f in enviados],
+                    "reranker_ms": [x.tiempos_ms.get("reranker") for x in pasadas]}
+            salida["consultas"][id_] = fila
+            _avance(f"{id_}: acierta {fila['acierta']}, puntero sin tabla {fila['puntero_sin_tabla']}")
+    cons = salida["consultas"]
+
+    def resumen(tipo: str) -> dict:
+        filas = {k: v for k, v in cons.items() if v["tipo"] == tipo}
+        return {"aciertos": sum(v["acierta"] for v in filas.values()), "total": len(filas),
+                "fallan": sorted(k for k, v in filas.items() if not v["acierta"]),
+                "punteros_sin_tabla": sorted(k for k, v in filas.items() if v["puntero_sin_tabla"])}
+    salida["resumen"] = {t: resumen(t) for t in ("CALENDARIO", "TRATAMIENTO", "REFERENCIA")}
+    salida["resumen"]["reranker_ms"] = {"p50": _percentil(tiempos, 0.5), "p90": _percentil(tiempos, 0.9), "n": len(tiempos)}
+    _avance(json.dumps(salida["resumen"], ensure_ascii=False))
+    return salida
+
+
 def cmd_dominio(args, motor, cliente) -> dict:
     from app.rag.dominio import es_manipulacion
     filtro = FiltroDominio(EmbedderHttp(cliente))
@@ -349,10 +420,12 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("edad")
     p.add_argument("--pesos", type=lambda t: [float(x) for x in t.split(",")], default=[0.0, 0.1, 0.3, 0.5, 0.7],
                    help="pesos de la bonificación por edad, separados por comas (de 0 a 1)")
+    p = sub.add_parser("calendario", help="conjunto de aceptación del calendario de Hb y las 20 de referencia (parte G)")
+    p.add_argument("--calentamiento", type=int, default=2)
     p = sub.add_parser("dominio")
     p.add_argument("--conjunto", choices=["ajuste", "validacion"], default="ajuste",
                    help="consultas usadas para calibrar o el conjunto de validación")
-    for nombre in ("calidad", "latencia", "dominio", "rankings", "edad"):
+    for nombre in ("calidad", "latencia", "dominio", "rankings", "edad", "calendario"):
         sub.choices[nombre].add_argument("--entorno", default="normal")
     args = parser.parse_args(argv)
 
@@ -360,7 +433,7 @@ def main(argv: list[str] | None = None) -> int:
     motor = create_engine(s.database_url_generacion)
     cliente = ClienteModelos(s.modelos_url, timeout_s=1800)
     comandos = {"calidad": cmd_calidad, "latencia": cmd_latencia, "dominio": cmd_dominio, "rankings": cmd_rankings,
-                "edad": cmd_edad}
+                "edad": cmd_edad, "calendario": cmd_calendario}
     json.dump(comandos[args.comando](args, motor, cliente), sys.stdout, ensure_ascii=False, indent=1)
     return 0
 

@@ -396,6 +396,9 @@ a.cita-enlace:focus-visible { outline: 2px solid var(--azul-600); outline-offset
 .tabla-citas__fuente { font-size: .85rem; min-width: 12rem; }
 .tabla-citas__fuente > * { display: block; }
 .tabla-citas__relevancia { font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Fragmento agregado por un puntero (parte G): el rótulo baja de línea en la columna angosta. */
+.tabla-citas__agregado { display: block; white-space: normal; overflow-wrap: anywhere; max-width: 8rem;
+  font-size: .8rem; color: var(--gris-700); margin-top: .2rem; }
 
 .verificacion { list-style: none; padding: 0; margin: 0; display: grid; gap: .7rem; }
 .verificacion__control { display: flex; gap: .7rem; align-items: flex-start; font-size: .92rem; }

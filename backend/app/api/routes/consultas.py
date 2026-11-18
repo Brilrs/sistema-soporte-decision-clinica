@@ -104,6 +104,11 @@ class Cita(BaseModel):
     pagina_fin: int | None = None
     idioma: str
     puntaje_reranker: float | None = Field(None, description="Relevancia del fragmento según el reranker (0 a 1)")
+    origen: Literal["RERANKER", "PUNTERO"] = Field(
+        "RERANKER", description="RERANKER: seleccionado por el reranker; PUNTERO: agregado porque otro fragmento enviado "
+                                "remite a esta tabla (punteros.yaml)")
+    agregado_por_referencia_de: str | None = Field(
+        None, description="Con origen PUNTERO, etiqueta del fragmento enviado que contiene el puntero")
 
 
 class Intento(BaseModel):

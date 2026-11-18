@@ -1,0 +1,110 @@
+# Conjunto de aceptación del calendario de control de hemoglobina (Sprint 2, parte G, pendiente
+# P4). Congelado el 17/11/2026, antes de cambiar el código; su SHA-256 (contenido con fin de
+# línea LF) está en docs/mediciones_sprint2.md, parte G. No se edita después de medir la línea
+# base: si hace falta otro conjunto, se escribe uno nuevo con otra huella.
+#
+# Se escribió a partir de la Tabla N° 4 de la RM 429-2024/MINSA (medición de hemoglobina por
+# grupo de edad durante la suplementación) y de la Tabla N° 20 de la NTS 213 (control de
+# hemoglobina en el tratamiento), sin abrir el conjunto de prueba, el de validación, los casos
+# de punta a punta ni los casos del OE3. Las consultas de diagnóstico D01 a D08 de la fase 1 son
+# de desarrollo y no están aquí. Todas son sintéticas.
+#
+# Mitad preguntas libres (consulta) y mitad consultas estructuradas (contexto, que se convierte
+# con construir_consulta, como en el grafo). edad_meses es la edad que usa la bonificación por
+# edad (en el grafo sale del tamizaje).
+#
+# Criterio de acierto, sobre los fragmentos enviados al modelo (hasta 5):
+#   CALENDARIO: algún fragmento de la RM 429 contiene la fila de la Tabla N° 4 de esa edad
+#               (fila: el texto de la primera celda, entre «| » y « |»).
+#   TRATAMIENTO: algún fragmento de la NTS 213 contiene el título de la Tabla N° 20.
+
+consultas:
+  # Calendario, preguntas libres
+  - id: A01
+    tipo: CALENDARIO
+    edad_meses: 7
+    fila: "6 a 11 meses de edad"
+    consulta: Lactante de 7 meses que empezó a tomar gotas de hierro preventivo, ¿en qué momentos le toca dosaje de hemoglobina?
+  - id: A02
+    tipo: CALENDARIO
+    edad_meses: 11
+    fila: "6 a 11 meses de edad"
+    consulta: Para una niña de 11 meses en suplementación con hierro, ¿cuántos controles de hemoglobina se programan y cuándo?
+  - id: A03
+    tipo: CALENDARIO
+    edad_meses: 16
+    fila: "12 a 23 meses de edad"
+    consulta: ¿Qué mediciones de hemoglobina corresponden a un niño de 16 meses mientras recibe micronutrientes con hierro?
+  - id: A04
+    tipo: CALENDARIO
+    edad_meses: 26
+    fila: "24 a 35 meses de edad"
+    consulta: En un niño de 26 meses que inicia la suplementación, ¿cuándo se mide la hemoglobina antes y después?
+  - id: A05
+    tipo: CALENDARIO
+    edad_meses: 33
+    fila: "24 a 35 meses de edad"
+    consulta: Frecuencia del tamizaje de hemoglobina al año en una niña de 33 meses con suplementación preventiva
+  - id: A06
+    tipo: CALENDARIO
+    edad_meses: 45
+    fila: "36-59 meses de edad"
+    consulta: Niño de 45 meses, ¿cuántas veces al año se le dosa la hemoglobina durante la suplementación con hierro?
+
+  # Calendario, consultas estructuradas
+  - id: A07
+    tipo: CALENDARIO
+    edad_meses: 6
+    fila: "6 a 11 meses de edad"
+    contexto: {edad_meses: 6, categoria: SIN_ANEMIA, nivel_riesgo: BAJO, hb_ajustada_g_dl: 11.4,
+               recibe_suplementacion_hierro: false, lactancia_materna_actual: true}
+  - id: A08
+    tipo: CALENDARIO
+    edad_meses: 10
+    fila: "6 a 11 meses de edad"
+    contexto: {edad_meses: 10, categoria: SIN_ANEMIA, nivel_riesgo: MODERADO, hb_ajustada_g_dl: 11.1,
+               recibe_suplementacion_hierro: true, bajo_peso_nacer: true, prematuro: true}
+  - id: A09
+    tipo: CALENDARIO
+    edad_meses: 13
+    fila: "12 a 23 meses de edad"
+    contexto: {edad_meses: 13, categoria: SIN_ANEMIA, nivel_riesgo: BAJO, hb_ajustada_g_dl: 11.9,
+               recibe_suplementacion_hierro: true}
+  - id: A10
+    tipo: CALENDARIO
+    edad_meses: 22
+    fila: "12 a 23 meses de edad"
+    contexto: {edad_meses: 22, categoria: SIN_ANEMIA, nivel_riesgo: BAJO, hb_ajustada_g_dl: 12.3,
+               recibe_suplementacion_hierro: false, bajo_peso_nacer: true}
+  - id: A11
+    tipo: CALENDARIO
+    edad_meses: 30
+    fila: "24 a 35 meses de edad"
+    contexto: {edad_meses: 30, categoria: SIN_ANEMIA, nivel_riesgo: BAJO, hb_ajustada_g_dl: 12.0,
+               recibe_suplementacion_hierro: true}
+  - id: A12
+    tipo: CALENDARIO
+    edad_meses: 59
+    fila: "36-59 meses de edad"
+    contexto: {edad_meses: 59, categoria: SIN_ANEMIA, nivel_riesgo: BAJO, hb_ajustada_g_dl: 12.6,
+               recibe_suplementacion_hierro: false}
+
+  # Tratamiento (deben llevar a la Tabla N° 20, no a la N° 4)
+  - id: A13
+    tipo: TRATAMIENTO
+    edad_meses: 18
+    consulta: Niño de 18 meses en tratamiento con hierro por anemia leve, ¿cada cuánto se repite el control de hemoglobina?
+  - id: A14
+    tipo: TRATAMIENTO
+    edad_meses: 40
+    consulta: Una niña de 40 meses con anemia moderada ya recibe sulfato ferroso, ¿en qué meses del tratamiento se controla la hemoglobina?
+  - id: A15
+    tipo: TRATAMIENTO
+    edad_meses: 9
+    contexto: {edad_meses: 9, categoria: ANEMIA_LEVE, nivel_riesgo: MODERADO, hb_ajustada_g_dl: 10.2,
+               recibe_suplementacion_hierro: true}
+  - id: A16
+    tipo: TRATAMIENTO
+    edad_meses: 28
+    contexto: {edad_meses: 28, categoria: ANEMIA_MODERADA, nivel_riesgo: ALTO, hb_ajustada_g_dl: 8.9,
+               recibe_suplementacion_hierro: false}

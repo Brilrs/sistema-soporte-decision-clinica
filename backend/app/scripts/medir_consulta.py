@@ -64,7 +64,7 @@ _INTENTOS = """
       FROM asistencia.intento_generacion WHERE id_consulta = CAST(:c AS uuid) ORDER BY numero_intento
 """
 _ENVIADOS = """
-    SELECT r.etiqueta_cita, d.codigo_documento, f.seccion, r.puntaje_reranker
+    SELECT r.etiqueta_cita, d.codigo_documento, f.seccion, r.puntaje_reranker, r.origen
       FROM asistencia.fragmento_recuperado r
       JOIN conocimiento.fragmento f ON f.id_fragmento = r.id_fragmento
       JOIN conocimiento.documento_fuente d ON d.id_documento = f.id_documento
@@ -80,7 +80,8 @@ def detalle_intentos(motor, id_consulta: str) -> list[dict]:
             fila = {k: (float(v) if k in ("costo_usd", "relevancia_maxima") and v is not None else v)
                     for k, v in i.items() if k != "id_intento"}
             fila["enviados"] = [{"etiqueta": e.etiqueta_cita, "documento": e.codigo_documento, "seccion": e.seccion,
-                                 "puntaje_reranker": None if e.puntaje_reranker is None else float(e.puntaje_reranker)}
+                                 "puntaje_reranker": None if e.puntaje_reranker is None else float(e.puntaje_reranker),
+                                 "origen": e.origen}
                                 for e in c.execute(text(_ENVIADOS), {"i": i["id_intento"]})]
             salida.append(fila)
     return salida

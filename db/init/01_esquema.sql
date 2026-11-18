@@ -641,24 +641,30 @@ CREATE INDEX ix_intento_generacion_id_consulta ON asistencia.intento_generacion 
 CREATE TABLE asistencia.fragmento_recuperado (
   id_intento UUID NOT NULL REFERENCES asistencia.intento_generacion (id_intento),
   id_fragmento UUID NOT NULL REFERENCES conocimiento.fragmento (id_fragmento),
-  posicion_rrf SMALLINT NOT NULL,
-  puntaje_rrf NUMERIC(6,5) NOT NULL,
+  posicion_rrf SMALLINT,
+  puntaje_rrf NUMERIC(6,5),
   puntaje_reranker NUMERIC(4,3),
   posicion_final SMALLINT,
   enviado_al_llm BOOLEAN NOT NULL DEFAULT false,
   etiqueta_cita VARCHAR(8),
+  origen VARCHAR(10) NOT NULL DEFAULT 'RERANKER',
   PRIMARY KEY (id_intento, id_fragmento),
-  UNIQUE (id_intento, etiqueta_cita)
+  UNIQUE (id_intento, etiqueta_cita),
+  CONSTRAINT fragmento_recuperado_origen_check
+    CHECK (origen IN ('RERANKER', 'PUNTERO') AND (origen = 'RERANKER' OR enviado_al_llm)),
+  CONSTRAINT fragmento_recuperado_rrf_check
+    CHECK (origen = 'PUNTERO' OR (posicion_rrf IS NOT NULL AND puntaje_rrf IS NOT NULL))
 );
 COMMENT ON TABLE asistencia.fragmento_recuperado IS 'Fragmentos candidatos obtenidos en cada intento, con sus posiciones y puntajes de la fusión RRF y del reranker. Los cinco mejor puntuados se marcan como enviados al LLM y reciben una etiqueta de cita.';
 COMMENT ON COLUMN asistencia.fragmento_recuperado.id_intento IS 'Intento en el que se recuperó el fragmento.';
 COMMENT ON COLUMN asistencia.fragmento_recuperado.id_fragmento IS 'Fragmento recuperado.';
-COMMENT ON COLUMN asistencia.fragmento_recuperado.posicion_rrf IS 'Posición tras la fusión Reciprocal Rank Fusion (3.3).';
-COMMENT ON COLUMN asistencia.fragmento_recuperado.puntaje_rrf IS 'Puntaje de la fusión RRF.';
+COMMENT ON COLUMN asistencia.fragmento_recuperado.posicion_rrf IS 'Posición tras la fusión Reciprocal Rank Fusion (3.3); NULL solo en un fragmento con origen PUNTERO que no era candidato.';
+COMMENT ON COLUMN asistencia.fragmento_recuperado.puntaje_rrf IS 'Puntaje de la fusión RRF; NULL solo en un fragmento con origen PUNTERO que no era candidato.';
 COMMENT ON COLUMN asistencia.fragmento_recuperado.puntaje_reranker IS 'Puntaje del reranker clínico (3.4); NULL si el candidato no pasó por el reranker.';
 COMMENT ON COLUMN asistencia.fragmento_recuperado.posicion_final IS 'Posición tras el reranking; NULL si el candidato no pasó por el reranker.';
 COMMENT ON COLUMN asistencia.fragmento_recuperado.enviado_al_llm IS 'Indica si el fragmento formó parte del top-5 enviado.';
 COMMENT ON COLUMN asistencia.fragmento_recuperado.etiqueta_cita IS 'Etiqueta asignada al fragmento enviado (p. ej., F-12).';
+COMMENT ON COLUMN asistencia.fragmento_recuperado.origen IS 'RERANKER (seleccionado por la recuperación) o PUNTERO (agregado porque otro fragmento enviado remite a esa tabla, backend/app/rag/punteros.yaml).';
 CREATE INDEX ix_fragmento_recuperado_id_fragmento ON asistencia.fragmento_recuperado (id_fragmento);
 
 -- ---------------------------------------------------------------------------
@@ -854,7 +860,8 @@ SELECT q.id_consulta, q.fecha_hora_inicio, u.nombre_usuario, q.estado, q.numero_
        i.costo_usd, i.solicitud_enviada, i.valida_citas, i.valida_consistencia, i.valida_evidencia,
        i.resultado,
        (SELECT jsonb_agg(jsonb_build_object('etiqueta', f.etiqueta_cita,
-                                            'puntaje', f.puntaje_reranker) ORDER BY f.posicion_final)
+                                            'puntaje', f.puntaje_reranker,
+                                            'origen', f.origen) ORDER BY f.etiqueta_cita)
           FROM asistencia.fragmento_recuperado f
          WHERE f.id_intento = i.id_intento AND f.enviado_al_llm) AS fragmentos_enviados
 FROM asistencia.consulta q

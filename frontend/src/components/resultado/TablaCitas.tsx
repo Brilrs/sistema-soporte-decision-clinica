@@ -24,6 +24,14 @@ export function ordenarPorEtiqueta(citas: Cita[]): Cita[] {
     || a.etiqueta.localeCompare(b.etiqueta));
 }
 
+// Un fragmento agregado por un puntero («según Tabla N° 4») no tiene relevancia propia: la celda
+// muestra VACIO y el rótulo con la etiqueta del fragmento que remite a él.
+export function rotuloAgregado(c: Cita): string {
+  return c.agregado_por_referencia_de
+    ? `Agregado por referencia de ${c.agregado_por_referencia_de}`
+    : "Agregado por referencia";
+}
+
 type Props = { citas: Cita[]; resaltada: string | null };
 
 export default function TablaCitas({ citas, resaltada }: Props) {
@@ -62,7 +70,14 @@ export default function TablaCitas({ citas, resaltada }: Props) {
                   {c.seccion && <span>{c.seccion}</span>}
                   {pags && <span className="texto-tenue">{pags}</span>}
                 </td>
-                <td className="tabla-citas__relevancia">{c.puntaje_reranker === null ? VACIO : decimal(c.puntaje_reranker, 3)}</td>
+                <td className="tabla-citas__relevancia">
+                  {c.origen === "PUNTERO" ? (
+                    <>
+                      <span aria-hidden="true">{VACIO}</span>
+                      <span className="tabla-citas__agregado">{rotuloAgregado(c)}</span>
+                    </>
+                  ) : c.puntaje_reranker === null ? VACIO : decimal(c.puntaje_reranker, 3)}
+                </td>
               </tr>
             );
           })}

@@ -74,9 +74,10 @@ def guardar_fragmentos(sesion: Session | Connection, id_intento: str, recuperaci
         sesion.execute(text(
             """INSERT INTO asistencia.fragmento_recuperado
                  (id_intento, id_fragmento, posicion_rrf, puntaje_rrf, puntaje_reranker, posicion_final,
-                  enviado_al_llm, etiqueta_cita)
-               VALUES (CAST(:i AS uuid), CAST(:f AS uuid), :prrf, :rrf, :rr, :pf, :env, :et)"""
-        ), {"i": id_intento, "f": f.id_fragmento, "prrf": f.posicion_rrf, "rrf": round(f.puntaje_rrf, 5),
+                  enviado_al_llm, etiqueta_cita, origen)
+               VALUES (CAST(:i AS uuid), CAST(:f AS uuid), :prrf, :rrf, :rr, :pf, :env, :et, :origen)"""
+        ), {"i": id_intento, "f": f.id_fragmento, "prrf": f.posicion_rrf, "origen": f.origen,
+            "rrf": None if f.puntaje_rrf is None else round(f.puntaje_rrf, 5),
             "rr": None if f.puntaje_reranker is None else round(f.puntaje_reranker, 3), "pf": f.posicion_final,
             "env": f.id_fragmento in etiquetas, "et": etiquetas.get(f.id_fragmento)})
 

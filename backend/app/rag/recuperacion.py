@@ -18,6 +18,10 @@
    la consulta con los sinónimos y equivalentes en inglés del diccionario.
 6. Antes de devolver, los candidatos evaluados se vuelven a comprobar contra
    PostgreSQL y se descartan los que dejaron de ser recuperables mientras tanto.
+7. Punteros (parte G, punteros.yaml): si un fragmento enviado remite a una tabla de otro
+   documento («según Tabla N° 4») y esa tabla no está entre los enviados, se agrega con origen
+   PUNTERO en lugar del último enviado (como máximo uno por intento y de hasta 600 tokens). No
+   cambia los puntajes del reranker, la relevancia máxima ni la suficiencia (6.3).
 
 Para el registro, el resultado lleva además los candidatos de la fusión que siguen a
 los evaluados hasta completar CANDIDATOS_REGISTRADOS (20), sin puntaje del reranker ni
@@ -38,6 +42,7 @@ from app.core.vectores import AlmacenVectorial
 from app.rag.bm25 import CONDICION_RECUPERABLE, CacheBM25, terminos_consulta
 from app.rag.normalizacion import ConsultaNormalizada
 from app.rag.parametros import ParametrosRecuperacion
+from app.rag.punteros import MAX_AGREGADOS, PUNTERO, RERANKER, ReglaPuntero, buscar_destino, reglas_vigentes
 
 CANDIDATOS_REGISTRADOS = 20
 
@@ -60,8 +65,8 @@ class FragmentoRecuperado:
     id_fragmento: str
     posicion_bm25: int | None
     posicion_vectorial: int | None
-    posicion_rrf: int
-    puntaje_rrf: float
+    posicion_rrf: int | None
+    puntaje_rrf: float | None
     puntaje_reranker: float | None
     posicion_final: int | None
     seleccionado: bool
@@ -77,6 +82,11 @@ class FragmentoRecuperado:
     edad_min_meses: int | None = None
     edad_max_meses: int | None = None
     poblacion: str = "GENERAL"
+    # RERANKER (seleccionado por el reranker) o PUNTERO (agregado por una regla de punteros.yaml).
+    origen: str = RERANKER
+    # Del fragmento agregado: id del fragmento enviado que contiene el puntero y id de la regla.
+    referido_por: str | None = None
+    regla_puntero: str | None = None
 
 
 @dataclass
@@ -256,6 +266,8 @@ def seleccionar(sesion: Session | Connection, consulta: ConsultaNormalizada, can
             len(fragmentos) + 1, alcanza and enviados < parametros.fragmentos_enviados))
     no_evaluados = [_fragmento(filas[i], i, cand, pos, rrf, None, None, False)
                     for i, rrf, pos in cand.fusionados[len(evaluados):CANDIDATOS_REGISTRADOS]]
+    fragmentos, no_evaluados = aplicar_punteros(sesion, fragmentos, no_evaluados, parametros.fragmentos_enviados,
+                                                reglas_vigentes())
 
     reales = [f.puntaje_reranker for f in fragmentos if f.puntaje_reranker is not None]
     maxima = max(reales) if reales else None
@@ -280,6 +292,57 @@ def _fragmento(fila, id_: str, cand: Candidatos, posicion_rrf: int, rrf: float, 
         pagina_fin=fila.pagina_fin, idioma=fila.idioma, tipo_contenido=fila.tipo_contenido, texto=fila.texto,
         edad_min_meses=fila.edad_min_meses, edad_max_meses=fila.edad_max_meses, poblacion=fila.poblacion,
     )
+
+
+def aplicar_punteros(sesion: Session | Connection, fragmentos: list[FragmentoRecuperado],
+                     no_evaluados: list[FragmentoRecuperado], maximo_enviados: int,
+                     reglas: tuple[ReglaPuntero, ...]) -> tuple[list[FragmentoRecuperado], list[FragmentoRecuperado]]:
+    """Paso 7. Para cada regla, en orden y hasta MAX_AGREGADOS: si un fragmento seleccionado es
+    del documento de origen y contiene el puntero, y el destino no está seleccionado, el destino
+    pasa a seleccionado con origen PUNTERO. Si ya hay maximo_enviados seleccionados, deja de
+    estarlo el último (el de menor puntaje, el 5.º). El destino conserva su posición en la fusión
+    y su puntaje del reranker si ya era candidato; si no, quedan en None. La lista queda con los
+    seleccionados primero y el agregado al final, que es el orden de las etiquetas F-01 a F-05.
+    Con maximo_enviados = 1 y el puntero en el único enviado no hay lugar: no se agrega nada."""
+    agregados = 0
+    for regla in reglas:
+        if agregados >= MAX_AGREGADOS:
+            break
+        seleccionados = [f for f in fragmentos if f.seleccionado]
+        referente = next((f for f in seleccionados if regla.aplica_a(f.codigo_documento, f.texto)), None)
+        if referente is None:
+            continue
+        otros = [f for f in seleccionados if f is not referente]
+        if len(seleccionados) >= maximo_enviados and not otros:
+            continue
+        fila = buscar_destino(sesion, regla)
+        if fila is None or any(f.id_fragmento == fila.id_fragmento for f in seleccionados):
+            continue
+        previo = next((f for f in [*fragmentos, *no_evaluados] if f.id_fragmento == fila.id_fragmento), None)
+        if previo is not None:
+            destino = previo
+            fragmentos = [f for f in fragmentos if f is not previo]
+            no_evaluados = [f for f in no_evaluados if f is not previo]
+        else:
+            destino = FragmentoRecuperado(
+                id_fragmento=fila.id_fragmento, posicion_bm25=None, posicion_vectorial=None, posicion_rrf=None,
+                puntaje_rrf=None, puntaje_reranker=None, posicion_final=None, seleccionado=False,
+                id_documento=fila.id_documento, documento=fila.titulo, codigo_documento=fila.codigo_documento,
+                seccion=fila.seccion, pagina_inicio=fila.pagina_inicio, pagina_fin=fila.pagina_fin, idioma=fila.idioma,
+                tipo_contenido=fila.tipo_contenido, texto=fila.texto, edad_min_meses=fila.edad_min_meses,
+                edad_max_meses=fila.edad_max_meses, poblacion=fila.poblacion)
+        if len(seleccionados) >= maximo_enviados:
+            # Sale el último enviado que no es el que contiene el puntero (la cita del agregado
+            # remite a ese fragmento, que debe seguir entre los enviados).
+            otros[-1].seleccionado = False
+        destino.seleccionado = True
+        destino.origen = PUNTERO
+        destino.referido_por = referente.id_fragmento
+        destino.regla_puntero = regla.id
+        elegidos = [f for f in fragmentos if f.seleccionado]
+        fragmentos = elegidos + [destino] + [f for f in fragmentos if not f.seleccionado]
+        agregados += 1
+    return fragmentos, no_evaluados
 
 
 def recuperar_con_ampliacion(sesion: Session | Connection, consulta: ConsultaNormalizada, servicios: Servicios,
