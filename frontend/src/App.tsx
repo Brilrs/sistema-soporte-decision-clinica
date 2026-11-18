@@ -6,6 +6,7 @@ import ConsultaClinica from "./pages/ConsultaClinica";
 import EditarPaciente from "./pages/EditarPaciente";
 import EnConstruccion from "./pages/EnConstruccion";
 import GestionUsuarios from "./pages/GestionUsuarios";
+import HistorialConsultas from "./pages/HistorialConsultas";
 import HistorialPaciente from "./pages/HistorialPaciente";
 import Inicio from "./pages/Inicio";
 import Login from "./pages/Login";
@@ -46,7 +47,8 @@ export default function App() {
         <Route path="pacientes/:id/editar" element={<ConPermiso permisos={REGISTRAR}><EditarPaciente /></ConPermiso>} />
         <Route path="pacientes/:id/consulta" element={<ConPermiso permisos={CONSULTAR}><ConsultaClinica /></ConPermiso>} />
         <Route path="consultas/:id" element={<ConPermiso permisos={CONSULTAR}><ResultadoConsulta /></ConPermiso>} />
-        <Route path="consultas" element={<ConPermiso permisos={LEER_PACIENTES}><PanelPacientes modo="historial" /></ConPermiso>} />
+        <Route path="consultas" element={<ConPermiso permisos={CONSULTAR}><HistorialConsultas /></ConPermiso>} />
+        <Route path="consultas/nueva" element={<ConPermiso permisos={CONSULTAR}><PanelPacientes modo="nueva" /></ConPermiso>} />
         <Route path="reportes" element={<EnConstruccion titulo="Reportes" pantalla="M09 Reporte exportable" sprint={3} />} />
         <Route path="admin/usuarios" element={<ConPermiso permisos={["ADMINISTRAR_USUARIOS"]}><GestionUsuarios /></ConPermiso>} />
         <Route path="admin/conocimiento" element={<ConPermiso permisos={["ADMINISTRAR_GUIAS"]}><BaseConocimiento /></ConPermiso>} />

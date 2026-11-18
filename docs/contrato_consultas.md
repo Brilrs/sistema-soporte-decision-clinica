@@ -1,4 +1,4 @@
-# Contrato de la API de consultas (partes D2, E0, F1 y G)
+# Contrato de la API de consultas (partes D2, E0, F1 y G del Sprint 2, parte B del Sprint 3)
 
 Formato de las rutas de consultas clínicas, para la interfaz (parte E). OpenAPI lo refleja en
 `/docs` y `/openapi.json`. El NDJSON aparece como `EventoConsulta`, con discriminador `tipo`.
@@ -17,11 +17,16 @@ pruebas con el cliente falso, en `frontend/src/__fixtures__` (`consulta_<estado>
 - **Sin identidad:** ninguna respuesta ni evento lleva nombre, DNI, historia clínica, huellas ni
   el texto original de la consulta. `texto_filtrado` es la pregunta con los identificadores ya
   reemplazados por marcas (`[PACIENTE]`, `[DNI]`, `[HC]`, `[TELEFONO]`, `[FECHA]`, `[NOMBRE]`).
+  Única excepción: `GET /api/consultas` («Historial de consultas», Sprint 3 parte B) trae el
+  nombre y la historia clínica del paciente, los mismos dos datos que ya muestra el panel de
+  pacientes (M02), descifrados en el servidor con `cdss_clinica`. Nunca el DNI, la dirección, las
+  huellas ni el texto original, y la auditoría de esa ruta tampoco los guarda.
 - **Errores antes del stream:** `{"detail": "<mensaje en español>"}` con 404, 409 o 422. Los
   errores de validación del cuerpo siguen el formato de Sprint 1 (422).
 - **Auditoría** (sin texto clínico; solo ids, estados y tipos): CONSULTA_INICIADA,
   CONSULTA_PROCESADA (al cerrar, desde el grafo), CONSULTA_VISTA, TAMIZAJE_COMPLETADO,
-  DECISION_REGISTRADA, CONSULTAS_LISTADAS, ACCESO_DENEGADO_CONSULTA y SOLICITUD_BLOQUEADA.
+  DECISION_REGISTRADA, CONSULTAS_LISTADAS (por paciente, o por usuario con los filtros y los
+  conteos en `GET /api/consultas`), ACCESO_DENEGADO_CONSULTA y SOLICITUD_BLOQUEADA.
 - **Modo de prueba:** con `CDSS_LLM=falso` (solo se acepta con `CDSS_ENTORNO=desarrollo`; en otro
   entorno el backend no arranca) las consultas usan el cliente falso del modelo de lenguaje, sin
   costo. Toda consulta cuya respuesta generó el cliente falso trae `modo_prueba: true` en el evento
@@ -237,8 +242,10 @@ Campos:
   `vigencia`, `clasificacion` y `tramo_edad` (ver «Tramo de edad»).
 - **Respuesta:** `recomendacion`, `citas`, `intentos`, `verificacion` y `modo_prueba`, con el
   mismo formato que el evento `fin` (los decimales coinciden: 3 decimales en ambos).
-- **Decisión:** `decision` (`{id_decision, id_usuario, tipo_decision, nota, fecha_registro}` o
-  null) y `opciones_decision`.
+- **Decisión:** `decision` (`{id_decision, id_usuario, tipo_decision, nota, fecha_registro,
+  registrada_por}` o null) y `opciones_decision`. `registrada_por` es el nombre visible de quien la
+  registró (`seguridad.usuario.nombre_completo`, P12, Sprint 3 parte B); M05 lo muestra en
+  «Registrada por».
 
 ### Tramo de edad (`tramo_edad`, parte F1)
 
@@ -285,6 +292,46 @@ Cada elemento (`ConsultaListada`):
 | `categoria` | texto o null | Clasificación del tamizaje |
 | `tipo_decision` | tipo o null | Decisión registrada, si la hay |
 | `modo_prueba` | booleano | |
+
+## GET /api/consultas
+
+Consultas del usuario autenticado de todos sus pacientes («Historial de consultas», P10, Sprint 3
+parte B). El usuario sale siempre de la sesión: no hay parámetro para pedir las de otro, y uno
+desconocido (por ejemplo `id_usuario`) se ignora. Orden: de la más reciente a la más antigua por
+`fecha_hora_inicio` y, con la misma fecha y hora, por `id_consulta` descendente; nunca por un texto,
+así no depende de la colación de la base.
+
+Parámetros (todos opcionales, en la cadena de consulta):
+
+| Parámetro | Tipo | Descripción |
+| --- | --- | --- |
+| `estado` | estado final o EN_PROCESO | Solo las consultas en ese estado |
+| `fecha_desde`, `fecha_hasta` | fecha (AAAA-MM-DD) | Días calendario de Lima (America/Lima), inclusivos: desde las 00:00 de `fecha_desde` hasta antes de las 00:00 del día siguiente a `fecha_hasta`. Se puede enviar uno solo |
+| `limite` | entero de 1 a 100 | Tamaño de la página (por omisión, 20) |
+| `desplazamiento` | entero de 0 en adelante | Consultas que se saltan (por omisión, 0) |
+
+| Código | Caso |
+| --- | --- |
+| 200 | `{total, limite, desplazamiento, consultas}`; `total` cuenta todas las que cumplen los filtros, sin paginar. Una página más allá del total trae `consultas` vacía |
+| 401 | Sin sesión válida |
+| 403 | Rol sin REALIZAR_CONSULTA (Administrador) |
+| 422 | Estado desconocido, fecha no válida, `fecha_hasta` anterior a `fecha_desde`, `limite` fuera de 1 a 100 o `desplazamiento` negativo. Formato de Sprint 1: `{"detail": "Revise los datos ingresados. <campo>: <mensaje>", "errores": [{"campo", "mensaje"}]}` |
+
+Cada elemento de `consultas` (`ConsultaPropia`):
+
+| Campo | Tipo | Descripción |
+| --- | --- | --- |
+| `id_consulta`, `id_paciente` | UUID | |
+| `nombres_apellidos`, `numero_hc` | texto | Del paciente, descifrados en el servidor (los mismos que muestra M02) |
+| `edad_meses` | entero | Edad en meses en la fecha de la consulta (día de Lima) |
+| `estado` | estado final o EN_PROCESO | |
+| `categoria`, `nivel_riesgo` | texto o null | Clasificación del tamizaje, si hay resultado |
+| `fecha_hora_inicio` | fecha y hora | |
+| `modo_prueba` | booleano | Las consultas de prueba se listan con la marca, no se ocultan |
+| `pregunta` | texto o null | `texto_filtrado` en una línea y recortado a unos 100 caracteres (en el último espacio, con «…») |
+
+La auditoría registra CONSULTAS_LISTADAS con la entidad `usuario`: los filtros, el límite, el
+desplazamiento, el total y cuántas devolvió, sin datos del paciente.
 
 ## POST /api/consultas/{id_consulta}/continuar
 
@@ -335,11 +382,11 @@ decisión por consulta.
 
 | Código | Caso |
 | --- | --- |
-| 201 | `{id_decision, id_usuario, tipo_decision, nota, fecha_registro}` |
+| 201 | `{id_decision, id_usuario, tipo_decision, nota, fecha_registro, registrada_por}` |
 | 404 | No existe o es de otro profesional |
 | 409 | El estado no admite el tipo, o ya hay una decisión |
 | 422 | Falta la nota obligatoria o el cuerpo no es válido |
 
 La auditoría (DECISION_REGISTRADA) guarda el tipo y si hubo nota, nunca su texto.
 
-La nota se guarda sin los espacios del inicio y del final (vacía equivale a null) y pasa por el mismo filtro de identificadores que la consulta (parte F1): el nombre y los apellidos del paciente, su DNI, su HC, los teléfonos, las fechas completas y los nombres frecuentes se guardan como [PACIENTE], [DNI], [HC], [TELEFONO], [FECHA] o [NOMBRE]. El 201 y el GET devuelven la nota ya filtrada; la interfaz avisa cuando difiere de la escrita. El 201 trae `id_usuario`, no el nombre de quien decidió; como solo el profesional de la consulta puede verla y registrarla, la interfaz muestra el nombre del usuario de la sesión.
+La nota se guarda sin los espacios del inicio y del final (vacía equivale a null) y pasa por el mismo filtro de identificadores que la consulta (parte F1): el nombre y los apellidos del paciente, su DNI, su HC, los teléfonos, las fechas completas y los nombres frecuentes se guardan como [PACIENTE], [DNI], [HC], [TELEFONO], [FECHA] o [NOMBRE]. El 201 y el GET devuelven la nota ya filtrada; la interfaz avisa cuando difiere de la escrita. El 201 y el GET traen `id_usuario` y, desde la parte B del Sprint 3, `registrada_por` (el nombre visible de quien decidió, P12); la interfaz lo muestra en «Registrada por» y, si faltara, usa el nombre del usuario de la sesión, que es el único que puede verla y registrarla.

@@ -45,13 +45,18 @@ def opciones_decision(estado: str | None) -> list[dict]:
 
 
 def leer_decision(sesion: Session | Connection, id_consulta: str) -> dict | None:
+    """Con cdss_clinica, que lee seguridad.usuario: registrada_por es el nombre visible de quien la
+    registró (P12, Sprint 3 parte B), el mismo que muestra el encabezado de la aplicación."""
     fila = sesion.execute(text(
-        """SELECT id_decision::text, id_usuario::text, tipo_decision, descripcion, fecha_registro
-             FROM asistencia.decision_clinica WHERE id_consulta = CAST(:c AS uuid)"""), {"c": id_consulta}).first()
+        """SELECT d.id_decision::text, d.id_usuario::text, d.tipo_decision, d.descripcion, d.fecha_registro,
+                  u.nombre_completo AS registrada_por
+             FROM asistencia.decision_clinica d
+             JOIN seguridad.usuario u ON u.id_usuario = d.id_usuario
+            WHERE d.id_consulta = CAST(:c AS uuid)"""), {"c": id_consulta}).first()
     if fila is None:
         return None
     return {"id_decision": fila.id_decision, "id_usuario": fila.id_usuario, "tipo_decision": fila.tipo_decision,
-            "nota": fila.descripcion, "fecha_registro": fila.fecha_registro}
+            "nota": fila.descripcion, "fecha_registro": fila.fecha_registro, "registrada_por": fila.registrada_por}
 
 
 def filtrar_nota(nota: str | None, identidad: IdentidadPaciente | None) -> str | None:

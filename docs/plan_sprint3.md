@@ -166,6 +166,13 @@ empiece.
   misma lista con «Exportar» por fila es «Reportes» (decisión 16; el botón se activa en C2).
 - **Permisos:** REALIZAR_CONSULTA. Sin migración.
 - **Pruebas:** no ve las de otro, filtros, orden estable sin depender de la colación.
+- **Hecho en la parte B** (filas 109 a 111 de `cambios_respecto_al_OE2.md`):
+  - el buscador de pacientes pasó a `/consultas/nueva` («Nueva consulta»), con sus flujos;
+  - P12 (`registrada_por`) se adelantó a esta parte;
+  - la lista trae el nombre y la historia clínica del paciente, única excepción a la regla «Sin
+    identidad» del contrato;
+  - sin migración: con 10 000 consultas de un usuario, la página tarda unos 17 ms con
+    `ix_consulta_id_usuario`.
 
 ### P13 auditoría visual versionada: S, riesgo bajo (parte A)
 
@@ -349,6 +356,9 @@ Las partes G y H quedan fuera por ahora.
 - **Datos personales en M09:** el mockup muestra el nombre y la historia clínica del paciente. El
   reporte nunca va al modelo, pero obliga a descifrarlos con `cdss_clinica` y a auditar la
   generación sin esos datos.
+- **Tarjetas de M08:** el pedido de la parte B decía «tarjetas apiladas debajo de 800 px, como
+  M08», pero M08 es una tabla compacta con desplazamiento interno de respaldo. La lista de la parte
+  B es la primera pantalla con tarjetas por debajo de 800 px.
 - **Botones de las pantallas clínicas:** miden 42 px de alto por debajo de 800 px. La regla de 44
   px solo se fijó para el menú móvil, M11 y las ventanas (`estilos.test.ts`). Lo detectó la
   auditoría de la parte A; queda como observación, no como pendiente.

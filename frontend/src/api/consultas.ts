@@ -11,6 +11,8 @@ import {
   type DecisionEntrada,
   type EventoConsulta,
   type EventoFinal,
+  type FiltrosConsultas,
+  type PaginaConsultas,
   type ResultadoConsulta,
 } from "./tipos_consulta";
 
@@ -185,6 +187,18 @@ function esperar(ms: number, senal?: AbortSignal): Promise<void> {
 
 const json = (cuerpo: unknown): RequestInit => ({ body: JSON.stringify(cuerpo) });
 
+// Cadena de consulta en un orden fijo, sin los filtros vacíos («?estado=...&limite=20»).
+export function parametrosConsultas(filtros: FiltrosConsultas): string {
+  const p = new URLSearchParams();
+  if (filtros.estado) p.set("estado", filtros.estado);
+  if (filtros.fecha_desde) p.set("fecha_desde", filtros.fecha_desde);
+  if (filtros.fecha_hasta) p.set("fecha_hasta", filtros.fecha_hasta);
+  if (filtros.limite !== undefined) p.set("limite", String(filtros.limite));
+  if (filtros.desplazamiento !== undefined) p.set("desplazamiento", String(filtros.desplazamiento));
+  const texto = p.toString();
+  return texto ? `?${texto}` : "";
+}
+
 export const consultasApi = {
   // POST /api/pacientes/{id}/consultas (NDJSON)
   consultar: (idPaciente: string, entrada: ConsultaEntrada, opciones?: OpcionesStream) =>
@@ -198,6 +212,9 @@ export const consultasApi = {
     leerStreamConsulta(`/api/consultas/${idConsulta}/datos-faltantes`, datos, opciones),
   // GET /api/pacientes/{id}/consultas: solo las del usuario, de la más reciente a la más antigua
   listar: (idPaciente: string) => api<ConsultaListada[]>(`/api/pacientes/${idPaciente}/consultas`),
+  // GET /api/consultas: las del usuario de todos sus pacientes, paginadas (P10). Los filtros vacíos no se envían.
+  misConsultas: (filtros: FiltrosConsultas = {}, senal?: AbortSignal) =>
+    api<PaginaConsultas>(`/api/consultas${parametrosConsultas(filtros)}`, { signal: senal }),
   // GET /api/consultas/{id}
   resultado: (idConsulta: string, senal?: AbortSignal) =>
     api<ResultadoConsulta>(`/api/consultas/${idConsulta}`, { signal: senal }),

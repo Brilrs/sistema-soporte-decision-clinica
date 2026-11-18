@@ -121,7 +121,8 @@ input:focus { outline: 2px solid var(--azul-600); outline-offset: 0; border-colo
 .tabla th { text-align: left; font-size: .75rem; letter-spacing: .04em; text-transform: uppercase; color: var(--gris-600);
   padding: .55rem .4rem; border-bottom: 1px solid var(--gris-300); background: var(--gris-100); }
 .tabla td { vertical-align: middle; }
-.tabla__acciones { display: flex; gap: .4rem; justify-content: flex-end; white-space: nowrap; }
+/* Los botones de una fila pasan a otra línea antes que ensanchar la tabla («Nueva consulta» y «Ver historial»). */
+.tabla__acciones { display: flex; flex-wrap: wrap; gap: .4rem; justify-content: flex-end; white-space: nowrap; }
 .tabla-contenedor { overflow-x: auto; position: relative; } /* relative: los textos solo para lectores (absolute) quedan dentro y no ensanchan la página */
 .vacio { color: var(--gris-500); padding: 1rem .4rem; }
 
@@ -559,6 +560,47 @@ input[aria-invalid="true"] { border-color: var(--rojo); }
 .tamizajes__tabla table { min-width: 500px; }
 .tamizajes__sintomas { min-width: 6rem; }
 a.boton { display: inline-block; text-decoration: none; text-align: center; }
+
+/* «Historial de consultas» (/consultas, P10, Sprint 3 parte B). Desde 800 px, tabla compacta que cabe
+   entera desde unos 1000 px (el desplazamiento interno queda de respaldo, como en M08); por debajo,
+   la página monta tarjetas apiladas en lugar de la tabla (useAnchoAngosto). */
+.consultas-propias__titulo { flex: 1 1 20rem; min-width: 0; }
+.consultas-propias__filtros { display: flex; flex-wrap: wrap; gap: .75rem 1rem; align-items: flex-end; }
+.consultas-propias__campo { display: flex; flex-direction: column; flex: 1 1 10rem; min-width: 0; max-width: 16rem; }
+.consultas-propias__campo label { margin: 0 0 .25rem; }
+.consultas-propias__campo select, .consultas-propias__campo input { width: 100%; max-width: 100%; }
+.consultas-propias__botones { display: flex; gap: .5rem; flex-wrap: wrap; }
+.consultas-propias__error { flex-basis: 100%; }
+.consultas-propias__conteo { margin: 0 0 .6rem; font-size: .85rem; }
+.consultas-propias__tabla table { min-width: 640px; }
+.consultas-propias__tabla td { vertical-align: middle; }
+.consultas-propias__fecha { white-space: nowrap; }
+.consultas-propias__paciente { display: flex; flex-direction: column; gap: .1rem; min-width: 8rem; overflow-wrap: anywhere; }
+.consultas-propias__paciente .texto-tenue { font-size: .82rem; }
+.consultas-propias__etiquetas { display: flex; flex-wrap: wrap; gap: .3rem; }
+.consultas-propias__pregunta-celda { min-width: 9rem; }
+/* Hasta 2 líneas con puntos suspensivos; el backend ya la recorta a unos 100 caracteres. */
+.consultas-propias__pregunta { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+  overflow: hidden; overflow-wrap: anywhere; }
+.consultas-propias__ver { white-space: nowrap; }
+.consultas-propias__tarjetas { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: .75rem; }
+.consultas-propias__tarjeta { border: 1px solid var(--gris-300); border-radius: var(--radio); padding: .8rem; min-width: 0;
+  display: flex; flex-direction: column; gap: .5rem; }
+.consultas-propias__tarjeta p { margin: 0; }
+.consultas-propias__tarjeta-cabecera { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .3rem .6rem; }
+.consultas-propias__tarjeta-pregunta { overflow-wrap: anywhere; font-size: .9rem; }
+.consultas-propias__tarjeta-ver { display: flex; align-items: center; justify-content: center; }
+.consultas-propias__paginacion { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: .5rem; margin-top: 1rem; }
+.etiqueta--riesgo-BAJO { background: var(--verde-50); color: var(--verde); }
+.etiqueta--riesgo-MODERADO { background: var(--ambar-50); color: var(--ambar); }
+.etiqueta--riesgo-ALTO { background: var(--rojo-50); color: var(--rojo); }
+.etiqueta--riesgo-MUY_ALTO { background: var(--rojo-100); color: var(--rojo-900); }
+@media (max-width: 799px) {
+  .consultas-propias .boton { min-height: 44px; }
+  .consultas-propias__campo { max-width: none; }
+  .consultas-propias__campo select, .consultas-propias__campo input { min-height: 44px; }
+}
 
 /* Menú en pantalla angosta (E6): por debajo de 800 px el menú lateral se oculta y la cabecera
    muestra «Abrir menú»; las mismas opciones se abren en un panel lateral con fondo oscuro.
