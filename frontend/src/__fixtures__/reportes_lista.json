@@ -1,0 +1,32 @@
+[
+  {
+    "numero_reporte": "EV-2026-00002",
+    "destino": "CUIDADOR",
+    "secciones": [
+      "PACIENTE",
+      "CLASIFICACION",
+      "RECOMENDACION",
+      "FIRMA"
+    ],
+    "formato": "PDF",
+    "fecha_generacion": "2026-10-20T10:00:00-05:00",
+    "hash_documento": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  {
+    "numero_reporte": "EV-2026-00001",
+    "destino": "EXPEDIENTE",
+    "secciones": [
+      "PACIENTE",
+      "CLASIFICACION",
+      "RECOMENDACION",
+      "EVIDENCIAS",
+      "ADVERTENCIAS",
+      "VERIFICACION",
+      "DECISION",
+      "FIRMA"
+    ],
+    "formato": "PDF",
+    "fecha_generacion": "2026-10-20T10:00:00-05:00",
+    "hash_documento": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+]

@@ -1,0 +1,76 @@
+# Frases fijas del reporte para el cuidador (M09, destino CUIDADOR; decisión 3 de docs/plan_sprint3.md).
+#
+# Reglas:
+# - El reporte del cuidador se arma solo con estas frases: no usa el modelo de lenguaje ni copia el
+#   texto de la recomendación generada.
+# - Las frases solo reformulan lo que ya está en la consulta (la clasificación, si requiere
+#   derivación y el tipo de cada paso de la recomendación) y dan las indicaciones generales de
+#   acudir a los controles y seguir las instrucciones del personal de salud. No agregan consejos
+#   clínicos, dosis, medicamentos ni plazos.
+# - Los pasos solo se reformulan si el profesional aceptó la recomendación (decisión
+#   ACEPTA_RECOMENDACION). Sin decisión, con otra decisión o sin recomendación se usa
+#   pasos_no_disponibles: las indicaciones las da el profesional.
+# - Mientras revisado sea false, cada página del reporte lleva «Texto en revisión clínica: no
+#   entregar a pacientes». Lo cambia a true quien revisa (asesor y personal de salud), con su
+#   nombre y la fecha en revisado_por y fecha_revision.
+revisado: false
+revisado_por: null
+fecha_revision: null
+
+titulo: Información para la familia
+introduccion: >-
+  Este documento resume el resultado de la evaluación de anemia de su niña o niño en el servicio
+  CRED. El personal de salud le explicará cada punto.
+
+titulos:
+  resultado: Resultado de la evaluación
+  indicaciones: Indicaciones del personal de salud
+  recuerde: Recuerde
+
+clasificacion:
+  SIN_ANEMIA: >-
+    La prueba de hemoglobina de su niña o niño dio un resultado sin anemia.
+  ANEMIA_LEVE: >-
+    La prueba de hemoglobina de su niña o niño muestra anemia leve.
+  ANEMIA_MODERADA: >-
+    La prueba de hemoglobina de su niña o niño muestra anemia moderada.
+  ANEMIA_SEVERA: >-
+    La prueba de hemoglobina de su niña o niño muestra anemia severa.
+  SIN_CLASIFICACION: >-
+    Esta evaluación no tiene una clasificación de anemia. El personal de salud le explicará el
+    resultado.
+
+# Solo se agrega cuando la clasificación es de anemia.
+que_es_anemia: >-
+  La anemia significa que la sangre tiene menos hemoglobina de la que necesita.
+
+# Solo se agrega cuando la clasificación indica que requiere derivación.
+derivacion: >-
+  El personal de salud indicó que su niña o niño debe ser atendido en otro establecimiento de
+  salud. Siga las indicaciones que le dieron para acudir.
+
+# Una frase por tipo de paso de la recomendación (se usa una vez por tipo, en el orden de los pasos).
+pasos:
+  PREVENCION: >-
+    Le indicaron medidas para prevenir la anemia. Sígalas tal como se las explicó el personal de
+    salud.
+  TRATAMIENTO: >-
+    Le indicaron un tratamiento. Déselo a su niña o niño tal como se lo explicó el personal de
+    salud.
+  SEGUIMIENTO: >-
+    Le indicaron controles para ver cómo sigue su niña o niño. Acuda en las fechas que le
+    indicaron.
+  CONSEJERIA: >-
+    Le dieron recomendaciones para el cuidado de su niña o niño. Póngalas en práctica como se las
+    explicaron.
+  DERIVACION: >-
+    Le indicaron acudir a otro establecimiento de salud. Hágalo como se lo explicaron.
+  OTRO: >-
+    Le dieron otra indicación. Si tiene dudas sobre ella, pregunte al personal de salud.
+
+pasos_no_disponibles: >-
+  El personal de salud le explicará las indicaciones para su niña o niño.
+
+indicaciones_generales:
+  - Acuda a todos los controles de su niña o niño en el establecimiento de salud.
+  - Siga las indicaciones del personal de salud. Si tiene dudas, pregúntelas en su próximo control.

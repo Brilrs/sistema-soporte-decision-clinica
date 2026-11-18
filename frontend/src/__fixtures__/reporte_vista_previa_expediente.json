@@ -1,0 +1,194 @@
+{
+  "id_consulta": "00000000-0000-4000-8000-000000000001",
+  "destino": "EXPEDIENTE",
+  "secciones": [
+    "PACIENTE",
+    "CLASIFICACION",
+    "RECOMENDACION",
+    "EVIDENCIAS",
+    "ADVERTENCIAS",
+    "VERIFICACION",
+    "DECISION",
+    "FIRMA"
+  ],
+  "modo_prueba": true,
+  "revision_pendiente": false,
+  "titulo": "Reporte de evaluación de anemia infantil",
+  "introduccion": null,
+  "establecimiento": "Centro de Salud San Luis · Servicio CRED",
+  "fecha_consulta": "2026-10-20T10:00:00-05:00",
+  "avisos": [
+    "MODO DE PRUEBA, no es un documento clínico"
+  ],
+  "bloques": [
+    {
+      "seccion": "PACIENTE",
+      "titulo": "Datos del paciente",
+      "campos": [
+        {
+          "etiqueta": "Paciente",
+          "valor": "Paciente Ficticio Dos"
+        },
+        {
+          "etiqueta": "Historia clínica",
+          "valor": "HC-PRUEBA-2"
+        },
+        {
+          "etiqueta": "Sexo",
+          "valor": "Masculino"
+        },
+        {
+          "etiqueta": "Edad al tamizaje",
+          "valor": "49 meses"
+        },
+        {
+          "etiqueta": "Fecha del tamizaje",
+          "valor": "14/10/2026"
+        },
+        {
+          "etiqueta": "Fecha de la consulta",
+          "valor": "20/10/2026 10:00"
+        },
+        {
+          "etiqueta": "Hb observada",
+          "valor": "11.4 g/dL"
+        },
+        {
+          "etiqueta": "Hb ajustada por altitud",
+          "valor": "11.4 g/dL"
+        },
+        {
+          "etiqueta": "Altitud",
+          "valor": "355 m.s.n.m."
+        }
+      ],
+      "parrafos": [],
+      "items": []
+    },
+    {
+      "seccion": "CLASIFICACION",
+      "titulo": "Clasificación y nivel de riesgo",
+      "campos": [
+        {
+          "etiqueta": "Clasificación",
+          "valor": "Sin anemia"
+        },
+        {
+          "etiqueta": "Nivel de riesgo",
+          "valor": "Bajo"
+        },
+        {
+          "etiqueta": "Requiere derivación",
+          "valor": "No"
+        },
+        {
+          "etiqueta": "Factores identificados",
+          "valor": "Sin factores adicionales"
+        }
+      ],
+      "parrafos": [],
+      "items": []
+    },
+    {
+      "seccion": "RECOMENDACION",
+      "titulo": "Recomendación clínica",
+      "campos": [
+        {
+          "etiqueta": "Resultado de la consulta",
+          "valor": "Verificada"
+        },
+        {
+          "etiqueta": "Pregunta realizada",
+          "valor": "¿Qué recomienda la OMS sobre la suplementación con hierro en niños de 24 a 59 meses?"
+        }
+      ],
+      "parrafos": [
+        "Respuesta simulada a partir del fragmento citado."
+      ],
+      "items": [
+        {
+          "texto": "1. Prevención: Seguir la indicación del fragmento citado. [F-05]",
+          "detalle": []
+        }
+      ]
+    },
+    {
+      "seccion": "EVIDENCIAS",
+      "titulo": "Evidencias citadas",
+      "campos": [],
+      "parrafos": [],
+      "items": [
+        {
+          "texto": "F-05 · PRUEBA-C-OMS",
+          "detalle": [
+            "Guía de prueba PRUEBA-C-OMS",
+            "Sección: Sección 1",
+            "Página 1",
+            "Extracto: «WHO (OMS) recommends daily iron supplementation (suplementación con hierro) with 30 mg elemental iron for children aged 24 to 59 months where anaemia prevalence is 40% or higher»",
+            "Traducción de apoyo, no oficial: «Traducción de apoyo simulada: WHO (OMS) recommends daily iron supplementation (suplementación con hierro) with 30 mg elemental iron for children aged 24 to 59 months where anaemia prevalence is 40% or higher»"
+          ]
+        }
+      ]
+    },
+    {
+      "seccion": "ADVERTENCIAS",
+      "titulo": "Advertencias",
+      "campos": [],
+      "parrafos": [
+        "Sin advertencias."
+      ],
+      "items": []
+    },
+    {
+      "seccion": "VERIFICACION",
+      "titulo": "Verificación de la respuesta",
+      "campos": [
+        {
+          "etiqueta": "6.1 Citas textuales",
+          "valor": "Cumplido"
+        },
+        {
+          "etiqueta": "6.2 Consistencia y dosis",
+          "valor": "Cumplido"
+        },
+        {
+          "etiqueta": "6.3 Suficiencia de la evidencia",
+          "valor": "Cumplido (Relevancia máxima 0.342 frente al umbral 0.050)"
+        },
+        {
+          "etiqueta": "Intento evaluado",
+          "valor": "1"
+        }
+      ],
+      "parrafos": [],
+      "items": []
+    },
+    {
+      "seccion": "DECISION",
+      "titulo": "Decisión del profesional",
+      "campos": [
+        {
+          "etiqueta": "Tipo de decisión",
+          "valor": "Acepta la recomendación"
+        },
+        {
+          "etiqueta": "Nota",
+          "valor": "Sin nota"
+        },
+        {
+          "etiqueta": "Registrada por",
+          "valor": "Lic. Usuaria Prueba"
+        },
+        {
+          "etiqueta": "Fecha y hora",
+          "valor": "20/10/2026 10:00"
+        }
+      ],
+      "parrafos": [],
+      "items": []
+    }
+  ],
+  "frase_final": "La decisión final corresponde al profesional tratante.",
+  "firma": true,
+  "generado_por": "Lic. Usuaria Prueba"
+}

@@ -15,3 +15,7 @@ snowballstemmer==2.2.0
 pyyaml==6.0.3
 anthropic==2.6.0
 langgraph==1.2.19
+# Reporte exportable en PDF (M09, Sprint 3 parte C1): ReportLab (licencia BSD) y Pillow (MIT-CMU),
+# su dependencia con extensiones en C, con versión fija.
+reportlab==5.1.0
+pillow==13.0.0
