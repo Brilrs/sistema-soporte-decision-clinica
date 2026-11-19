@@ -52,6 +52,7 @@ async function entrar(usuario) {
 }
 const tokenClinico = await entrar("enf.rojas");
 const tokenAdmin = await entrar("admin.cdss");
+const tokenCoordinador = await entrar("coord.ortiz");
 const leerApi = async (ruta) => (await fetch(`${API}${ruta}`, { headers: { Authorization: `Bearer ${tokenClinico}` } })).json();
 
 // Un paciente de seed_demo con tamizaje para las pantallas del paciente.
@@ -149,6 +150,20 @@ const DETALLE_M13 = (() => {
 })();
 const ID_M13 = DETALLE_M13.id_consulta;
 
+// M12 (parámetros, Sprint 3 parte E2): lectura y respuestas de los PUT de los fixtures de E1a y E1b. El
+// historial lleva 45 versiones en total (paginación) y una fila con motivo y referencia largos.
+const PAR_COORD = leerJson(path.join(FIX, "parametros.json"));
+const PAR_ADMIN = leerJson(path.join(FIX, "parametros_solo_lectura.json"));
+const HUELLA_M12 = leerJson(path.join(FIX, "parametros_huella.json"));
+const HISTORIAL_M12 = (() => {
+  const h = leerJson(path.join(FIX, "parametros_historial.json"));
+  h.total = 45;
+  h.versiones[0] = { ...h.versiones[0], motivo_cambio: LARGA, referencia: "NTS 213-MINSA/DGIESP-2024 modificada por RM 429-2024/MINSA, Anexo, Tabla 1, p. 7" };
+  return h;
+})();
+const PUT_M12 = { confirmacion: leerJson(path.join(FIX, "parametros_put_confirmacion.json")),
+                  validacion: leerJson(path.join(FIX, "parametros_put_validacion.json")) };
+
 // M11: guías reales (fixtures) más tres ficticias con estados que la base real no tiene.
 const DOCS_REALES = leerJson(path.join(FIX_M11, "documentos.json"));
 const DETALLE_M11 = leerJson(path.join(FIX_M11, "detalle_nts213.json"));
@@ -187,6 +202,8 @@ const m09 = (extra = {}) => ({ ruta: `/consultas/${ID_CON}/reporte`, resultado: 
   cambios: { modo_prueba: extra.prueba ?? true, ...(extra.prueba === false ? { decision: DECISION, opciones_decision: [] } : {}) } });
 const m13 = (extra = {}) => ({ ruta: "/admin/auditoria", admin: true, m13: { ...extra }, esperar: "Auditoría y trazabilidad",
   ...(extra.ruta ? { ruta: extra.ruta } : {}) });
+const m12 = (extra = {}) => ({ ruta: "/admin/parametros", coordinador: !extra.admin, admin: Boolean(extra.admin),
+  esperar: "Historial de cambios", m12: { ...extra } });
 const m11 = (extra = {}) => ({ ruta: "/admin/conocimiento", admin: true, m11: true, docs: DOCS_M11, activos: [], ...extra });
 const PANTALLAS = {
   login: { ruta: "/login", sinSesion: true, esperar: "Ingresar" },
@@ -245,6 +262,13 @@ const PANTALLAS = {
   m13_pruebas: m13({ ruta: "/admin/auditoria?pruebas=1" }),
   m13_detalle: { ...m13({ ruta: `/admin/auditoria/${ID_M13}`, detalle: true }), esperar: "Volver a la auditoría" },
   m13_error: m13({ error: true }),
+  // Parte E2 del Sprint 3: M12 en lectura (Administrador), edición del Coordinador, ventana con advertencias,
+  // errores de validación y modo de evaluación.
+  m12_admin: m12({ admin: true }),
+  m12_edicion: m12({ editar: "Puntos de corte de hemoglobina" }),
+  m12_advertencias: m12({ guardar: "confirmacion" }),
+  m12_validacion: m12({ guardar: "validacion" }),
+  m12_evaluacion: m12({ evaluacion: true }),
   // Parte B del Sprint 3: lista de consultas propias, sus estados y el buscador de «Nueva consulta».
   consultas_lista: { ruta: "/consultas", esperar: "Mostrando 1 a 4 de 45 consultas", lista: paginaPropias },
   consultas_filtros_error: { ruta: "/consultas?desde=2026-11-15&hasta=2026-11-01", esperar: "Mostrando 1 a 4 de 45 consultas",
@@ -321,7 +345,7 @@ function medir() {
 function tactiles() {
   return [...document.querySelectorAll(".boton-menu, .menu-movil a, .menu-movil button, .conocimiento .boton, .guia__opcion, " +
     ".modal .boton, .modal input:not([type=radio]):not([type=checkbox]), .modal select, .reporte .boton, .reporte__opcion, " +
-    ".evaluaciones__acciones .boton, .consultas-propias .boton, .auditoria .boton, .auditoria__interruptor, " +
+    ".evaluaciones__acciones .boton, .consultas-propias .boton, .auditoria .boton, .parametros .boton, .parametros__campo, .parametros__casilla, .auditoria__interruptor, " +
     ".auditoria__campo select, .auditoria__campo input")]
     .filter((b) => b.getBoundingClientRect().height > 0)
     .map((b) => ({ t: (b.getAttribute("aria-label") ?? b.textContent ?? b.id).trim().slice(0, 30),
@@ -346,6 +370,12 @@ async function simular(p, ruta) {
     if (u.pathname === "/api/conocimiento/documentos" && req.method() === "GET") return json(p.docs);
     if (u.pathname === "/api/conocimiento/trabajos") return json(p.activos);
     if (u.pathname.startsWith("/api/conocimiento/documentos/")) return json(DETALLE_M11);
+  }
+  if (p.m12 && u.pathname.startsWith("/api/parametros")) {
+    if (req.method() === "PUT") return json(PUT_M12[p.m12.guardar] ?? { detail: "no enviado en la auditoría" }, 422);
+    if (u.pathname === "/api/parametros/huella") return json(HUELLA_M12);
+    if (u.pathname === "/api/parametros/historial") return json(HISTORIAL_M12);
+    if (u.pathname === "/api/parametros") return json(p.m12.admin ? PAR_ADMIN : { ...PAR_COORD, modo_evaluacion: Boolean(p.m12.evaluacion) });
   }
   if (p.m13 && u.pathname.startsWith("/api/auditoria/")) {
     if (p.m13.error) return json({ detail: "Error interno del servidor" }, 500);
@@ -401,6 +431,20 @@ async function preparar(pagina, p) {
     else await pagina.getByRole("heading", { name: "Estado de la consulta" }).waitFor({ timeout: 8000 });
   }
   if (p.cerrarVentana || p.ventana) await pagina.getByRole("dialog").waitFor();
+  if (p.m12?.editar) {
+    await pagina.getByRole("region", { name: p.m12.editar }).getByRole("button", { name: "Editar" }).click();
+    await pagina.getByLabel("Límite superior de Anemia leve, 6 a 23 meses (g/dL)").fill("10,3");
+  }
+  if (p.m12?.guardar) {
+    const seccion = pagina.getByRole("region", { name: "Vigencia del tamizaje" });
+    await seccion.getByRole("button", { name: "Editar" }).click();
+    await seccion.getByLabel("Días de vigencia").fill(p.m12.guardar === "confirmacion" ? "75" : "100");
+    await seccion.getByRole("button", { name: "Guardar cambios" }).click();
+    const ventana = pagina.getByRole("dialog");
+    await ventana.getByLabel("Motivo del cambio", { exact: false }).fill(LARGA.slice(0, 180));
+    await ventana.getByRole("button", { name: "Guardar", exact: true }).click();
+    await ventana.getByRole("alert").first().waitFor({ timeout: 8000 });
+  }
   if (p.m13) {
     if (p.m13.error) await pagina.getByText("No se pudieron cargar las consultas", { exact: false }).waitFor({ timeout: 8000 });
     else if (p.m13.detalle) await pagina.getByRole("region", { name: "Solicitud enviada al modelo en el intento 2" }).waitFor({ timeout: 8000 });
@@ -458,7 +502,7 @@ for (const [nombre, p] of Object.entries(PANTALLAS)) {
   if (SOLO && !SOLO.includes(nombre)) continue;
   for (const ancho of anchosDe()) {
     const pagina = await navegador.newPage({ viewport: { width: ancho, height: 900 } });
-    if (!p.sinSesion) await pagina.addInitScript((tk) => sessionStorage.setItem("cdss.token", tk), p.admin ? tokenAdmin : tokenClinico);
+    if (!p.sinSesion) await pagina.addInitScript((tk) => sessionStorage.setItem("cdss.token", tk), p.admin ? tokenAdmin : p.coordinador ? tokenCoordinador : tokenClinico);
     if (CSS_EXTRA) await pagina.addInitScript((css) => document.addEventListener("DOMContentLoaded", () => {
       const s = document.createElement("style"); s.textContent = css; document.head.append(s); }), CSS_EXTRA);
     await pagina.route("**/api/**", (ruta) => simular(p, ruta));

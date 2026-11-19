@@ -233,3 +233,17 @@ seguidos con la misma versión, solo el primero pasa.
   ids, también en sus consultas posteriores.
 - Un cambio de vigencia se aplica en la consulta siguiente y en las marcas de vigencia de M02 y M08.
 - La versión del grupo, la huella y el historial cambian con cada PUT.
+
+## Uso desde la interfaz (M12, parte E2)
+
+- `/admin/parametros` pide `GET /api/parametros`, la huella y la primera página del historial. Los
+  botones de edición dependen de `puede_editar`; con `modo_evaluacion` (o tras un 423) quedan
+  deshabilitados con el motivo.
+- Cada grupo se edita por separado. Al guardar, la pantalla reenvía las filas tal como las leyó, con
+  los valores nuevos, su `verificado` y la `version` del grupo; el motivo y la referencia se escriben
+  en la ventana de confirmación. En los puntos de corte solo se escribe el límite superior y el inferior
+  se calcula; en la altitud solo se escribe el ajuste.
+- Errores: VALIDACION se muestra junto a cada campo (por la ruta) y en un resumen; REQUIERE_CONFIRMACION
+  pide escribir CONFIRMO exacto y reenvía `confirmacion_escrita`; 409 ofrece «Recargar valores», que
+  descarta la edición y vuelve a leer; SIN_CAMBIOS, 423 y 403 muestran el mensaje sin perder lo escrito.
+- Después de guardar se recargan la huella y el historial.

@@ -872,3 +872,84 @@ a.boton { display: inline-block; text-decoration: none; text-align: center; }
   .auditoria__campo { max-width: none; }
   .auditoria__codigo { padding: .7rem .75rem; font-size: .75rem; }
 }
+
+/* M12 · Parámetros clínicos (/admin/parametros, Sprint 3 parte E2). Secciones una debajo de otra; las tablas
+   de los grupos se apilan en tarjetas por debajo de 800 px (cada celda lleva su rótulo en data-etiqueta);
+   el historial es una tabla desde 800 px y tarjetas por debajo. Botones y campos de 44 px en lo nuevo. */
+.parametros__titulo { flex: 1 1 20rem; min-width: 0; }
+.parametros__efecto { margin: .4rem 0 0; padding: .6rem .8rem; border-left: 4px solid var(--azul-700); background: var(--azul-50);
+  color: var(--azul-900); border-radius: 0 8px 8px 0; font-size: .92rem; overflow-wrap: anywhere; }
+.parametros__aviso { margin: 1rem 0 0; }
+.alerta--info { background: var(--gris-100); color: var(--gris-700); }
+.parametros__pendientes { margin: 0; padding-left: 1.2rem; }
+.parametros__seccion { min-width: 0; }
+.parametros__seccion h2 { margin: 0; }
+.parametros__cabecera-seccion { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1rem; }
+.parametros__nota { margin: .4rem 0 0; font-size: .88rem; overflow-wrap: anywhere; }
+.parametros__exito { margin: .75rem 0 0; overflow-wrap: anywhere; }
+.parametros__subtitulo { font-size: 1rem; margin: 1rem 0 .4rem; }
+.parametros__tabla { width: 100%; margin-top: .5rem; }
+.parametros__tabla td, .parametros__tabla th { vertical-align: middle; }
+.parametros__numero { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.parametros__referencia, .parametros__descripcion, .parametros__valor-texto, .parametros__texto-largo { overflow-wrap: anywhere; }
+.parametros__texto-largo { min-width: 8rem; }
+.parametros__campo { width: 6rem; min-height: 44px; }
+.parametros__casilla { min-height: 44px; }
+.parametros__casilla input { width: 1.15rem; height: 1.15rem; flex: none; }
+.parametros__acciones .boton { min-height: 44px; }
+.parametros__cabecera-seccion .boton { min-height: 44px; }
+.parametros__vigencia { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr)); gap: .75rem 1.25rem;
+  margin: .75rem 0 0; }
+.parametros__vigencia div { min-width: 0; }
+.parametros__vigencia dt { font-size: .82rem; color: var(--gris-600); }
+.parametros__vigencia dd { margin: .2rem 0 0; overflow-wrap: anywhere; }
+.parametros__valor { font-size: 1.3rem; }
+.etiqueta--verificado { background: var(--verde-50); color: var(--verde); }
+.etiqueta--pendiente { background: var(--ambar-50); color: var(--ambar); }
+.parametros__huella { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; margin-top: .75rem; }
+.parametros__huella .boton { min-height: 44px; }
+.parametros__huella-valor { flex: 1 1 20rem; min-width: 0; overflow-wrap: anywhere; word-break: break-all; font-size: .9rem;
+  background: var(--gris-100); padding: .5rem .7rem; border-radius: 8px; }
+.parametros__copia { margin: .35rem 0 0; min-height: 1.2em; font-size: .85rem; }
+.parametros__componentes { list-style: none; margin: .5rem 0 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: .4rem; }
+.parametros__componentes li { min-width: 0; }
+.parametros__componente { font-weight: 600; }
+.parametros__huella-componente { display: block; font-size: .78rem; color: var(--gris-700); overflow-wrap: anywhere; word-break: break-all; }
+.parametros__filtro { display: flex; flex-direction: column; max-width: 16rem; margin-top: .75rem; }
+.parametros__filtro label { margin: 0 0 .25rem; }
+.parametros__filtro select { min-height: 44px; }
+.parametros__conteo { margin: .75rem 0 .5rem; font-size: .85rem; }
+.parametros__historial table { min-width: 760px; }
+.parametros__historial:focus-visible { outline: 2px solid var(--azul-600); outline-offset: 2px; }
+.parametros__tarjetas { list-style: none; margin: .5rem 0 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: .75rem; }
+.parametros__tarjeta { border: 1px solid var(--gris-300); border-radius: var(--radio); padding: .8rem; min-width: 0; }
+.parametros__tarjeta p { margin: 0; }
+.parametros__tarjeta-cabecera { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .6rem; overflow-wrap: anywhere; }
+.parametros__tarjeta-datos { display: grid; grid-template-columns: minmax(0, 1fr); gap: .25rem; margin: .5rem 0 0; }
+.parametros__tarjeta-datos div { display: grid; grid-template-columns: minmax(0, 6.5rem) minmax(0, 1fr); gap: .5rem; }
+.parametros__tarjeta-datos dt { font-weight: 600; font-size: .85rem; }
+.parametros__tarjeta-datos dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.parametros__paginacion { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; margin-top: 1rem; }
+.parametros__paginacion .boton { min-height: 44px; }
+.parametros__resumen-ventana:focus { outline: none; }
+.parametros__resumen-ventana ul { margin: .3rem 0 0; padding-left: 1.2rem; overflow-wrap: anywhere; }
+.parametros__cambios th, .parametros__cambios td { overflow-wrap: anywhere; }
+@media (max-width: 799px) {
+  .parametros .boton { min-height: 44px; }
+  .parametros__filtro { max-width: none; }
+}
+/* Tabla apilada (hasta 1099 px, con el menú lateral la tabla de seis columnas no cabe): cada fila es una
+   tarjeta y cada celda muestra su rótulo. */
+@media (max-width: 1099px) {
+  .tabla-apilable thead { display: none; }
+  .tabla-apilable, .tabla-apilable tbody, .tabla-apilable tr, .tabla-apilable th, .tabla-apilable td { display: block; width: 100%; }
+  .tabla-apilable tr { border: 1px solid var(--gris-300); border-radius: var(--radio); padding: .5rem .75rem; margin-top: .6rem; }
+  .tabla-apilable th, .tabla-apilable td { border: 0; padding: .3rem 0; text-align: left; white-space: normal; }
+  .tabla-apilable [data-etiqueta]::before { content: attr(data-etiqueta); display: block; font-size: .78rem; font-weight: 600;
+    color: var(--gris-600); }
+  .tabla-apilable th[data-etiqueta]::before { display: none; }
+}
+/* Encabezados de fila de M12 (clasificación, altitud, parámetro): texto normal, no el estilo de las
+   cabeceras de columna. */
+.parametros__tabla tbody th, .parametros__cambios tbody th, .parametros__historial tbody th {
+  text-transform: none; letter-spacing: normal; font-size: .92rem; font-weight: 600; color: var(--gris-900); background: none; }

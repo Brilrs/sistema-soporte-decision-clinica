@@ -238,6 +238,22 @@ empiece.
     mutaciones del 409, el 423, el permiso, el orden de cierre, la contigüidad y el trigger 016;
   - tipos, llamadas (`frontend/src/api/parametros.ts`) y fixtures `parametros_put_*.json` para E2;
   - pendiente para E2: la pantalla M12.
+- **Hecho en la parte E2** (HU14 con pantalla; filas 129 a 133 de `cambios_respecto_al_OE2.md`):
+  - M12 en `pages/ParametrosClinicos.tsx` (`/admin/parametros`, VER_PARAMETROS) con las piezas en
+    `components/parametros/`: el texto fijo del efecto de los cambios, los avisos (modo de evaluación,
+    solo lectura y valores pendientes de verificar por grupo), los tres grupos editables con «Editar»,
+    «Descartar» y «Guardar cambios», la ventana de confirmación (cambios antes y después, motivo con
+    contador, referencia, advertencias con CONFIRMO exacto, 409 con «Recargar valores», 423 y 403), las
+    secciones de solo lectura, la huella con «Copiar» y el historial con filtro y paginación;
+  - quién edita lo decide `puede_editar` del GET; el límite inferior de los puntos de corte se calcula
+    en décimas enteras; en altitud solo se edita el ajuste;
+  - pruebas en `pages/ParametrosClinicos.test.tsx` y reglas en `src/estilos.test.ts`; mutaciones de
+    la edición sin `puede_editar`, CONFIRMO no exacto, el modo de evaluación, la versión del grupo y
+    «Guardar» sin cambios;
+  - auditoría visual con las vistas `m12_*` (lectura del Administrador, edición, advertencias,
+    validación y modo de evaluación): sin desbordes de 320 a 1920 px y sin infracciones de axe;
+  - queda de M12: verificar contra la norma los valores sembrados (desde la pantalla, con
+    «Confirmar contra la norma») y validar con el asesor los umbrales de `parametros_reglas.py`.
 
 ### HU17 retirar guías: M, riesgo medio (alto en nivel 1)
 

@@ -73,6 +73,11 @@ Variables opcionales: `CDSS_API` (por omisión `http://localhost:8080`), `CDSS_A
   (`auditoria_*.json`), con 45 consultas en total, un modelo de nombre largo y un detalle con la
   solicitud de líneas largas (una palabra sin espacios) y un intento bloqueado. Pantallas
   `m13_lista`, `m13_pruebas` (interruptor activo), `m13_detalle` y `m13_error`.
+- **M12 (Sprint 3, parte E2):** lectura y respuestas de los PUT con los fixtures de E1a y E1b
+  (`parametros*.json` y `parametros_put_*.json`), con el token de `coord.ortiz` (o de `admin.cdss` en
+  `m12_admin`). Pantallas `m12_admin` (solo lectura), `m12_edicion` (puntos de corte en edición),
+  `m12_advertencias` (ventana con CONFIRMO), `m12_validacion` (errores) y `m12_evaluacion`. El
+  historial lleva 45 versiones y una fila con motivo y referencia largos.
 - **Escrituras:** ninguna llega al backend. El script las responde con 409, salvo el POST del
   reporte de M09.
 
