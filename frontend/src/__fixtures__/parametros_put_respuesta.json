@@ -1,0 +1,41 @@
+{
+  "grupo": {
+    "documento": null,
+    "referencia": "NTS 213-MINSA/DGIESP-2024, Tabla 4, p. 12",
+    "motivo_cambio": "Ajuste de prueba según la norma de referencia",
+    "verificado": false,
+    "vigente_desde": "2026-10-20T15:00:00Z",
+    "modificado_por": "Dra. Carmen Ortiz",
+    "id_parametro": 1000,
+    "clave": "DIAS_VIGENCIA_TAMIZAJE",
+    "valor": "45",
+    "tipo_dato": "ENTERO",
+    "valor_minimo": 1.0,
+    "valor_maximo": 365.0,
+    "descripcion": "Días durante los que un tamizaje se considera vigente para evaluar",
+    "version": "0000000000000000000000000000000000000000000000000000000000000001"
+  },
+  "resumen": {
+    "grupo": "vigencia_tamizaje",
+    "cerrados": [
+      1001
+    ],
+    "creados": [
+      1000
+    ],
+    "cambios": [
+      {
+        "elemento": "DIAS_VIGENCIA_TAMIZAJE",
+        "antes": {
+          "valor": "30",
+          "verificado": false
+        },
+        "despues": {
+          "valor": "45",
+          "verificado": false
+        }
+      }
+    ],
+    "advertencias_confirmadas": []
+  }
+}

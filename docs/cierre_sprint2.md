@@ -67,8 +67,9 @@ de la consulta. El registro de la decisión no tiene historia propia en el OE2: 
     resuelta.
 - Las historias HU10, HU13 y HU14, y los pendientes de la sección 5 asignados al Sprint 3.
   - Actualización del Sprint 3: HU14 (M12) en curso. La parte E1a dejó la base (migración 015,
-    rutas de lectura, huella de la configuración y modo de evaluación; `docs/contrato_parametros.md`);
-    la edición es E1b y la pantalla E2.
+    rutas de lectura, huella de la configuración y modo de evaluación; `docs/contrato_parametros.md`)
+    y la parte E1b, la edición por grupo (migración 016, control optimista, validaciones,
+    confirmación escrita y confirmar contra la norma). Falta la pantalla (E2).
   - **Verificaciones pendientes antes del OE3** (ninguno de estos valores está confirmado contra su
     fuente; M12 muestra `verificado = false` en los tres primeros):
     - puntos de corte de Hb (NTS 213 y OMS 2024): la coordinadora CRED, con el asesor;
@@ -78,6 +79,10 @@ de la consulta. El registro de la decisión no tiene historia propia en el OE2: 
     - altitudes de los distritos (INEI), fuera de M12: el equipo de tesis, por migración;
     - descriptores MeSH de los síntomas, fuera de M12: el equipo de tesis, por migración;
     - precios por millón de tokens del modelo (costo en M13): el equipo de tesis, por migración.
+    - Desde la parte E1b, los tres primeros se confirman desde M12 con «Confirmar contra la norma»
+      (un PUT con los mismos valores, `verificado` verdadero y la referencia), que deja su propia
+      versión en el historial. También quedan por validar con el asesor los rangos de plausibilidad y
+      los umbrales de advertencia de la edición (`backend/app/services/parametros_reglas.py`).
 
 ## 2. Cómo se verificó
 

@@ -1,12 +1,13 @@
-# Contrato de la API de parámetros (M12, HU14; Sprint 3, parte E1a)
+# Contrato de la API de parámetros (M12, HU14; Sprint 3, partes E1a y E1b)
 
-Rutas de solo lectura de la pantalla M12 «Parámetros clínicos» (parte E2). La edición (un PUT por
-grupo con la tabla completa) es la parte E1b y se agregará a este contrato. OpenAPI lo refleja en
-`/docs` y `/openapi.json`. Código: `backend/app/api/routes/parametros.py` y
-`backend/app/services/parametros.py`; esquema en la migración 015 (`db/migraciones/015_parametros.sql`).
+Rutas de la pantalla M12 «Parámetros clínicos» (parte E2): lectura (E1a) y edición por grupo (E1b).
+OpenAPI lo refleja en `/docs` y `/openapi.json`. Código: `backend/app/api/routes/parametros.py`,
+`backend/app/services/parametros.py` (lectura), `backend/app/services/parametros_edicion.py` y
+`backend/app/services/parametros_reglas.py` (edición y reglas); esquema en las migraciones 015 y 016.
 Ejemplos reales, generados por las pruebas con la base de pruebas, en `frontend/src/__fixtures__`
 (`parametros.json` del Coordinador, `parametros_solo_lectura.json` del Administrador,
-`parametros_historial.json` y `parametros_huella.json`); tipos en `frontend/src/api/tipos_parametros.ts`.
+`parametros_historial.json`, `parametros_huella.json` y `parametros_put_*.json`); tipos en
+`frontend/src/api/tipos_parametros.ts` y llamadas en `frontend/src/api/parametros.ts`.
 
 ## Reglas comunes
 
@@ -43,6 +44,14 @@ Ejemplos reales, generados por las pruebas con la base de pruebas, en `frontend/
 - Columnas de cada versión: `motivo_cambio`, `referencia` (tabla y página de la norma), `verificado`
   (falso en la carga inicial: valores pendientes de verificación contra la norma) e `id_documento`
   (la norma; nulo permitido en `parametro_sistema`).
+- Migración 016 (`fn_version_nueva_vigente`, BEFORE INSERT): para las conexiones de la aplicación,
+  una versión nueva entra vigente (`vigente_hasta` nulo) y con `vigente_desde` en el día de hoy en
+  Lima; no se puede insertar una versión cerrada ni con fecha pasada o futura. Mismo criterio de
+  exención que la 015 (propietario o superusuario).
+- La edición usa `now()` de la transacción para cerrar la versión anterior y abrir la nueva: las dos
+  quedan con la misma marca de tiempo (historial contiguo y exacto dentro del día) y esa marca cae en
+  el día de hoy en Lima. Dos cambios el mismo día sobre la misma fila funcionan: la versión creada
+  hoy se cierra con una marca posterior.
 
 ## GET /api/parametros
 
@@ -113,9 +122,114 @@ mediciones indica la misma configuración. Desde la línea de comandos:
 ## Modo de evaluación (OE3)
 
 `CDSS_MODO_EVALUACION=true` (solo en el entorno; ninguna ruta lo cambia) bloquea las escrituras que
-cambian lo que el sistema responde: hoy la carga y el reintento de guías de M11, y la edición de M12
-desde la parte E1b. Cada intento responde **423** con `{"detail": "El sistema está en modo de
-evaluación: los cambios de parámetros y de la base de conocimiento están bloqueados hasta que termine
-la evaluación."}` y deja el evento PARAMETRO_CAMBIO_BLOQUEADO con `{"accion": "CARGAR_GUIA"}` o
-`{"accion": "REINTENTAR_INDEXACION"}` (y el id del documento en el reintento), sin datos personales.
-Las lecturas no cambian. Función reutilizable: `app.core.evaluacion.bloquear_en_evaluacion`.
+cambian lo que el sistema responde: la carga y el reintento de guías de M11 y los tres PUT de M12.
+Cada intento responde **423** con `{"detail": "El sistema está en modo de evaluación: los cambios de
+parámetros y de la base de conocimiento están bloqueados hasta que termine la evaluación."}` y deja el
+evento PARAMETRO_CAMBIO_BLOQUEADO con `{"accion": ...}`: `CARGAR_GUIA`, `REINTENTAR_INDEXACION` (con el
+id del documento), `EDITAR_PUNTOS_CORTE`, `EDITAR_AJUSTE_ALTITUD` o `EDITAR_VIGENCIA_TAMIZAJE`, sin datos
+personales. En los PUT el bloqueo va antes de cualquier validación. Las lecturas no cambian. Función
+reutilizable: `app.core.evaluacion.bloquear_en_evaluacion`.
+
+## Edición (parte E1b)
+
+Tres rutas, una por grupo, con permiso **CONFIGURAR_PARAMETROS** (solo el Coordinador CRED; el
+Administrador y los roles clínicos reciben 403 con `{"detail": "Su rol no tiene el permiso
+CONFIGURAR_PARAMETROS"}`). Se escribe con la conexión de `cdss_admin`.
+
+| Ruta | Cuerpo propio |
+| --- | --- |
+| `PUT /api/parametros/puntos-corte` | `tramos`: los dos tramos con sus cuatro categorías (`categoria`, `hb_min_g_dl`, `hb_max_g_dl`, `verificado`) |
+| `PUT /api/parametros/ajuste-altitud` | `rangos` de menor a mayor altitud (`altitud_min_msnm`, `altitud_max_msnm`, `ajuste_g_dl`, `verificado`) |
+| `PUT /api/parametros/vigencia-tamizaje` | `valor` (días, entero o texto) y `verificado` |
+
+Cuerpo común:
+
+| Campo | Descripción |
+| --- | --- |
+| `version` | La versión del grupo leída en el GET (64 caracteres hexadecimales): control optimista |
+| `motivo_cambio` | Obligatorio, de 10 a 500 caracteres (sin espacios al inicio ni al final); se guarda en cada versión nueva |
+| `referencia` | Norma, tabla y página. Obligatoria cuando algún valor queda verificado; se guarda en cada versión nueva |
+| `id_documento` | Opcional: la norma. Sin él, cada versión nueva conserva el documento de la anterior (un rango de altitud nuevo fuera de los vigentes lo exige) |
+| `confirmacion_escrita` | `CONFIRMO` cuando el cambio tiene advertencias |
+
+Las filas tienen el mismo formato que el GET: el frontend puede reenviar lo que leyó (los campos de
+más, como ids, documento o motivo, se ignoran).
+
+**Transacción:**
+1. Bloqueo del grupo (`pg_advisory_xact_lock`) y comparación de la versión: si no coincide, **409**.
+2. Validación: errores duros, advertencias y cambios.
+3. Se **cierran primero** las versiones que cambian (`vigente_hasta = now()`) y **después** se insertan
+   las nuevas (`vigente_desde = now()`): las restricciones EXCLUDE y el índice único de los
+   parámetros vigentes no son diferibles. Las filas sin cambio conservan su id. En altitud, un rango
+   que ya no está en la tabla se cierra y uno nuevo se inserta.
+4. Evento **PARAMETRO_CAMBIADO** (entidad: la tabla del grupo) con `grupo`, `cerrados`, `creados`,
+   `cambios` (elemento, antes y después), `advertencias_confirmadas`, `motivo_cambio`, `referencia` e
+   `id_documento`. Sin datos personales.
+
+Si algo falla a mitad de camino, la transacción se deshace entera: nunca queda una versión cerrada sin
+su reemplazo.
+
+**Respuesta 200:** `{grupo, resumen}`. `grupo` tiene el mismo formato que en el GET, con la versión
+nueva; `resumen` es `{grupo, cerrados, creados, cambios, advertencias_confirmadas}`.
+
+### Errores duros (422, `codigo: "VALIDACION"`)
+
+Formato del proyecto, con la ruta del campo (por ejemplo `tramos.0.categorias.1.hb_max_g_dl`):
+`{"detail": "Revise los datos ingresados. <campo>: <mensaje>; ...", "codigo": "VALIDACION", "errores":
+[{"campo", "mensaje"}]}`. Los errores de tipo del cuerpo (por ejemplo, `motivo_cambio` corto o una
+`version` mal formada) tienen el mismo formato, sin `codigo`.
+
+| Grupo | Regla |
+| --- | --- |
+| Puntos de corte | Los tramos de edad son fijos (6 a 23 y 24 a 59 meses) y cada uno tiene las cuatro categorías existentes, una vez cada una |
+| Puntos de corte | Un solo decimal y entre 2,0 y 20,0 g/dL |
+| Puntos de corte | La categoría más severa sin límite inferior, «sin anemia» sin límite superior, las demás con los dos, y el mínimo no mayor que el máximo |
+| Puntos de corte | De la más severa a «sin anemia», el mínimo de cada categoría es el máximo de la anterior más 0,1: contiguos, sin huecos ni traslapes y en orden de riesgo |
+| Ajuste por altitud | El primer rango empieza en 0 y cada uno empieza en el máximo del anterior más 1 (sin huecos ni traslapes); el mínimo no mayor que el máximo |
+| Ajuste por altitud | La tabla cubre al menos hasta 4380 m.s.n.m. (la altitud máxima del catálogo de distritos) |
+| Ajuste por altitud | Ajuste de 0,0 a 6,0 g/dL con un decimal, no decreciente con la altitud |
+| Vigencia | Entero dentro de `valor_minimo` y `valor_maximo` de la fila y de 7 a 90 días |
+| Todos | `id_documento` debe existir; `referencia` es obligatoria si algún valor queda verificado; no se puede quitar `verificado` sin cambiar el valor |
+
+### Advertencias (422, `codigo: "REQUIERE_CONFIRMACION"`)
+
+Si hay advertencias y `confirmacion_escrita` no es `CONFIRMO`: `{"detail": "El cambio tiene
+advertencias: revíselas y escriba CONFIRMO para guardarlo", "codigo": "REQUIERE_CONFIRMACION",
+"advertencias": [{"campo", "mensaje"}]}`. Con `CONFIRMO`, se guarda y las advertencias quedan en el
+resumen y en el evento. Umbrales en `parametros_reglas.py` (**por validar con el asesor**):
+
+| Advertencia | Umbral |
+| --- | --- |
+| Un límite de Hb cambia respecto del vigente | Más de 1,0 g/dL |
+| El punto de corte de «sin anemia» cambia y queda fuera del rango | Fuera de 10,0 a 12,0 g/dL |
+| Un ajuste cambia respecto del vigente (o del rango vigente que cubría esa altitud) | Más de 0,5 g/dL |
+| La vigencia del tamizaje | Mayor de 60 días |
+
+Los errores duros se informan antes que las advertencias. La configuración sembrada pasa la
+validación completa de sí misma.
+
+### Sin cambios (422, `codigo: "SIN_CAMBIOS"`)
+
+`{"detail": "No hay cambios: los valores y su estado de verificación son los vigentes", "codigo":
+"SIN_CAMBIOS"}` cuando ningún valor cambia y ninguna fila pasa de no verificada a verificada.
+
+### Confirmar contra la norma
+
+Un PUT con los mismos valores es válido si alguna fila pasa de `verificado: false` a `true` y trae
+`referencia`. Crea una versión nueva con los mismos valores, `verificado` verdadero, la referencia,
+el motivo y el documento. No se puede volver a falso sin cambiar el valor. No hay «restaurar una
+versión anterior»: volver a un valor es un cambio nuevo con su motivo.
+
+### Conflicto (409, `codigo: "VERSION_DESACTUALIZADA"`)
+
+`{"detail": "Los parámetros cambiaron desde que los abrió: recargue la página para ver los valores
+vigentes", "codigo": "VERSION_DESACTUALIZADA", "version_actual": "<versión vigente>"}`. Con dos PUT
+seguidos con la misma versión, solo el primero pasa.
+
+### Efecto
+
+- Un punto de corte o un ajuste nuevo se aplica a los **tamizajes nuevos** (clasificación con el
+  `id_umbral` y el `id_ajuste` nuevos); un tamizaje ya clasificado conserva su clasificación y sus
+  ids, también en sus consultas posteriores.
+- Un cambio de vigencia se aplica en la consulta siguiente y en las marcas de vigencia de M02 y M08.
+- La versión del grupo, la huella y el historial cambian con cada PUT.

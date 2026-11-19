@@ -873,6 +873,33 @@ CREATE TRIGGER tg_ajuste_solo_cierre BEFORE UPDATE ON configuracion.ajuste_altit
 CREATE TRIGGER tg_parametro_solo_cierre BEFORE UPDATE ON configuracion.parametro_sistema
   FOR EACH ROW EXECUTE FUNCTION configuracion.fn_historial_solo_cierre();
 
+-- Las versiones nuevas entran vigentes y desde hoy en Lima (migración 016)
+CREATE FUNCTION configuracion.fn_version_nueva_vigente() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF (SELECT rolsuper FROM pg_roles WHERE rolname = current_user)
+     OR pg_has_role(current_user, (SELECT relowner FROM pg_class WHERE oid = TG_RELID), 'MEMBER') THEN
+    RETURN NEW;
+  END IF;
+  IF NEW.vigente_hasta IS NOT NULL THEN
+    RAISE EXCEPTION 'Una versión nueva de un parámetro entra vigente: no se puede insertar una versión cerrada'
+      USING ERRCODE = 'restrict_violation';
+  END IF;
+  IF (NEW.vigente_desde AT TIME ZONE 'America/Lima')::date <> (now() AT TIME ZONE 'America/Lima')::date THEN
+    RAISE EXCEPTION 'Una versión nueva de un parámetro rige desde hoy: no se admite una fecha pasada ni futura'
+      USING ERRCODE = 'restrict_violation';
+  END IF;
+  RETURN NEW;
+END $$;
+COMMENT ON FUNCTION configuracion.fn_version_nueva_vigente() IS 'Las versiones nuevas de los parámetros entran vigentes y desde hoy (Lima). Sin restricción para el propietario de la tabla o un superusuario.';
+
+CREATE TRIGGER tg_umbral_version_nueva BEFORE INSERT ON configuracion.umbral_hemoglobina
+  FOR EACH ROW EXECUTE FUNCTION configuracion.fn_version_nueva_vigente();
+CREATE TRIGGER tg_ajuste_version_nueva BEFORE INSERT ON configuracion.ajuste_altitud
+  FOR EACH ROW EXECUTE FUNCTION configuracion.fn_version_nueva_vigente();
+CREATE TRIGGER tg_parametro_version_nueva BEFORE INSERT ON configuracion.parametro_sistema
+  FOR EACH ROW EXECUTE FUNCTION configuracion.fn_version_nueva_vigente();
+
 -- Índices de consulta frecuente
 CREATE INDEX ix_tamizaje_paciente_fecha ON clinico.tamizaje (id_paciente, fecha_tamizaje DESC);
 CREATE INDEX ix_consulta_estado_fecha ON asistencia.consulta (estado, fecha_hora_inicio DESC);

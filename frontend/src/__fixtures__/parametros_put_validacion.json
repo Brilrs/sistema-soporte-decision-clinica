@@ -1,0 +1,10 @@
+{
+  "detail": "Revise los datos ingresados. valor: debe ser un número entero de días entre 7 y 90",
+  "codigo": "VALIDACION",
+  "errores": [
+    {
+      "campo": "valor",
+      "mensaje": "debe ser un número entero de días entre 7 y 90"
+    }
+  ]
+}
