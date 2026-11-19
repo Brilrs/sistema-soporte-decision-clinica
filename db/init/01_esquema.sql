@@ -363,6 +363,9 @@ CREATE TABLE configuracion.umbral_hemoglobina (
   vigente_desde TIMESTAMPTZ NOT NULL DEFAULT now(),
   vigente_hasta TIMESTAMPTZ,
   modificado_por UUID NOT NULL REFERENCES seguridad.usuario (id_usuario),
+  motivo_cambio VARCHAR(500),
+  referencia VARCHAR(200),
+  verificado BOOLEAN NOT NULL DEFAULT false,
   CHECK (edad_min_meses <= edad_max_meses)
 );
 COMMENT ON TABLE configuracion.umbral_hemoglobina IS 'Puntos de corte de hemoglobina a nivel del mar por grupo de edad y categoría, tomados de la norma de referencia. Se versionan mediante el periodo de vigencia; una modificación cierra la fila vigente y crea una nueva.';
@@ -376,6 +379,9 @@ COMMENT ON COLUMN configuracion.umbral_hemoglobina.hb_max_g_dl IS 'Límite super
 COMMENT ON COLUMN configuracion.umbral_hemoglobina.vigente_desde IS 'Inicio de vigencia.';
 COMMENT ON COLUMN configuracion.umbral_hemoglobina.vigente_hasta IS 'Fin de vigencia; nulo mientras el valor está vigente.';
 COMMENT ON COLUMN configuracion.umbral_hemoglobina.modificado_por IS 'Usuario que registró el valor.';
+COMMENT ON COLUMN configuracion.umbral_hemoglobina.motivo_cambio IS 'Motivo del cambio que creó esta versión (obligatorio desde M12; nulo en la carga inicial).';
+COMMENT ON COLUMN configuracion.umbral_hemoglobina.referencia IS 'Tabla y página de la norma de la que sale el valor.';
+COMMENT ON COLUMN configuracion.umbral_hemoglobina.verificado IS 'Valor contrastado con el texto de la norma; falso mientras siga pendiente de verificación.';
 CREATE INDEX ix_umbral_hemoglobina_id_documento ON configuracion.umbral_hemoglobina (id_documento);
 CREATE INDEX ix_umbral_hemoglobina_id_categoria ON configuracion.umbral_hemoglobina (id_categoria);
 CREATE INDEX ix_umbral_hemoglobina_modificado_por ON configuracion.umbral_hemoglobina (modificado_por);
@@ -392,6 +398,9 @@ CREATE TABLE configuracion.ajuste_altitud (
   vigente_desde TIMESTAMPTZ NOT NULL DEFAULT now(),
   vigente_hasta TIMESTAMPTZ,
   modificado_por UUID NOT NULL REFERENCES seguridad.usuario (id_usuario),
+  motivo_cambio VARCHAR(500),
+  referencia VARCHAR(200),
+  verificado BOOLEAN NOT NULL DEFAULT false,
   CHECK (altitud_min_msnm <= altitud_max_msnm)
 );
 COMMENT ON TABLE configuracion.ajuste_altitud IS 'Tabla de ajuste de hemoglobina por rango de altitud de residencia, cargada desde la norma de referencia y aplicada antes de clasificar.';
@@ -403,6 +412,9 @@ COMMENT ON COLUMN configuracion.ajuste_altitud.ajuste_g_dl IS 'Valor que se rest
 COMMENT ON COLUMN configuracion.ajuste_altitud.vigente_desde IS 'Inicio de vigencia.';
 COMMENT ON COLUMN configuracion.ajuste_altitud.vigente_hasta IS 'Fin de vigencia; nulo mientras el valor está vigente.';
 COMMENT ON COLUMN configuracion.ajuste_altitud.modificado_por IS 'Usuario que registró el valor.';
+COMMENT ON COLUMN configuracion.ajuste_altitud.motivo_cambio IS 'Motivo del cambio que creó esta versión (obligatorio desde M12; nulo en la carga inicial).';
+COMMENT ON COLUMN configuracion.ajuste_altitud.referencia IS 'Tabla y página de la norma de la que sale el valor.';
+COMMENT ON COLUMN configuracion.ajuste_altitud.verificado IS 'Valor contrastado con el texto de la norma; falso mientras siga pendiente de verificación.';
 CREATE INDEX ix_ajuste_altitud_id_documento ON configuracion.ajuste_altitud (id_documento);
 CREATE INDEX ix_ajuste_altitud_modificado_por ON configuracion.ajuste_altitud (modificado_por);
 
@@ -419,7 +431,11 @@ CREATE TABLE configuracion.parametro_sistema (
   descripcion VARCHAR(250) NOT NULL,
   vigente_desde TIMESTAMPTZ NOT NULL DEFAULT now(),
   vigente_hasta TIMESTAMPTZ,
-  modificado_por UUID NOT NULL REFERENCES seguridad.usuario (id_usuario)
+  modificado_por UUID NOT NULL REFERENCES seguridad.usuario (id_usuario),
+  motivo_cambio VARCHAR(500),
+  referencia VARCHAR(200),
+  verificado BOOLEAN NOT NULL DEFAULT false,
+  id_documento UUID REFERENCES conocimiento.documento_fuente (id_documento)
 );
 COMMENT ON TABLE configuracion.parametro_sistema IS 'Parámetros operativos del sistema: días de vigencia del tamizaje, candidatos por búsqueda, fragmentos enviados, umbral de relevancia, reintentos máximos, modelo del LLM y tiempo máximo de espera. Se versionan igual que los parámetros clínicos.';
 COMMENT ON COLUMN configuracion.parametro_sistema.id_parametro IS 'Identificador de la versión del parámetro.';
@@ -432,7 +448,12 @@ COMMENT ON COLUMN configuracion.parametro_sistema.descripcion IS 'Descripción d
 COMMENT ON COLUMN configuracion.parametro_sistema.vigente_desde IS 'Inicio de vigencia.';
 COMMENT ON COLUMN configuracion.parametro_sistema.vigente_hasta IS 'Fin de vigencia; nulo mientras el valor está vigente.';
 COMMENT ON COLUMN configuracion.parametro_sistema.modificado_por IS 'Usuario que registró el valor.';
+COMMENT ON COLUMN configuracion.parametro_sistema.motivo_cambio IS 'Motivo del cambio que creó esta versión (obligatorio desde M12; nulo en la carga inicial y en las migraciones).';
+COMMENT ON COLUMN configuracion.parametro_sistema.referencia IS 'Tabla y página de la norma o medición de la que sale el valor.';
+COMMENT ON COLUMN configuracion.parametro_sistema.verificado IS 'Valor contrastado con su fuente; falso mientras siga pendiente de verificación.';
+COMMENT ON COLUMN configuracion.parametro_sistema.id_documento IS 'Norma de la que procede el valor, si corresponde (por ejemplo, la vigencia del tamizaje).';
 CREATE INDEX ix_parametro_sistema_modificado_por ON configuracion.parametro_sistema (modificado_por);
+CREATE INDEX ix_parametro_sistema_id_documento ON configuracion.parametro_sistema (id_documento);
 
 -- ---------------------------------------------------------------------------
 -- clinico.tamizaje
@@ -812,6 +833,46 @@ ALTER TABLE configuracion.ajuste_altitud ADD CONSTRAINT ex_ajuste_sin_traslape
   EXCLUDE USING gist (int4range(altitud_min_msnm, altitud_max_msnm, '[]') WITH &&)
   WHERE (vigente_hasta IS NULL);
 
+-- En edades que se superponen, los rangos de Hb vigentes de categorías distintas no se superponen
+-- (migración 015; un límite nulo es abierto)
+ALTER TABLE configuracion.umbral_hemoglobina ADD CONSTRAINT ex_umbral_hb_sin_traslape
+  EXCLUDE USING gist (int4range(edad_min_meses, edad_max_meses, '[]') WITH &&,
+                      numrange(hb_min_g_dl, hb_max_g_dl, '[]') WITH &&)
+  WHERE (vigente_hasta IS NULL);
+
+-- Historial de parámetros: las versiones solo se cierran (migración 015)
+CREATE FUNCTION configuracion.fn_historial_solo_cierre() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  -- El propietario de la tabla o un superusuario (migraciones, carga inicial, desmontaje de las
+  -- pruebas) puede corregir el historial; las conexiones de la aplicación, no.
+  IF (SELECT rolsuper FROM pg_roles WHERE rolname = current_user)
+     OR pg_has_role(current_user, (SELECT relowner FROM pg_class WHERE oid = TG_RELID), 'MEMBER') THEN
+    RETURN NEW;
+  END IF;
+  IF OLD.vigente_hasta IS NOT NULL THEN
+    RAISE EXCEPTION 'El historial de parámetros no se modifica: la versión de %.% ya está cerrada', TG_TABLE_SCHEMA, TG_TABLE_NAME
+      USING ERRCODE = 'restrict_violation';
+  END IF;
+  IF (to_jsonb(NEW) - 'vigente_hasta') IS DISTINCT FROM (to_jsonb(OLD) - 'vigente_hasta') THEN
+    RAISE EXCEPTION 'El historial de parámetros no se modifica: para cambiar un valor se cierra la versión vigente y se crea otra'
+      USING ERRCODE = 'restrict_violation';
+  END IF;
+  IF NEW.vigente_hasta IS NULL OR NEW.vigente_hasta < OLD.vigente_desde THEN
+    RAISE EXCEPTION 'Una versión vigente solo se cierra con una fecha no anterior a su inicio de vigencia'
+      USING ERRCODE = 'restrict_violation';
+  END IF;
+  RETURN NEW;
+END $$;
+COMMENT ON FUNCTION configuracion.fn_historial_solo_cierre() IS 'Las versiones de los parámetros solo se cierran (vigente_hasta de NULL a una fecha); los valores no se editan. Sin restricción para el propietario de la tabla o un superusuario.';
+
+CREATE TRIGGER tg_umbral_solo_cierre BEFORE UPDATE ON configuracion.umbral_hemoglobina
+  FOR EACH ROW EXECUTE FUNCTION configuracion.fn_historial_solo_cierre();
+CREATE TRIGGER tg_ajuste_solo_cierre BEFORE UPDATE ON configuracion.ajuste_altitud
+  FOR EACH ROW EXECUTE FUNCTION configuracion.fn_historial_solo_cierre();
+CREATE TRIGGER tg_parametro_solo_cierre BEFORE UPDATE ON configuracion.parametro_sistema
+  FOR EACH ROW EXECUTE FUNCTION configuracion.fn_historial_solo_cierre();
+
 -- Índices de consulta frecuente
 CREATE INDEX ix_tamizaje_paciente_fecha ON clinico.tamizaje (id_paciente, fecha_tamizaje DESC);
 CREATE INDEX ix_consulta_estado_fecha ON asistencia.consulta (estado, fecha_hora_inicio DESC);
@@ -1026,6 +1087,13 @@ REVOKE ALL ON conocimiento.trabajo_indexacion FROM rol_app_generacion;
 REVOKE ALL ON clinico.paciente_identidad FROM rol_app_generacion;
 
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA seguridad, conocimiento, configuracion TO rol_app_admin;
+-- Historial de parámetros cerrado (migración 015): rol_app_admin solo cierra versiones (vigente_hasta)
+-- e inserta las nuevas; categoria_anemia queda en solo lectura.
+REVOKE UPDATE ON configuracion.umbral_hemoglobina, configuracion.ajuste_altitud, configuracion.parametro_sistema
+  FROM rol_app_admin;
+GRANT UPDATE (vigente_hasta) ON configuracion.umbral_hemoglobina, configuracion.ajuste_altitud,
+  configuracion.parametro_sistema TO rol_app_admin;
+REVOKE INSERT, UPDATE ON configuracion.categoria_anemia FROM rol_app_admin;
 
 GRANT SELECT ON ALL TABLES IN SCHEMA auditoria TO rol_auditor;
 -- El auditor solo lee las vistas de auditoría y la bitácora: ningún permiso sobre las tablas clínicas
@@ -1068,7 +1136,8 @@ INSERT INTO seguridad.permiso (codigo, descripcion) VALUES
   ('REGISTRAR_PACIENTE', 'Registrar y editar pacientes y tamizajes'),
   ('REALIZAR_CONSULTA', 'Formular consultas clínicas al sistema'),
   ('EXPORTAR_REPORTE', 'Exportar e imprimir reportes de evaluación'),
-  ('CONFIGURAR_PARAMETROS', 'Modificar parámetros clínicos y de recuperación'),
+  ('CONFIGURAR_PARAMETROS', 'Modificar los puntos de corte, el ajuste por altitud y la vigencia del tamizaje'),
+  ('VER_PARAMETROS', 'Consultar los parámetros clínicos y del sistema y su historial'),
   ('ADMINISTRAR_GUIAS', 'Cargar y retirar guías de la base de conocimiento'),
   ('ADMINISTRAR_USUARIOS', 'Crear, editar y desactivar cuentas'),
   ('VER_AUDITORIA', 'Consultar la bitácora y los indicadores operativos');

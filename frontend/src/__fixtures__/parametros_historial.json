@@ -1,0 +1,93 @@
+{
+  "total": 14,
+  "limite": 5,
+  "desplazamiento": 0,
+  "grupo": "recuperacion",
+  "versiones": [
+    {
+      "documento": null,
+      "referencia": null,
+      "motivo_cambio": null,
+      "verificado": false,
+      "vigente_desde": "2026-10-20T15:00:00Z",
+      "modificado_por": "Sistema (carga inicial)",
+      "grupo": "recuperacion",
+      "tabla": "parametro_sistema",
+      "id": 86,
+      "elemento": "BONIFICACION_EDAD",
+      "valores": {
+        "valor": "0.7"
+      },
+      "vigente_hasta": null,
+      "vigente": true
+    },
+    {
+      "documento": null,
+      "referencia": null,
+      "motivo_cambio": null,
+      "verificado": false,
+      "vigente_desde": "2026-10-20T15:00:00Z",
+      "modificado_por": "Sistema (carga inicial)",
+      "grupo": "recuperacion",
+      "tabla": "parametro_sistema",
+      "id": 79,
+      "elemento": "BONIFICACION_EDAD",
+      "valores": {
+        "valor": "0"
+      },
+      "vigente_hasta": "2026-10-20T15:00:00Z",
+      "vigente": false
+    },
+    {
+      "documento": null,
+      "referencia": null,
+      "motivo_cambio": null,
+      "verificado": false,
+      "vigente_desde": "2026-10-20T15:00:00Z",
+      "modificado_por": "Sistema (carga inicial)",
+      "grupo": "recuperacion",
+      "tabla": "parametro_sistema",
+      "id": 51,
+      "elemento": "UMBRAL_DOMINIO",
+      "valores": {
+        "valor": "0.65"
+      },
+      "vigente_hasta": null,
+      "vigente": true
+    },
+    {
+      "documento": null,
+      "referencia": null,
+      "motivo_cambio": null,
+      "verificado": false,
+      "vigente_desde": "2026-10-20T15:00:00Z",
+      "modificado_por": "Sistema (carga inicial)",
+      "grupo": "recuperacion",
+      "tabla": "parametro_sistema",
+      "id": 50,
+      "elemento": "UMBRAL_RELEVANCIA",
+      "valores": {
+        "valor": "0.15"
+      },
+      "vigente_hasta": null,
+      "vigente": true
+    },
+    {
+      "documento": null,
+      "referencia": null,
+      "motivo_cambio": null,
+      "verificado": false,
+      "vigente_desde": "2026-10-20T15:00:00Z",
+      "modificado_por": "Sistema (carga inicial)",
+      "grupo": "recuperacion",
+      "tabla": "parametro_sistema",
+      "id": 49,
+      "elemento": "MAX_LONGITUD_RERANKER",
+      "valores": {
+        "valor": "256"
+      },
+      "vigente_hasta": null,
+      "vigente": true
+    }
+  ]
+}

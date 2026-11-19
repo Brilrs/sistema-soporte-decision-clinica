@@ -154,7 +154,7 @@ describe("M11 · acceso", () => {
     ["Enfermera CRED", USUARIO.permisos],
     ["Médico", ["REGISTRAR_PACIENTE", "REALIZAR_CONSULTA", "EXPORTAR_REPORTE"]],
     ["Nutricionista", ["REGISTRAR_PACIENTE", "REALIZAR_CONSULTA", "EXPORTAR_REPORTE"]],
-    ["Coordinador CRED", ["REALIZAR_CONSULTA", "EXPORTAR_REPORTE", "CONFIGURAR_PARAMETROS", "VER_AUDITORIA"]],
+    ["Coordinador CRED", ["REALIZAR_CONSULTA", "EXPORTAR_REPORTE", "CONFIGURAR_PARAMETROS", "VER_PARAMETROS", "VER_AUDITORIA"]],
   ])("%s no ve M11: vuelve al inicio sin pedir las guías", async (rol, permisos) => {
     const f = renderizar({}, { ...USUARIO, rol, permisos });
     await waitFor(() => expect(llamadas(f, "GET /api/auth/me").length).toBeGreaterThan(0));

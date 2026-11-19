@@ -58,7 +58,7 @@ export default function App() {
         <Route path="reportes" element={<ConPermiso permisos={EXPORTAR}><HistorialConsultas modo="reportes" /></ConPermiso>} />
         <Route path="admin/usuarios" element={<ConPermiso permisos={["ADMINISTRAR_USUARIOS"]}><GestionUsuarios /></ConPermiso>} />
         <Route path="admin/conocimiento" element={<ConPermiso permisos={["ADMINISTRAR_GUIAS"]}><BaseConocimiento /></ConPermiso>} />
-        <Route path="admin/parametros" element={<EnConstruccion titulo="Parámetros clínicos" pantalla="M12 Parámetros clínicos" sprint={3} />} />
+        <Route path="admin/parametros" element={<ConPermiso permisos={["VER_PARAMETROS"]}><EnConstruccion titulo="Parámetros clínicos" pantalla="M12 Parámetros clínicos" sprint={3} /></ConPermiso>} />
         <Route path="admin/auditoria" element={<ConPermiso permisos={AUDITAR}><Auditoria /></ConPermiso>} />
         <Route path="admin/auditoria/:id" element={<ConPermiso permisos={AUDITAR}><DetalleAuditoria /></ConPermiso>} />
         <Route path="*" element={<Navigate to="/" replace />} />

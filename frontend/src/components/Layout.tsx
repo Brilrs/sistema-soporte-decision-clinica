@@ -18,7 +18,7 @@ const ATENCION: Opcion[] = [
 const ADMINISTRACION: Opcion[] = [
   { ruta: "/admin/usuarios", texto: "Usuarios", permisos: ["ADMINISTRAR_USUARIOS"] },
   { ruta: "/admin/conocimiento", texto: "Base de conocimiento", permisos: ["ADMINISTRAR_GUIAS"] },
-  { ruta: "/admin/parametros", texto: "Parámetros clínicos", permisos: ["CONFIGURAR_PARAMETROS"] },
+  { ruta: "/admin/parametros", texto: "Parámetros clínicos", permisos: ["VER_PARAMETROS"] },
   { ruta: "/admin/auditoria", texto: "Auditoría", permisos: ["VER_AUDITORIA"] },
 ];
 

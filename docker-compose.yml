@@ -57,6 +57,8 @@ services:
       DATABASE_URL_GENERACION: postgresql+psycopg://cdss_generacion:${CDSS_DB_PWD_GENERACION}@db:5432/cdss
       DATABASE_URL_ADMIN: postgresql+psycopg://cdss_admin:${CDSS_DB_PWD_ADMIN}@db:5432/cdss
       DATABASE_URL_AUDITOR: postgresql+psycopg://cdss_auditor:${CDSS_DB_PWD_AUDITOR}@db:5432/cdss
+      # Modo de evaluación del OE3: true bloquea las escrituras de M11 y M12 (423). Por omisión, apagado.
+      CDSS_MODO_EVALUACION: ${CDSS_MODO_EVALUACION:-false}
       JWT_SECRETO: ${JWT_SECRETO}
       CDSS_CLAVE_PII: ${CDSS_CLAVE_PII}
       CDSS_CLAVE_HMAC: ${CDSS_CLAVE_HMAC}

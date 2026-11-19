@@ -21,6 +21,7 @@ from starlette.datastructures import UploadFile
 from app.api.deps import UsuarioActual, requiere_permiso
 from app.core.auditoria import registrar_evento
 from app.core.db import sesion_admin
+from app.core.evaluacion import bloquear_en_evaluacion
 from app.services import conocimiento as srv
 
 log = logging.getLogger(__name__)
@@ -210,6 +211,8 @@ async def cargar(request: Request, actor: UsuarioActual = Depends(administrador)
                  sesion: Session = Depends(sesion_admin)) -> dict:
     """Multipart con el campo archivo y los metadatos como campos de texto. La copia del archivo
     y el trabajo con la base van en el grupo de hilos, fuera del bucle de eventos."""
+    # Modo de evaluación (OE3): 423 antes de leer el archivo.
+    await run_in_threadpool(bloquear_en_evaluacion, sesion, actor.id_usuario, "CARGAR_GUIA", ENTIDAD, None, _ip(request))
     p = srv.parametros_subida()
     await run_in_threadpool(_capacidad, sesion, actor, request)
     async with request.form(max_files=1, max_fields=len(CAMPOS) + 1) as formulario:
@@ -292,6 +295,7 @@ def _borrar(*rutas) -> None:
              status_code=status.HTTP_201_CREATED)
 def reintentar(id_documento: UUID, request: Request, actor: UsuarioActual = Depends(administrador),
                sesion: Session = Depends(sesion_admin)) -> dict:
+    bloquear_en_evaluacion(sesion, actor.id_usuario, "REINTENTAR_INDEXACION", ENTIDAD, str(id_documento), _ip(request))
     try:
         srv.bloquear_cola(sesion)
         id_trabajo, tipo = srv.reintentar(sesion, str(id_documento), actor.id_usuario)

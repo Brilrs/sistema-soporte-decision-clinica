@@ -66,6 +66,18 @@ de la consulta. El registro de la decisión no tiene historia propia en el OE2: 
     conexión de solo lectura `cdss_auditor`, migración 014) y la pantalla M13 en la parte D2: HU13
     resuelta.
 - Las historias HU10, HU13 y HU14, y los pendientes de la sección 5 asignados al Sprint 3.
+  - Actualización del Sprint 3: HU14 (M12) en curso. La parte E1a dejó la base (migración 015,
+    rutas de lectura, huella de la configuración y modo de evaluación; `docs/contrato_parametros.md`);
+    la edición es E1b y la pantalla E2.
+  - **Verificaciones pendientes antes del OE3** (ninguno de estos valores está confirmado contra su
+    fuente; M12 muestra `verificado = false` en los tres primeros):
+    - puntos de corte de Hb (NTS 213 y OMS 2024): la coordinadora CRED, con el asesor;
+    - ajuste por altitud (mezcla OMS 2024 y la Tabla 1 de la RM 429): la coordinadora CRED, con el
+      asesor;
+    - vigencia del tamizaje (30 días): la coordinadora CRED;
+    - altitudes de los distritos (INEI), fuera de M12: el equipo de tesis, por migración;
+    - descriptores MeSH de los síntomas, fuera de M12: el equipo de tesis, por migración;
+    - precios por millón de tokens del modelo (costo en M13): el equipo de tesis, por migración.
 
 ## 2. Cómo se verificó
 

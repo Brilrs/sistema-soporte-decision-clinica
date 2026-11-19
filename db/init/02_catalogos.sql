@@ -3,8 +3,13 @@
 -- Se ejecuta después de 01_esquema.sql.
 -- Los valores clínicos marcados con [VERIFICAR] deben contrastarse con el
 -- texto oficial de la NTS N.° 213-MINSA/DGIESP-2024 y la guía OMS (2024)
--- antes de la validación con usuarios. Todos se pueden modificar desde la
--- pantalla de parámetros clínicos (M12) sin cambiar el código.
+-- antes de la validación con usuarios (y antes del OE3). Desde M12 la
+-- coordinación CRED edita solo los puntos de corte, el ajuste por altitud y
+-- la vigencia del tamizaje, con motivo y norma (decisión 4 del plan del
+-- Sprint 3); el riesgo por clasificación y los parámetros de recuperación y
+-- del modelo se cambian solo por migración. Las altitudes de los distritos y
+-- los descriptores MeSH quedan fuera de M12. Las filas sembradas quedan con
+-- verificado = false (migración 015).
 -- ============================================================================
 
 -- ---------------------------------------------------------------------------
@@ -26,8 +31,8 @@ JOIN seguridad.permiso p ON p.codigo = ANY (
     WHEN 'Enfermera CRED'   THEN ARRAY['REGISTRAR_PACIENTE','REALIZAR_CONSULTA','EXPORTAR_REPORTE']
     WHEN 'Médico'           THEN ARRAY['REGISTRAR_PACIENTE','REALIZAR_CONSULTA','EXPORTAR_REPORTE']
     WHEN 'Nutricionista'    THEN ARRAY['REGISTRAR_PACIENTE','REALIZAR_CONSULTA','EXPORTAR_REPORTE']
-    WHEN 'Coordinador CRED' THEN ARRAY['REALIZAR_CONSULTA','EXPORTAR_REPORTE','CONFIGURAR_PARAMETROS','VER_AUDITORIA']
-    WHEN 'Administrador'    THEN ARRAY['ADMINISTRAR_USUARIOS','ADMINISTRAR_GUIAS','CONFIGURAR_PARAMETROS','VER_AUDITORIA']
+    WHEN 'Coordinador CRED' THEN ARRAY['REALIZAR_CONSULTA','EXPORTAR_REPORTE','CONFIGURAR_PARAMETROS','VER_PARAMETROS','VER_AUDITORIA']
+    WHEN 'Administrador'    THEN ARRAY['ADMINISTRAR_USUARIOS','ADMINISTRAR_GUIAS','VER_PARAMETROS','VER_AUDITORIA']
   END);
 
 -- ---------------------------------------------------------------------------

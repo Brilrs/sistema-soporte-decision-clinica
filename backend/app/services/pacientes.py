@@ -16,11 +16,11 @@ from app.core.config import get_settings
 from app.core.fechas import edad_en_meses, hoy
 from app.core.seguridad import hmac_identificador
 from app.rag.cliente_llm import MODELO_FALSO
+from app.rag.parametros import leer_parametros
 from app.services.clasificacion import (Evaluacion, clasificar, guardar_resultado, motivo_fuera_de_rango,
                                         rango_edad_clasificable)
 
 NOMBRE_SINTOMA_OTRO = "Otro"
-DIAS_VIGENCIA_POR_DEFECTO = 30
 
 
 class ErrorDatos(Exception):
@@ -61,12 +61,9 @@ def _descifrar(columna: str) -> str:
 # Catálogos y parámetros
 # ---------------------------------------------------------------------------
 def dias_vigencia(sesion: Session) -> int:
-    valor = sesion.execute(text("""SELECT valor FROM configuracion.parametro_sistema
-                                    WHERE clave = 'DIAS_VIGENCIA_TAMIZAJE' AND vigente_hasta IS NULL""")).scalar()
-    try:
-        return int(valor)
-    except (TypeError, ValueError):
-        return DIAS_VIGENCIA_POR_DEFECTO
+    """DIAS_VIGENCIA_TAMIZAJE con el mismo lector que la consulta (leer_parametros): si falta o no es
+    válido, lanza ErrorParametro en lugar de usar un valor en silencio (parte E1a)."""
+    return leer_parametros(sesion, ["DIAS_VIGENCIA_TAMIZAJE"])["DIAS_VIGENCIA_TAMIZAJE"]
 
 
 def es_vigente(fecha_tamizaje: date | None, dias: int) -> bool | None:
