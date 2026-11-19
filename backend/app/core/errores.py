@@ -3,7 +3,7 @@
 FastAPI responde los errores de validación (422) con los textos en inglés de
 Pydantic. Este manejador los traduce y deja en "detail" un texto legible para la
 interfaz, además de la lista por campo en "errores"."""
-from fastapi import Request
+from fastapi import HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -63,3 +63,21 @@ async def manejar_error_validacion(_: Request, exc: RequestValidationError) -> J
     resumen = "; ".join(f"{e['campo']}: {e['mensaje']}" for e in errores)
     return JSONResponse(status_code=422, content={"detail": f"Revise los datos ingresados. {resumen}",
                                                   "errores": errores})
+
+
+class ErrorConCodigo(HTTPException):
+    """HTTPException con un código estable para la interfaz. Se responde como
+    {"detail": <texto>, "codigo": <CÓDIGO>} (más los campos de «extra»), no con el detalle anidado."""
+
+    def __init__(self, estado: int, detalle: str, codigo: str, headers: dict[str, str] | None = None,
+                 **extra) -> None:
+        super().__init__(estado, detalle, headers=headers)
+        self.codigo = codigo
+        self.extra = extra
+
+
+async def manejar_error_con_codigo(_: Request, exc: ErrorConCodigo) -> JSONResponse:
+    # El código va también en una cabecera: el cliente lo lee sin consumir el cuerpo (cierre de sesión).
+    cabeceras = {**(exc.headers or {}), "X-Codigo-Error": exc.codigo}
+    return JSONResponse(status_code=exc.status_code, headers=cabeceras,
+                        content={"detail": exc.detail, "codigo": exc.codigo, **exc.extra})

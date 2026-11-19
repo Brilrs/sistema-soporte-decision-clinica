@@ -75,7 +75,11 @@ CREATE TABLE seguridad.usuario (
   intentos_fallidos SMALLINT NOT NULL DEFAULT 0,
   ultimo_acceso TIMESTAMPTZ,
   fecha_creacion TIMESTAMPTZ NOT NULL DEFAULT now(),
-  fecha_desactivacion TIMESTAMPTZ
+  fecha_desactivacion TIMESTAMPTZ,
+  debe_cambiar_contrasena BOOLEAN NOT NULL DEFAULT false,
+  version_sesion INTEGER NOT NULL DEFAULT 0,
+  fecha_cambio_contrasena TIMESTAMPTZ,
+  CONSTRAINT ck_usuario_version_sesion CHECK (version_sesion >= 0)
 );
 COMMENT ON TABLE seguridad.usuario IS 'Cuenta institucional de cada profesional de salud o administrador. Almacena únicamente el hash de la contraseña y los datos necesarios para la autenticación y la trazabilidad de sus acciones.';
 COMMENT ON COLUMN seguridad.usuario.id_usuario IS 'Identificador del usuario.';
@@ -89,6 +93,9 @@ COMMENT ON COLUMN seguridad.usuario.intentos_fallidos IS 'Intentos de inicio de 
 COMMENT ON COLUMN seguridad.usuario.ultimo_acceso IS 'Fecha y hora del último inicio de sesión exitoso.';
 COMMENT ON COLUMN seguridad.usuario.fecha_creacion IS 'Fecha y hora de creación de la cuenta.';
 COMMENT ON COLUMN seguridad.usuario.fecha_desactivacion IS 'Fecha y hora en que la cuenta fue desactivada.';
+COMMENT ON COLUMN seguridad.usuario.debe_cambiar_contrasena IS 'Verdadero si el usuario debe cambiar su contraseña antes de usar el sistema (cuenta nueva o contraseña restablecida).';
+COMMENT ON COLUMN seguridad.usuario.version_sesion IS 'Contador de sesiones: un token solo es válido si lleva este mismo valor. Sube al cambiar o restablecer la contraseña y al reactivar la cuenta.';
+COMMENT ON COLUMN seguridad.usuario.fecha_cambio_contrasena IS 'Fecha y hora en que el propio usuario cambió su contraseña por última vez.';
 CREATE INDEX ix_usuario_id_rol ON seguridad.usuario (id_rol);
 
 -- ---------------------------------------------------------------------------

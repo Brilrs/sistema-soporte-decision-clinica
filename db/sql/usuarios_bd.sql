@@ -12,9 +12,12 @@
 -- ============================================================================
 
 -- La autenticación (HU01) necesita leer cuentas, roles y permisos, y
--- actualizar solo los campos de control de acceso de la cuenta.
+-- actualizar solo los campos de control de acceso de la cuenta. Desde la migración 018 también
+-- atiende el cambio de la propia contraseña: hash, marca de cambio obligatorio, contador de
+-- sesiones y fecha del cambio (sin nombre, correo, rol ni estado de la cuenta).
 GRANT SELECT ON seguridad.usuario, seguridad.rol, seguridad.permiso, seguridad.rol_permiso TO rol_app_clinica;
-GRANT UPDATE (intentos_fallidos, ultimo_acceso) ON seguridad.usuario TO rol_app_clinica;
+GRANT UPDATE (intentos_fallidos, ultimo_acceso, hash_contrasena, debe_cambiar_contrasena, version_sesion,
+              fecha_cambio_contrasena) ON seguridad.usuario TO rol_app_clinica;
 
 DO $$
 DECLARE

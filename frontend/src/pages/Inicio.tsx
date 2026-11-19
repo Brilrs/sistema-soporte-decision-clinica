@@ -1,5 +1,6 @@
 // Pantalla de bienvenida tras el inicio de sesión; muestra el estado de los servicios.
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { api } from "../api/cliente";
 import { useAuth } from "../auth/AuthContext";
 import { useTituloPagina } from "../utilidades/useTituloPagina";
@@ -16,6 +17,8 @@ const NOMBRES: Record<string, string> = {
 export default function Inicio() {
   useTituloPagina("Inicio");
   const { usuario } = useAuth();
+  // Aviso de la pantalla anterior (por ejemplo, «Su contraseña se cambió correctamente.»)
+  const aviso = (useLocation().state as { aviso?: string } | null)?.aviso;
   const [salud, setSalud] = useState<Salud | null>(null);
 
   useEffect(() => {
@@ -24,6 +27,7 @@ export default function Inicio() {
 
   return (
     <section>
+      {aviso && <p className="alerta alerta--exito inicio__aviso" role="status">{aviso}</p>}
       <h1>Hola, {usuario?.nombre_completo}</h1>
       <p className="texto-tenue">Rol: {usuario?.rol} · Permisos: {usuario?.permisos.join(", ")}</p>
 

@@ -25,6 +25,11 @@ def verificar_contrasena(hash_guardado: str, contrasena: str) -> bool:
         return False
 
 
+def texto_politica() -> str:
+    """La política escrita, igual en los mensajes de error y en la pantalla de cambio."""
+    return f"Mínimo {get_settings().contrasena_longitud_minima} caracteres, con al menos una letra y un número"
+
+
 def cumple_politica(contrasena: str) -> bool:
     """Longitud mínima configurable (CONTRASENA_LONGITUD_MINIMA), al menos una letra y un número."""
     return (len(contrasena) >= get_settings().contrasena_longitud_minima
@@ -46,11 +51,14 @@ def generar_contrasena() -> str:
             return contrasena
 
 
-def crear_token(id_usuario: str, rol: str) -> tuple[str, int]:
+def crear_token(id_usuario: str, rol: str, version_sesion: int) -> tuple[str, int]:
+    """El token lleva la versión de sesión de la cuenta (sv): deja de valer cuando la versión sube
+    (contraseña cambiada o restablecida, cuenta reactivada)."""
     s = get_settings()
     ahora = datetime.now(timezone.utc)
     segundos = s.jwt_minutos * 60
-    payload = {"sub": id_usuario, "rol": rol, "iat": ahora, "exp": ahora + timedelta(seconds=segundos)}
+    payload = {"sub": id_usuario, "rol": rol, "sv": version_sesion, "iat": ahora,
+               "exp": ahora + timedelta(seconds=segundos)}
     return jwt.encode(payload, s.jwt_secreto, algorithm="HS256"), segundos
 
 

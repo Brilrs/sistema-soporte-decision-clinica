@@ -102,6 +102,8 @@ class UsuarioSalida(BaseModel):
     ultimo_acceso: datetime | None
     fecha_creacion: datetime
     fecha_desactivacion: datetime | None
+    # Cuenta nueva o con la contraseña restablecida que aún no la cambió (sin hash ni versión de sesión)
+    debe_cambiar_contrasena: bool
 
 
 class Permiso(BaseModel):
@@ -266,8 +268,8 @@ def desbloquear(id_usuario: UUID, request: Request, actor: UsuarioActual = Depen
 def restablecer_contrasena(id_usuario: UUID, request: Request, respuesta: Response,
                            actor: UsuarioActual = Depends(administrador),
                            sesion: Session = Depends(sesion_admin)) -> dict:
-    """Genera una contraseña nueva (también desbloquea la cuenta). Las sesiones abiertas con la
-    contraseña anterior siguen vigentes hasta que vence su token (ver docs/mejoras_despliegue.md)."""
+    """Genera una contraseña nueva (también desbloquea la cuenta). Las sesiones abiertas del usuario
+    dejan de valer y deberá cambiar la contraseña al ingresar (docs/contrato_autenticacion.md)."""
     actual = _usuario_o_404(sesion, id_usuario)
     contrasena = srv.restablecer_contrasena(sesion, actual)
     registrar_evento(sesion, "CONTRASENA_RESTABLECIDA", actor.id_usuario, "usuario", str(id_usuario),

@@ -63,6 +63,8 @@ services:
       CDSS_CLAVE_PII: ${CDSS_CLAVE_PII}
       CDSS_CLAVE_HMAC: ${CDSS_CLAVE_HMAC}
       SEED_CONTRASENA: ${SEED_CONTRASENA}
+      # true: las cuentas del seed quedan con la marca de cambio obligatorio de contraseña (despliegue).
+      CDSS_SEED_EXIGIR_CAMBIO: ${CDSS_SEED_EXIGIR_CAMBIO:-false}
       CHROMA_URL: http://chromadb:8000
       MODELOS_URL: http://modelos:8000
       # Vacía por defecto: sin clave el stack arranca y solo falla la generación real.

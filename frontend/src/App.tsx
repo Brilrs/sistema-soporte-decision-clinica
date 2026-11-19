@@ -3,6 +3,7 @@ import { useAuth } from "./auth/AuthContext";
 import Layout from "./components/Layout";
 import Auditoria from "./pages/Auditoria";
 import BaseConocimiento from "./pages/BaseConocimiento";
+import CambiarContrasena, { RUTA_CAMBIO_CONTRASENA } from "./pages/CambiarContrasena";
 import ConsultaClinica from "./pages/ConsultaClinica";
 import DetalleAuditoria from "./pages/DetalleAuditoria";
 import EditarPaciente from "./pages/EditarPaciente";
@@ -23,6 +24,10 @@ function Protegida({ children }: { children: JSX.Element }) {
   const ubicacion = useLocation();
   if (cargando) return <p className="cargando">Cargando…</p>;
   if (!usuario) return <Navigate to="/login" replace state={{ desde: ubicacion.pathname }} />;
+  // Con la marca de cambio obligatorio, cualquier otra dirección vuelve a «Cambiar mi contraseña».
+  if (usuario.debe_cambiar_contrasena && ubicacion.pathname !== RUTA_CAMBIO_CONTRASENA) {
+    return <Navigate to={RUTA_CAMBIO_CONTRASENA} replace />;
+  }
   return children;
 }
 
@@ -45,6 +50,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route element={<Protegida><Layout /></Protegida>}>
         <Route index element={<Inicio />} />
+        <Route path={RUTA_CAMBIO_CONTRASENA.slice(1)} element={<CambiarContrasena />} />
         <Route path="pacientes" element={<ConPermiso permisos={LEER_PACIENTES}><PanelPacientes /></ConPermiso>} />
         <Route path="pacientes/nuevo" element={<ConPermiso permisos={REGISTRAR}><RegistroPaciente /></ConPermiso>} />
         <Route path="pacientes/:id/historial" element={<ConPermiso permisos={LEER_PACIENTES}><HistorialPaciente /></ConPermiso>} />

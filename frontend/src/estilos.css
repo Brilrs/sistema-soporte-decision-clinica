@@ -960,3 +960,29 @@ a.boton { display: inline-block; text-decoration: none; text-align: center; }
    cabeceras de columna. */
 .parametros__tabla tbody th, .parametros__cambios tbody th, .parametros__historial tbody th {
   text-transform: none; letter-spacing: normal; font-size: .92rem; font-weight: 600; color: var(--gris-900); background: none; }
+
+/* Sprint 3 · I: «Cambiar mi contraseña» y la marca de M10 */
+.inicio__aviso { margin: 0 0 1rem; max-width: 760px; }
+/* Igual que «Cerrar sesión»: a.boton quita el subrayado de los enlaces con forma de botón. */
+.cabecera a.cabecera__enlace { color: var(--blanco); text-decoration: underline; white-space: nowrap; }
+.cabecera .boton--enlace:focus-visible { outline: 3px solid var(--blanco); outline-offset: 2px; }
+.cambio-contrasena .tarjeta { max-width: 560px; }
+.cambio-contrasena__motivo { max-width: 560px; margin: .5rem 0 0; }
+.cambio-contrasena__campo label { margin-top: 1rem; }
+.cambio-contrasena__campo:first-child label { margin-top: 0; }
+.cambio-contrasena__entrada { display: flex; gap: .5rem; align-items: stretch; }
+.cambio-contrasena__entrada input { flex: 1; min-width: 0; min-height: 44px; }
+.cambio-contrasena__ver { flex: none; min-width: 6.5rem; min-height: 44px; }
+.cambio-contrasena .acciones .boton { min-height: 44px; }
+.resumen-errores { border: 2px solid var(--rojo); border-radius: 8px; background: var(--rojo-50); color: var(--rojo);
+  padding: .8rem 1rem; margin-bottom: 1rem; }
+.resumen-errores:focus { outline: 3px solid var(--azul-600); outline-offset: 2px; }
+.resumen-errores__titulo { font-size: 1rem; margin: 0 0 .4rem; }
+.resumen-errores__texto { margin: 0; }
+.resumen-errores ul { margin: .3rem 0 0; padding-left: 1.2rem; }
+.resumen-errores a { color: var(--rojo); font-weight: 600; }
+.estado-cuenta { display: flex; flex-direction: column; align-items: flex-start; gap: .3rem; }
+.etiqueta--cambio-contrasena { background: var(--ambar-50); color: var(--ambar); white-space: normal; }
+@media (max-width: 420px) {
+  .cambio-contrasena__ver { min-width: 5.5rem; padding-left: .6rem; padding-right: .6rem; }
+}

@@ -1,21 +1,21 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import { alExpirarSesion, api, ErrorApi, guardarToken, leerToken } from "../api/cliente";
+import { cambiarContrasena as cambiarContrasenaApi, type RespuestaLogin, type UsuarioSesion } from "../api/auth";
+import { alExigirCambioContrasena, alExpirarSesion, api, ErrorApi, guardarToken, leerToken } from "../api/cliente";
 
-export type Usuario = {
-  id_usuario: string;
-  nombre_usuario: string;
-  nombre_completo: string;
-  rol: string;
-  permisos: string[];
-};
+// debe_cambiar_contrasena: la cuenta es nueva o su contraseña fue restablecida; mientras sea
+// verdadera, App solo deja ver «Cambiar mi contraseña» (el backend responde 403 en el resto).
+export type Usuario = UsuarioSesion;
 
-type RespuestaLogin = { token: string; expira_en_segundos: number; usuario: Usuario };
+export const AVISO_SESION_EXPIRADA = "Su sesión expiró o ya no es válida. Inicie sesión nuevamente.";
+export const AVISO_CONTRASENA_CAMBIADA = "Su sesión terminó porque la contraseña cambió. Ingrese de nuevo.";
 
 type EstadoAuth = {
   usuario: Usuario | null;
   cargando: boolean;
   iniciarSesion: (usuario: string, contrasena: string) => Promise<void>;
   cerrarSesion: () => void;
+  // Cambia la contraseña propia; guarda el token nuevo que devuelve el backend (la sesión sigue).
+  cambiarContrasena: (actual: string, nueva: string) => Promise<void>;
   // Motivo del último cierre automático (sesión vencida); lo muestra el login.
   avisoSesion: string | null;
   tienePermiso: (codigo: string) => boolean;
@@ -32,10 +32,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // sesión en pantalla: Protegida redirige al login, que muestra el aviso.
   useEffect(
     () =>
-      alExpirarSesion(() => {
-        setAvisoSesion("Su sesión expiró o ya no es válida. Inicie sesión nuevamente.");
+      alExpirarSesion((motivo) => {
+        setAvisoSesion(motivo === "revocada" ? AVISO_CONTRASENA_CAMBIADA : AVISO_SESION_EXPIRADA);
         setUsuario(null);
       }),
+    [],
+  );
+
+  // 403 CAMBIO_CONTRASENA_OBLIGATORIO en cualquier llamada: la cuenta tiene la marca.
+  useEffect(
+    () => alExigirCambioContrasena(() => setUsuario((u) => (u ? { ...u, debe_cambiar_contrasena: true } : u))),
     [],
   );
 
@@ -61,6 +67,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsuario(datos.usuario);
   }, []);
 
+  const cambiarContrasena = useCallback(async (actual: string, nueva: string) => {
+    const datos = await cambiarContrasenaApi(actual, nueva);
+    guardarToken(datos.token);
+    setUsuario(datos.usuario);
+  }, []);
+
   const cerrarSesion = useCallback(() => {
     guardarToken(null);
     setAvisoSesion(null);
@@ -70,7 +82,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const tienePermiso = useCallback((codigo: string) => !!usuario?.permisos.includes(codigo), [usuario]);
 
   return (
-    <AuthContext.Provider value={{ usuario, cargando, iniciarSesion, cerrarSesion, avisoSesion, tienePermiso }}>
+    <AuthContext.Provider
+      value={{ usuario, cargando, iniciarSesion, cerrarSesion, cambiarContrasena, avisoSesion, tienePermiso }}>
       {children}
     </AuthContext.Provider>
   );

@@ -2,9 +2,12 @@
 // Desde 800 px el menú va fijo a la izquierda. Por debajo, la cabecera muestra «Abrir menú» y las
 // mismas opciones se abren en un panel lateral con fondo oscuro; se cierra al elegir una opción,
 // con Escape, al pulsar fuera, al salir del panel con Tab o al pasar a 800 px o más.
+// Con la marca de cambio obligatorio de contraseña no hay menú ni «Cambiar contraseña»: el
+// encabezado solo deja «Cerrar sesión» y el contenido es «Cambiar mi contraseña» (App).
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { RUTA_CAMBIO_CONTRASENA } from "../pages/CambiarContrasena";
 
 // Cada opción se muestra si el rol tiene alguno de sus permisos.
 type Opcion = { ruta: string; texto: string; permisos: string[] };
@@ -92,9 +95,10 @@ export default function Layout() {
   }, [abierto]);
 
   if (!usuario) return null;
+  const obligatorio = usuario.debe_cambiar_contrasena;
   const atencion = ATENCION.filter((o) => o.permisos.some(tienePermiso));
   const admin = ADMINISTRACION.filter((o) => o.permisos.some(tienePermiso));
-  const panelAbierto = angosto && abierto;
+  const panelAbierto = angosto && abierto && !obligatorio;
 
   function teclaPanel(e: KeyboardEvent<HTMLElement>) {
     if (e.key === "Escape") {
@@ -107,7 +111,7 @@ export default function Layout() {
     <div className="app">
       <header className="cabecera">
         <div className="cabecera__marca">
-          {angosto && (
+          {angosto && !obligatorio && (
             <button ref={boton} type="button" className="boton-menu" aria-label="Abrir menú" aria-expanded={panelAbierto}
                     aria-controls="menu-movil" onClick={() => (panelAbierto ? cerrar() : setAbierto(true))}>
               {/* Tres rayas en SVG con el color del botón (blanco); decorativo, el nombre lo da aria-label. */}
@@ -129,6 +133,9 @@ export default function Layout() {
           <span className="insignia">{usuario.rol}</span>
           <span className="cabecera__nombre">{usuario.nombre_completo}</span>
           <span className="avatar">{iniciales(usuario.nombre_completo)}</span>
+          {!obligatorio && (
+            <Link className="boton boton--enlace cabecera__enlace" to={RUTA_CAMBIO_CONTRASENA}>Cambiar contraseña</Link>
+          )}
           <button className="boton boton--enlace" onClick={cerrarSesion}>Cerrar sesión</button>
         </div>
       </header>
@@ -154,7 +161,7 @@ export default function Layout() {
       )}
 
       <div className="cuerpo">
-        {!angosto && (
+        {!angosto && !obligatorio && (
           <nav className="menu" aria-label="Menú principal">
             <Opciones atencion={atencion} admin={admin} />
           </nav>

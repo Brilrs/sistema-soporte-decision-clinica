@@ -31,8 +31,8 @@ asignados al Sprint 3 y la preparación del despliegue en Azure y de la evaluaci
 | 8 | P9, consultas de seguimiento encadenadas | P9; transición M05 → M04 del OE2 6.1 | Fuera del Sprint 3 (decisión 8) |
 | 9 | P10, lista de consultas del usuario (`GET /api/consultas`) | P10 (fila 80) | Cada profesional ve solo las suyas (decisión 9) |
 | 10 | P13, auditoría de desbordes versionada | P13 (fila 84) | Resuelto en la parte A: `frontend/auditoria/` |
-| 11 | Cambio obligatorio de contraseña en el primer inicio de sesión | `mejoras_despliegue.md` | Entra al Sprint 3 (decisión 11) |
-| 12 | Invalidar las sesiones al restablecer la contraseña | `mejoras_despliegue.md` | Antes de Azure; va con el ítem 11 |
+| 11 | Cambio obligatorio de contraseña en el primer inicio de sesión | `mejoras_despliegue.md` | Entra al Sprint 3 (decisión 11). Resuelto en la parte I |
+| 12 | Invalidar las sesiones al restablecer la contraseña | `mejoras_despliegue.md` | Antes de Azure; va con el ítem 11. Resuelto en la parte I (contador de sesión) |
 | 13 | Respaldo de ChromaDB (y de las guías) a Blob Storage | `jobs/README.md`; RNF2 del OE2 | |
 | 14 | Trabajo de evaluación del OE3 (RAGAS y CUE) | `jobs/README.md`; OE2 3.2 (contenedor Jobs) | No existe en el código. Parte propia (decisión 13) |
 | 15 | HTTPS: Nginx en el puerto 443 con un certificado de Let's Encrypt | OE2 3.2 | Hoy `frontend/nginx.conf` solo escucha en el puerto 80 |
@@ -316,6 +316,24 @@ con desplazamiento, aviso de áreas táctiles y axe-core. Fuera del CI (decisió
 
 ### Cambio obligatorio de contraseña e invalidación de sesiones: M, riesgo medio
 
+- **Hecho en la parte I** (contrato en `docs/contrato_autenticacion.md`, filas 140 a 145 de
+  `cambios_respecto_al_OE2.md`; ítems 11 y 12 resueltos en `mejoras_despliegue.md`):
+  - migración 018 (no 016, que usó E1b): `debe_cambiar_contrasena`, `version_sesion` y
+    `fecha_cambio_contrasena` en `seguridad.usuario`, con UPDATE por columna para `cdss_clinica`
+    (el auditor sigue sin ver la tabla);
+  - en lugar de comparar el `iat` con una fecha, un contador por cuenta (`version_sesion`) que el
+    token lleva en `sv`: cambiar o restablecer la contraseña y reactivar la cuenta lo suben;
+  - `POST /api/auth/cambiar-contrasena` (la actual equivocada cuenta como intento fallido) y el 403
+    CAMBIO_CONTRASENA_OBLIGATORIO en la dependencia común, con una variante sin bloqueo solo para
+    `/me` y el cambio; una prueba recorre todas las rutas;
+  - pantalla «Cambiar mi contraseña» (obligatoria y voluntaria), la marca en M10 y el aviso de la
+    contraseña temporal; el 401 SESION_REVOCADA cierra la sesión con su motivo;
+  - `seed_demo` sin la marca, salvo con `CDSS_SEED_EXIGIR_CAMBIO=true` (para el despliegue);
+  - pruebas en `tests/test_i_contrasena.py` y `pages/CambiarContrasena.test.tsx`; mutaciones del
+    403, del contador al cambiar y al restablecer, de la verificación de la actual, del intento
+    fallido y de la redirección en la interfaz; vistas `cambio_*`, `m10_marca` y
+    `m10_aviso_temporal` en la auditoría visual.
+- **Plan original (fase 0):**
 - **Migración 016:** `debe_cambiar_contrasena` y `fecha_cambio_contrasena` en
   `seguridad.usuario`, con GRANT por columna o mediante la conexión `cdss_admin`.
 - **Ruta y pantalla:** «Cambiar mi contraseña», para todos los roles, desde el encabezado.
