@@ -9,7 +9,8 @@
 -- La vista asistencia.v_auditoria_consulta agrega el origen a cada fragmento enviado y los
 -- ordena por etiqueta (el agregado no tiene posición final), con las mismas columnas.
 -- Los permisos de tabla vigentes cubren la columna nueva (INSERT y SELECT de
--- rol_app_generacion). Es idempotente. Replicada en db/init/01_esquema.sql.
+-- rol_app_generacion). Es idempotente. Replicada en db/init/01_esquema.sql. La vista no se
+-- redefine si ya tiene la forma de la migración 014.
 -- ============================================================================
 
 SET client_min_messages = warning;
@@ -29,6 +30,14 @@ ALTER TABLE asistencia.fragmento_recuperado ADD CONSTRAINT fragmento_recuperado_
 COMMENT ON COLUMN asistencia.fragmento_recuperado.posicion_rrf IS 'Posición tras la fusión Reciprocal Rank Fusion (3.3); NULL solo en un fragmento con origen PUNTERO que no era candidato.';
 COMMENT ON COLUMN asistencia.fragmento_recuperado.puntaje_rrf IS 'Puntaje de la fusión RRF; NULL solo en un fragmento con origen PUNTERO que no era candidato.';
 
+-- Desde la migración 014 la vista tiene más columnas (CREATE OR REPLACE no admite quitarlas):
+-- si ya tiene la forma de 014, no se vuelve a definir aquí.
+DO $migracion$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_schema = 'asistencia' AND table_name = 'v_auditoria_consulta'
+                    AND column_name = 'modo_prueba') THEN
+    EXECUTE $vista$
 CREATE OR REPLACE VIEW asistencia.v_auditoria_consulta AS
 SELECT q.id_consulta, q.fecha_hora_inicio, u.nombre_usuario, q.estado, q.numero_intentos,
        q.latencia_total_ms, q.confirma_tamizaje_no_vigente, i.numero_intento, i.modelo_llm, i.tokens_entrada, i.tokens_salida,
@@ -41,4 +50,8 @@ SELECT q.id_consulta, q.fecha_hora_inicio, u.nombre_usuario, q.estado, q.numero_
          WHERE f.id_intento = i.id_intento AND f.enviado_al_llm) AS fragmentos_enviados
 FROM asistencia.consulta q
 JOIN seguridad.usuario u ON u.id_usuario = q.id_usuario
-LEFT JOIN asistencia.intento_generacion i ON i.id_consulta = q.id_consulta;
+LEFT JOIN asistencia.intento_generacion i ON i.id_consulta = q.id_consulta
+$vista$;
+  END IF;
+END
+$migracion$;

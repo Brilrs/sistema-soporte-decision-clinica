@@ -132,6 +132,24 @@ empiece.
   - el detalle no trae identificadores;
   - paginación con orden explícito en Python (nota de la colación en CLAUDE.md);
   - axe y desbordes.
+- **Hecho en la parte D1** (API, sin pantalla; contrato en `docs/contrato_auditoria.md`, filas 118
+  a 120 de `cambios_respecto_al_OE2.md`):
+  - conexión `cdss_auditor` de solo lectura (`DATABASE_URL_AUDITOR`, transacciones de solo
+    lectura), usada solo por las rutas de auditoría;
+  - migración 014: `v_auditoria_consulta` con `modo_prueba`, prompt, búsqueda y control previo, y la
+    solicitud solo si el control la aprobó; `v_auditoria_lista` nueva y paginable;
+    `v_indicadores_operativos` con p50, p90, conteos por estado y tokens, sin pruebas y con 30
+    días; 011 y 012 no redefinen esas vistas si ya tienen la forma de 014;
+  - el orden de la lista se resuelve en SQL (fecha y hora y, con empate, el uuid, que se compara por
+    bytes): no depende de la colación y permite paginar con LIMIT y OFFSET;
+  - evento AUDITORIA_CONSULTADA al abrir la lista o un detalle;
+  - pruebas en `backend/tests/test_d1_auditoria.py` (permisos del rol en la base, 401, 403 y 200,
+    indicadores contra la vista, lista, bordes de Lima, desempate, detalle sin identificadores,
+    evento) y mutaciones del filtro de pruebas, el permiso, el desempate, el límite y la exclusión
+    de la solicitud;
+  - tipos y fixtures para D2 en `frontend/src/api/tipos_auditoria.ts` y
+    `frontend/src/__fixtures__/auditoria_*.json`;
+  - pendiente para D2: la pantalla M13, axe y desbordes.
 
 ### M12 parámetros clínicos (HU14): L, riesgo alto
 

@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     database_url_clinica: str = Field(..., alias="DATABASE_URL_CLINICA")
     database_url_generacion: str = Field(..., alias="DATABASE_URL_GENERACION")
     database_url_admin: str = Field(..., alias="DATABASE_URL_ADMIN")
+    # Solo lectura de la auditoría (M13, Sprint 3 parte D1): rol_auditor, sin permisos sobre las
+    # tablas clínicas ni de escritura. La usan solo las rutas de /api/auditoria.
+    database_url_auditor: str = Field(..., alias="DATABASE_URL_AUDITOR")
 
     # Autenticación
     jwt_secreto: str = Field(..., alias="JWT_SECRETO", min_length=32)

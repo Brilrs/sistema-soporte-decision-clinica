@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, catalogos, conocimiento, consultas, pacientes, reportes, salud, usuarios
+from app.api.routes import auditoria, auth, catalogos, conocimiento, consultas, pacientes, reportes, salud, usuarios
 from app.core.config import get_settings
 from app.core.errores import manejar_error_validacion
 
@@ -76,6 +76,7 @@ app.include_router(usuarios.router)
 app.include_router(consultas.router)
 app.include_router(conocimiento.router)
 app.include_router(reportes.router)
+app.include_router(auditoria.router)
 
 
 def openapi_con_eventos() -> dict:

@@ -1,0 +1,59 @@
+{
+  "total": 3,
+  "limite": 20,
+  "desplazamiento": 0,
+  "incluir_pruebas": true,
+  "consultas": [
+    {
+      "id_consulta": "00000000-0000-4000-8000-000000000001",
+      "fecha_hora_inicio": "2026-10-20T15:42:00Z",
+      "fecha_hora_fin": "2026-10-20T15:42:05Z",
+      "nombre_usuario": "enf.rojas",
+      "estado": "VERIFICADA",
+      "numero_intentos": 2,
+      "con_reintento": true,
+      "latencia_total_ms": 14800,
+      "modo_prueba": false,
+      "modelo_llm": "claude-sonnet-5-5",
+      "version_prompt": "v1.1",
+      "tokens_entrada": 10020,
+      "tokens_salida": 792,
+      "tokens_total": 10812,
+      "costo_usd": 0.042
+    },
+    {
+      "id_consulta": "00000000-0000-4000-8000-000000000002",
+      "fecha_hora_inicio": "2026-10-20T15:15:00Z",
+      "fecha_hora_fin": "2026-10-20T15:15:05Z",
+      "nombre_usuario": "med.salazar",
+      "estado": "VERIFICADA",
+      "numero_intentos": 1,
+      "con_reintento": false,
+      "latencia_total_ms": 6100,
+      "modo_prueba": true,
+      "modelo_llm": "modelo-falso",
+      "version_prompt": "v1.1",
+      "tokens_entrada": 5000,
+      "tokens_salida": 400,
+      "tokens_total": 5400,
+      "costo_usd": 0.021
+    },
+    {
+      "id_consulta": "00000000-0000-4000-8000-000000000003",
+      "fecha_hora_inicio": "2026-10-20T14:58:00Z",
+      "fecha_hora_fin": "2026-10-20T14:58:05Z",
+      "nombre_usuario": "nut.vilca",
+      "estado": "FUERA_DE_DOMINIO",
+      "numero_intentos": 0,
+      "con_reintento": false,
+      "latencia_total_ms": 350,
+      "modo_prueba": false,
+      "modelo_llm": null,
+      "version_prompt": null,
+      "tokens_entrada": null,
+      "tokens_salida": null,
+      "tokens_total": null,
+      "costo_usd": null
+    }
+  ]
+}
