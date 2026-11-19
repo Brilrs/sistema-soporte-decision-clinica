@@ -18,6 +18,8 @@ export type UsuarioCuenta = {
   ultimo_acceso: string | null;
   fecha_creacion: string;
   fecha_desactivacion: string | null;
+  // Cuenta nueva o con la contraseña restablecida que aún no la cambió (Sprint 3, parte I)
+  debe_cambiar_contrasena: boolean;
 };
 
 export type Permiso = { codigo: string; descripcion: string };

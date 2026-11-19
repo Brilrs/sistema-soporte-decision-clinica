@@ -220,6 +220,12 @@ const m13 = (extra = {}) => ({ ruta: "/admin/auditoria", admin: true, m13: { ...
 const m12 = (extra = {}) => ({ ruta: "/admin/parametros", coordinador: !extra.admin, admin: Boolean(extra.admin),
   esperar: "Historial de cambios", m12: { ...extra } });
 const m11 = (extra = {}) => ({ ruta: "/admin/conocimiento", admin: true, m11: true, docs: DOCS_M11, activos: [], ...extra });
+// Parte I del Sprint 3: «Cambiar mi contraseña». /api/auth/me se completa aquí con la marca y la longitud
+// mínima (la cuenta real de seed_demo no tiene la marca y no se cambia); el cambio nunca llega al backend.
+const OBLIGATORIO = "Por seguridad, debe cambiar la contraseña temporal";
+const cambio = (obligatorio, extra = {}) => ({ ruta: "/cambiar-contrasena", cambio: { obligatorio, ...extra },
+  esperar: obligatorio ? OBLIGATORIO : "se cerrarán las sesiones que tenga abiertas" });
+const TEMPORAL_M10 = "Xk7#mP2qR9vT4wYz";
 const PANTALLAS = {
   login: { ruta: "/login", sinSesion: true, esperar: "Ingresar" },
   inicio: { ruta: "/", esperar: null },
@@ -269,6 +275,17 @@ const PANTALLAS = {
   m11_retiro_codigo: m11({ abrir: "retiro", guia: "OMS 2016" }),
   m11_retiro_error: m11({ abrir: "retiro", guia: "LIT-RAG-2025", enviarRetiro: true }),
   m11_obsoleta: m11({ abrir: "obsoleta" }),
+  // Parte I del Sprint 3: modo obligatorio (también al pedir otra dirección), voluntario, errores del
+  // formulario y del backend, y M10 con la marca «Debe cambiar su contraseña» y el aviso de la temporal.
+  cambio_obligatorio: cambio(true),
+  cambio_redireccion: { ...cambio(true), ruta: "/pacientes" },
+  cambio_voluntario: cambio(false),
+  cambio_errores: cambio(true, { enviar: "vacio" }),
+  cambio_errores_politica: cambio(true, { enviar: "politica" }),
+  cambio_error_servidor: cambio(true, { enviar: "servidor" }),
+  m10_marca: { ruta: "/admin/usuarios", admin: true, esperar: "Debe cambiar su contraseña", marcaM10: true },
+  m10_aviso_temporal: { ruta: "/admin/usuarios", admin: true, esperar: "Debe cambiar su contraseña", marcaM10: true,
+    crearUsuario: true },
   en_construccion: { ruta: "/admin/parametros", admin: true, esperar: null },
   // Parte C2 del Sprint 3: M09 en ambos destinos, con el reporte generado, y «Reportes» (/reportes).
   m09_expediente_real: m09({ prueba: false, generar: true }),
@@ -366,7 +383,7 @@ function tactiles() {
   return [...document.querySelectorAll(".boton-menu, .menu-movil a, .menu-movil button, .conocimiento .boton, .guia__opcion, " +
     ".modal .boton, .modal input:not([type=radio]):not([type=checkbox]), .modal select, .reporte .boton, .reporte__opcion, " +
     ".evaluaciones__acciones .boton, .consultas-propias .boton, .auditoria .boton, .parametros .boton, .parametros__campo, .parametros__casilla, .auditoria__interruptor, " +
-    ".auditoria__campo select, .auditoria__campo input")]
+    ".auditoria__campo select, .auditoria__campo input, .cambio-contrasena .boton, .cambio-contrasena input")]
     .filter((b) => b.getBoundingClientRect().height > 0)
     .map((b) => ({ t: (b.getAttribute("aria-label") ?? b.textContent ?? b.id).trim().slice(0, 30),
                    h: Math.round(b.getBoundingClientRect().height), w: Math.round(b.getBoundingClientRect().width) }))
@@ -386,6 +403,26 @@ async function simular(p, ruta) {
   const u = new URL(req.url());
   const json = (d, estado = 200) => ruta.fulfill({ status: estado, contentType: "application/json",
     body: typeof d === "string" ? d : JSON.stringify(d) });
+  if (p.cambio && u.pathname === "/api/auth/me") {
+    const yo = await (await ruta.fetch({ url: `${API}${u.pathname}`, method: "GET" })).json();
+    return json({ ...yo, debe_cambiar_contrasena: p.cambio.obligatorio, contrasena_longitud_minima: 10 });
+  }
+  if (p.cambio && u.pathname === "/api/auth/cambiar-contrasena") {
+    const cuerpo = { detail: "La contraseña actual no es correcta.", codigo: "CONTRASENA_ACTUAL_INCORRECTA", campo: "contrasena_actual" };
+    return ruta.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify(cuerpo),
+      headers: { "X-Codigo-Error": cuerpo.codigo } });
+  }
+  if (p.marcaM10 && u.pathname === "/api/usuarios") {
+    // Solo se lee la lista real (GET explícito); la creación se responde aquí y nunca llega al backend.
+    const marcada = { id_usuario: "30000000-0000-4000-8000-000000000001", nombre_usuario: "prueba.clave",
+      nombre_completo: "Lic. María de los Ángeles Huamaní Quispecondori de la Villanueva", correo_institucional: null,
+      id_rol: 1, rol: "Enfermera CRED", activo: true, bloqueado: false, estado: "ACTIVO", ultimo_acceso: null,
+      fecha_creacion: AHORA, fecha_desactivacion: null, debe_cambiar_contrasena: true };
+    if (req.method() !== "GET") return json({ usuario: { ...marcada, id_usuario: "30000000-0000-4000-8000-000000000002",
+      nombre_usuario: "prueba.nueva" }, contrasena_temporal: TEMPORAL_M10 }, 201);
+    const lista = await (await ruta.fetch({ url: `${API}${u.pathname}`, method: "GET" })).json();
+    return json([...lista.map((x) => ({ ...x, debe_cambiar_contrasena: false })), marcada]);
+  }
   if (p.m11) {
     if (u.pathname === "/api/conocimiento/documentos" && req.method() === "GET") return json(p.docs);
     if (u.pathname === "/api/conocimiento/trabajos") return json(p.activos);
@@ -486,6 +523,21 @@ async function preparar(pagina, p) {
     }
   }
   if (p.detalle) await pagina.getByText("Detalle de la búsqueda").click();
+  if (p.cambio?.enviar) {
+    const datos = { vacio: ["", "", ""], politica: ["TemporalAb12cd", "corta1", "otra"],
+                    servidor: ["Equivocada123", "ClaveNueva2026x", "ClaveNueva2026x"] }[p.cambio.enviar];
+    for (const [i, id] of ["#cc-actual", "#cc-nueva", "#cc-confirmacion"].entries()) await pagina.locator(id).fill(datos[i]);
+    await pagina.getByRole("button", { name: "Cambiar contraseña", exact: true }).click();
+    await pagina.locator(".resumen-errores").waitFor({ timeout: 8000 });
+  }
+  if (p.crearUsuario) {
+    await pagina.getByRole("button", { name: "+ Nuevo usuario" }).click();
+    await pagina.locator("#u-nombre").fill("Lic. Cuenta Nueva de Prueba");
+    await pagina.locator("#u-usuario").fill("prueba.nueva");
+    await pagina.locator("#u-rol").selectOption({ index: 1 });
+    await pagina.getByRole("button", { name: "Crear usuario" }).click();
+    await pagina.getByRole("dialog", { name: "Usuario creado" }).waitFor({ timeout: 8000 });
+  }
   if (p.filtrar) {
     await pagina.getByRole("button", { name: "Filtrar" }).click();
     await pagina.getByText("La fecha «Hasta» no puede ser anterior a «Desde».").waitFor();

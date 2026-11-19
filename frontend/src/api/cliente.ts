@@ -25,6 +25,11 @@ export class ErrorApi extends Error {
   }
 }
 
+// Códigos que el backend también envía en la cabecera X-Codigo-Error.
+export const SESION_REVOCADA = "SESION_REVOCADA";
+export const CAMBIO_CONTRASENA_OBLIGATORIO = "CAMBIO_CONTRASENA_OBLIGATORIO";
+export const CABECERA_CODIGO = "X-Codigo-Error";
+
 // Texto para mostrar al usuario a partir de cualquier error de una llamada.
 export function mensajeError(err: unknown): string {
   return err instanceof ErrorApi ? err.message : "No se pudo conectar con el servidor";
@@ -44,21 +49,36 @@ export function cabecerasCon(opciones: RequestInit = {}): Headers {
 
 // Sesión vencida o no válida: cualquier llamada que envió el token y recibió 401 lo borra y
 // avisa a los suscriptores (AuthContext cierra la sesión en pantalla). Un 401 sin token, como
-// el de usuario o contraseña incorrectos en el login, no avisa.
-type Oyente = () => void;
+// el de usuario o contraseña incorrectos en el login, no avisa. El motivo «revocada» es un token
+// de una versión de sesión anterior (contraseña cambiada o restablecida, cuenta reactivada).
+export type MotivoCierre = "expirada" | "revocada";
+type Oyente = (motivo: MotivoCierre) => void;
 const oyentesSesion = new Set<Oyente>();
+// 403 CAMBIO_CONTRASENA_OBLIGATORIO: la cuenta tiene la marca (por ejemplo, la restableció el
+// administrador sin cerrar esta sesión); AuthContext lleva a «Cambiar mi contraseña».
+const oyentesCambio = new Set<() => void>();
 
-export function alExpirarSesion(oyente: Oyente): () => void {
-  oyentesSesion.add(oyente);
+function suscribir<T>(conjunto: Set<T>, oyente: T): () => void {
+  conjunto.add(oyente);
   return () => {
-    oyentesSesion.delete(oyente);
+    conjunto.delete(oyente);
   };
 }
 
+export const alExpirarSesion = (oyente: Oyente) => suscribir(oyentesSesion, oyente);
+export const alExigirCambioContrasena = (oyente: () => void) => suscribir(oyentesCambio, oyente);
+
 export function revisarSesion(respuesta: Response, cabeceras: Headers): void {
-  if (respuesta.status !== 401 || !cabeceras.has("Authorization")) return;
+  if (!cabeceras.has("Authorization")) return;
+  const codigo = respuesta.headers.get(CABECERA_CODIGO);
+  if (respuesta.status === 403 && codigo === CAMBIO_CONTRASENA_OBLIGATORIO) {
+    oyentesCambio.forEach((o) => o());
+    return;
+  }
+  if (respuesta.status !== 401) return;
   guardarToken(null);
-  oyentesSesion.forEach((o) => o());
+  const motivo: MotivoCierre = codigo === SESION_REVOCADA ? "revocada" : "expirada";
+  oyentesSesion.forEach((o) => o(motivo));
 }
 
 // ErrorApi con el «detail» del backend (texto en español) o un mensaje genérico.

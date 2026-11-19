@@ -37,6 +37,7 @@ export default function AvisoContrasena({ titulo, nombreUsuario, contrasena, cer
         <p>
           Contraseña temporal de <strong>{nombreUsuario}</strong>. Entréguela al usuario por un medio seguro.
         </p>
+        <p>El usuario deberá cambiarla por una contraseña propia al ingresar al sistema.</p>
         <div className="contrasena">
           <input ref={campo} readOnly value={contrasena} aria-label="Contraseña temporal" autoComplete="off"
                  spellCheck={false} onFocus={(e) => e.target.select()} />

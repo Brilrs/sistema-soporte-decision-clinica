@@ -21,6 +21,9 @@ const PERMISOS: Record<string, string> = {
   VER_AUDITORIA: "Ver auditoría",
 };
 
+// Marca de cambio obligatorio (cuenta nueva o contraseña restablecida): con texto, no solo color.
+const DEBE_CAMBIAR = "Debe cambiar su contraseña";
+
 const ESTADOS: Record<string, { texto: string; clase: string }> = {
   ACTIVO: { texto: "Activo", clase: "estado--ok" },
   INACTIVO: { texto: "Inactivo", clase: "estado--inactivo" },
@@ -189,7 +192,14 @@ export default function GestionUsuarios() {
                           <td><strong>{u.nombre_completo}</strong></td>
                           <td>{u.nombre_usuario}</td>
                           <td><span className={`etiqueta etiqueta--rol rol--${claseRol(u.rol)}`}>{u.rol}</span></td>
-                          <td><span className={`estado ${ESTADOS[u.estado].clase}`}>{ESTADOS[u.estado].texto}</span></td>
+                          <td>
+                            <div className="estado-cuenta">
+                              <span className={`estado ${ESTADOS[u.estado].clase}`}>{ESTADOS[u.estado].texto}</span>
+                              {u.debe_cambiar_contrasena && (
+                                <span className="etiqueta etiqueta--cambio-contrasena">{DEBE_CAMBIAR}</span>
+                              )}
+                            </div>
+                          </td>
                           <td>{momentoRelativo(u.ultimo_acceso, "Nunca")}</td>
                           <td>
                             <div className="tabla__acciones">
@@ -250,6 +260,9 @@ export default function GestionUsuarios() {
                 <p className="anterior">
                   Estado: <span className={`estado ${ESTADOS[seleccionado.estado].clase}`}>{ESTADOS[seleccionado.estado].texto}</span>
                   {seleccionado.bloqueado && seleccionado.activo && " por intentos fallidos de inicio de sesión"}
+                  {seleccionado.debe_cambiar_contrasena && (
+                    <> <span className="etiqueta etiqueta--cambio-contrasena">{DEBE_CAMBIAR}</span></>
+                  )}
                 </p>
               )}
 

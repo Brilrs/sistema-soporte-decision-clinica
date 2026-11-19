@@ -23,7 +23,7 @@ class ErrorConflicto(Exception):
 
 _COLUMNAS = """u.id_usuario::text, u.nombre_completo, u.nombre_usuario, u.correo_institucional,
                u.id_rol, r.nombre AS rol, u.activo, u.intentos_fallidos, u.ultimo_acceso,
-               u.fecha_creacion, u.fecha_desactivacion"""
+               u.fecha_creacion, u.fecha_desactivacion, u.debe_cambiar_contrasena"""
 
 
 def _fila(f, max_intentos: int) -> dict:
@@ -113,13 +113,15 @@ def _asegurar_otro_administrador(sesion: Session, id_usuario: str) -> None:
 def crear(sesion: Session, *, nombre_completo: str, nombre_usuario: str, correo: str | None,
           id_rol: int) -> tuple[str, str, str]:
     """Devuelve (id_usuario, nombre del rol, contraseña generada). La contraseña solo vive en
-    la respuesta: en la base de datos queda únicamente su hash Argon2id."""
+    la respuesta: en la base de datos queda únicamente su hash Argon2id. La cuenta queda con la
+    marca de cambio obligatorio: el usuario debe cambiar la contraseña temporal al ingresar."""
     rol = _rol_asignable(sesion, id_rol)
     _verificar_unicidad(sesion, nombre_usuario, correo)
     contrasena = generar_contrasena()
     id_usuario = sesion.execute(text(
-        """INSERT INTO seguridad.usuario (id_rol, nombre_completo, nombre_usuario, correo_institucional, hash_contrasena)
-           VALUES (:r, :n, :u, :c, :h) RETURNING id_usuario::text"""),
+        """INSERT INTO seguridad.usuario (id_rol, nombre_completo, nombre_usuario, correo_institucional, hash_contrasena,
+                                        debe_cambiar_contrasena)
+           VALUES (:r, :n, :u, :c, :h, true) RETURNING id_usuario::text"""),
         {"r": id_rol, "n": nombre_completo, "u": nombre_usuario, "c": correo, "h": hash_contrasena(contrasena)}).scalar_one()
     return id_usuario, rol["nombre"], contrasena
 
@@ -156,9 +158,11 @@ def desactivar(sesion: Session, id_actor: str, actual: dict) -> None:
 
 
 def reactivar(sesion: Session, actual: dict) -> None:
+    """Sube la versión de sesión: los tokens emitidos antes de desactivar la cuenta no vuelven a valer."""
     if actual["activo"]:
         raise ErrorConflicto("La cuenta ya está activa")
-    sesion.execute(text("""UPDATE seguridad.usuario SET activo = true, fecha_desactivacion = NULL
+    sesion.execute(text("""UPDATE seguridad.usuario
+                               SET activo = true, fecha_desactivacion = NULL, version_sesion = version_sesion + 1
                             WHERE id_usuario = CAST(:id AS uuid)"""), {"id": actual["id_usuario"]})
 
 
@@ -170,9 +174,13 @@ def desbloquear(sesion: Session, actual: dict) -> None:
 
 
 def restablecer_contrasena(sesion: Session, actual: dict) -> str:
-    """Genera una contraseña nueva y desbloquea la cuenta. Devuelve la contraseña para mostrarla una vez."""
+    """Genera una contraseña nueva, desbloquea la cuenta, la deja con la marca de cambio obligatorio y
+    sube la versión de sesión (las sesiones abiertas dejan de valer). Devuelve la contraseña para
+    mostrarla una vez."""
     contrasena = generar_contrasena()
-    sesion.execute(text("""UPDATE seguridad.usuario SET hash_contrasena = :h, intentos_fallidos = 0
+    sesion.execute(text("""UPDATE seguridad.usuario
+                               SET hash_contrasena = :h, intentos_fallidos = 0, debe_cambiar_contrasena = true,
+                                   version_sesion = version_sesion + 1
                             WHERE id_usuario = CAST(:id AS uuid)"""),
                    {"h": hash_contrasena(contrasena), "id": actual["id_usuario"]})
     return contrasena

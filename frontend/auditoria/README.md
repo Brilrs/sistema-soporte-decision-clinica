@@ -81,8 +81,16 @@ Variables opcionales: `CDSS_API` (por omisión `http://localhost:8080`), `CDSS_A
 - **M11 retiro (Sprint 3, parte F):** `m11_retiro_n2` (nivel 2 con el motivo), `m11_retiro_bloqueado`
   (NTS 213 con su lista de referencias), `m11_retiro_codigo` (nivel 1 con el código a medio escribir),
   `m11_retiro_error` (el POST responde 423) y `m11_obsoleta` (detalle con quién, cuándo y el motivo).
+- **Cambio de contraseña (Sprint 3, parte I):** `/api/auth/me` se completa con la marca
+  `debe_cambiar_contrasena` y la longitud mínima (la cuenta real de `seed_demo` no se toca).
+  Pantallas `cambio_obligatorio`, `cambio_redireccion` (pide `/pacientes` y queda en el cambio),
+  `cambio_voluntario`, `cambio_errores` (vacío), `cambio_errores_politica` (nueva corta y
+  confirmación distinta) y `cambio_error_servidor` (401 CONTRASENA_ACTUAL_INCORRECTA simulado).
+  M10: `m10_marca` (la lista real más una cuenta ficticia con la marca y un nombre largo) y
+  `m10_aviso_temporal` (el aviso de la contraseña temporal tras «Crear usuario», respondido aquí).
 - **Escrituras:** ninguna llega al backend. El script las responde con 409, salvo el POST del
-  reporte de M09.
+  reporte de M09, el cambio de contraseña y la creación de usuario de `m10_aviso_temporal`, que
+  se responden aquí. Para leer el backend real, el script pide siempre GET de forma explícita.
 
 ## Resultados
 

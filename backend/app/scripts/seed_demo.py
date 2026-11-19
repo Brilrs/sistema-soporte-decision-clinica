@@ -10,6 +10,10 @@ Uso (desde backend/):
 - Los tamizajes con hemoglobina se clasifican con los parámetros vigentes
   (cálculo clínico determinístico), igual que al registrarlos desde la aplicación.
 - Todos los datos son ficticios. El script es idempotente: no duplica registros.
+- Las cuentas quedan sin la marca de cambio obligatorio de contraseña, para no cambiar los flujos de
+  desarrollo ni las pruebas. Con CDSS_SEED_EXIGIR_CAMBIO=true (pensado para el despliegue) quedan
+  con la marca: cada usuario debe cambiar la contraseña de SEED_CONTRASENA al ingresar. La opción
+  no quita una marca que ya esté puesta.
 """
 import os
 from datetime import date
@@ -71,16 +75,29 @@ PACIENTES = [
 ]
 
 
-def crear_usuarios(contrasena: str) -> dict[str, str]:
+_VERDADEROS = {"1", "true", "si", "sí", "yes", "on"}
+
+
+def exigir_cambio_desde_entorno() -> bool:
+    """CDSS_SEED_EXIGIR_CAMBIO: apagada si no existe o está vacía."""
+    return os.environ.get("CDSS_SEED_EXIGIR_CAMBIO", "").strip().lower() in _VERDADEROS
+
+
+def crear_usuarios(contrasena: str, exigir_cambio: bool = False,
+                   usuarios: list[tuple[str, str, str, str]] = USUARIOS) -> dict[str, str]:
     ids: dict[str, str] = {}
     with engines()["admin"].begin() as c:
-        for usuario, nombre, rol, correo in USUARIOS:
+        for usuario, nombre, rol, correo in usuarios:
             fila = c.execute(
-                text("""INSERT INTO seguridad.usuario (id_rol, nombre_completo, nombre_usuario, correo_institucional, hash_contrasena)
-                        SELECT id_rol, :n, :u, :c, :h FROM seguridad.rol WHERE nombre = :r
-                        ON CONFLICT (nombre_usuario) DO UPDATE SET nombre_completo = EXCLUDED.nombre_completo
+                text("""INSERT INTO seguridad.usuario (id_rol, nombre_completo, nombre_usuario, correo_institucional,
+                                                      hash_contrasena, debe_cambiar_contrasena)
+                        SELECT id_rol, :n, :u, :c, :h, :exigir FROM seguridad.rol WHERE nombre = :r
+                        ON CONFLICT (nombre_usuario) DO UPDATE
+                           SET nombre_completo = EXCLUDED.nombre_completo,
+                               debe_cambiar_contrasena = seguridad.usuario.debe_cambiar_contrasena OR :exigir
                         RETURNING id_usuario::text"""),
-                {"n": nombre, "u": usuario, "c": correo, "h": hash_contrasena(contrasena), "r": rol},
+                {"n": nombre, "u": usuario, "c": correo, "h": hash_contrasena(contrasena), "r": rol,
+                 "exigir": exigir_cambio},
             ).scalar_one()
             ids[usuario] = fila
     return ids
@@ -154,10 +171,13 @@ def clasificar_pendientes() -> int:
 
 def main() -> None:
     contrasena = os.environ.get("SEED_CONTRASENA", "Cdss2026!")
-    ids = crear_usuarios(contrasena)
+    exigir = exigir_cambio_desde_entorno()
+    ids = crear_usuarios(contrasena, exigir)
     nuevos = crear_pacientes(ids["enf.rojas"])
     clasificados = clasificar_pendientes()
     print(f"Usuarios de prueba: {', '.join(ids)} (contraseña de SEED_CONTRASENA)")
+    if exigir:
+        print("CDSS_SEED_EXIGIR_CAMBIO activa: cada usuario debe cambiar su contraseña al ingresar")
     print(f"Pacientes ficticios creados: {nuevos}")
     print(f"Tamizajes clasificados: {clasificados}")
 

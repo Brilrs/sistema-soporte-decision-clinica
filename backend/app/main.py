@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import (auditoria, auth, catalogos, conocimiento, consultas, pacientes, parametros, reportes,
                             salud, usuarios)
 from app.core.config import get_settings
-from app.core.errores import manejar_error_validacion
+from app.core.errores import ErrorConCodigo, manejar_error_con_codigo, manejar_error_validacion
 
 log = logging.getLogger("uvicorn.error")  # el logger que uvicorn muestra en INFO
 
@@ -68,6 +68,7 @@ app.add_middleware(
 )
 
 app.add_exception_handler(RequestValidationError, manejar_error_validacion)
+app.add_exception_handler(ErrorConCodigo, manejar_error_con_codigo)
 
 app.include_router(salud.router)
 app.include_router(auth.router)
