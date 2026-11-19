@@ -11,8 +11,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.core.config import get_settings
 
 
-def _engine(url: str) -> Engine:
-    return create_engine(url, pool_pre_ping=True, pool_size=5, max_overflow=5)
+def _engine(url: str, **extra) -> Engine:
+    return create_engine(url, pool_pre_ping=True, pool_size=5, max_overflow=5, **extra)
 
 
 @lru_cache
@@ -22,6 +22,10 @@ def engines() -> dict[str, Engine]:
         "clinica": _engine(s.database_url_clinica),
         "generacion": _engine(s.database_url_generacion),
         "admin": _engine(s.database_url_admin),
+        # El auditor no tiene permisos de escritura en la base; además, cada transacción de esta
+        # conexión es de solo lectura (defensa adicional ante un error de programación).
+        "auditor": _engine(s.database_url_auditor,
+                           connect_args={"options": "-c default_transaction_read_only=on"}),
     }
 
 
@@ -46,3 +50,8 @@ def sesion_generacion() -> Iterator[Session]:
 
 def sesion_admin() -> Iterator[Session]:
     yield from _sesion("admin")
+
+
+def sesion_auditor() -> Iterator[Session]:
+    """Solo para las rutas de auditoría (M13): lee las vistas de auditoría, nunca escribe."""
+    yield from _sesion("auditor")

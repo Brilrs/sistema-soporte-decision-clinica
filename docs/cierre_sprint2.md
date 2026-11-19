@@ -62,6 +62,8 @@ de la consulta. El registro de la decisión no tiene historia propia en el OE2: 
   - Actualización del Sprint 3: M09 y HU10 quedaron resueltos en las partes C1 (API) y C2
     (pantalla), con «Exportar reporte» en M05 (P11). Queda la revisión clínica de las frases del
     reporte para el cuidador.
+  - Actualización del Sprint 3: la API de M13 (HU13) quedó en la parte D1 (`docs/contrato_auditoria.md`,
+    conexión de solo lectura `cdss_auditor`, migración 014); la pantalla es la parte D2.
 - Las historias HU10, HU13 y HU14, y los pendientes de la sección 5 asignados al Sprint 3.
 
 ## 2. Cómo se verificó

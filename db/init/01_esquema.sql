@@ -868,33 +868,86 @@ FROM clinico.tamizaje t
 LEFT JOIN clinico.resultado_clasificacion r ON r.id_tamizaje = t.id_tamizaje
 LEFT JOIN configuracion.categoria_anemia c ON c.id_categoria = r.id_categoria;
 
+-- Vistas de auditoría (M13): forma de la migración 014. La solicitud solo se muestra si el control
+-- previo la aprobó; modo_prueba marca las consultas del cliente falso.
 CREATE VIEW asistencia.v_auditoria_consulta AS
 SELECT q.id_consulta, q.fecha_hora_inicio, u.nombre_usuario, q.estado, q.numero_intentos,
        q.latencia_total_ms, q.confirma_tamizaje_no_vigente, i.numero_intento, i.modelo_llm, i.tokens_entrada, i.tokens_salida,
-       i.costo_usd, i.solicitud_enviada, i.valida_citas, i.valida_consistencia, i.valida_evidencia,
+       i.costo_usd,
+       CASE WHEN i.control_identificadores THEN i.solicitud_enviada END AS solicitud_enviada,
+       i.valida_citas, i.valida_consistencia, i.valida_evidencia,
        i.resultado,
        (SELECT jsonb_agg(jsonb_build_object('etiqueta', f.etiqueta_cita,
                                             'puntaje', f.puntaje_reranker,
-                                            'origen', f.origen) ORDER BY f.etiqueta_cita)
+                                            'origen', f.origen,
+                                            'posicion_final', f.posicion_final,
+                                            'documento', coalesce(d.codigo_documento, d.titulo),
+                                            'seccion', fr.seccion,
+                                            'pagina_inicio', fr.pagina_inicio,
+                                            'pagina_fin', fr.pagina_fin) ORDER BY f.etiqueta_cita)
           FROM asistencia.fragmento_recuperado f
-         WHERE f.id_intento = i.id_intento AND f.enviado_al_llm) AS fragmentos_enviados
+          JOIN conocimiento.fragmento fr ON fr.id_fragmento = f.id_fragmento
+          JOIN conocimiento.documento_fuente d ON d.id_documento = fr.id_documento
+         WHERE f.id_intento = i.id_intento AND f.enviado_al_llm) AS fragmentos_enviados,
+       EXISTS (SELECT 1 FROM asistencia.intento_generacion p
+                WHERE p.id_consulta = q.id_consulta AND p.modelo_llm = 'modelo-falso') AS modo_prueba,
+       i.version_prompt, i.tokens_razonamiento, i.latencia_llm_ms, i.tipo_busqueda, i.candidatos_evaluados,
+       i.relevancia_maxima, i.umbral_relevancia, i.control_identificadores, i.hash_solicitud,
+       q.fecha_hora_fin
 FROM asistencia.consulta q
 JOIN seguridad.usuario u ON u.id_usuario = q.id_usuario
 LEFT JOIN asistencia.intento_generacion i ON i.id_consulta = q.id_consulta;
 
+CREATE VIEW asistencia.v_auditoria_lista AS
+SELECT q.id_consulta, q.fecha_hora_inicio, q.fecha_hora_fin, u.nombre_usuario, q.estado, q.numero_intentos,
+       q.latencia_total_ms,
+       EXISTS (SELECT 1 FROM asistencia.intento_generacion p
+                WHERE p.id_consulta = q.id_consulta AND p.modelo_llm = 'modelo-falso') AS modo_prueba,
+       ult.modelo_llm, ult.version_prompt, tot.tokens_entrada, tot.tokens_salida, tot.costo_usd
+FROM asistencia.consulta q
+JOIN seguridad.usuario u ON u.id_usuario = q.id_usuario
+LEFT JOIN LATERAL (SELECT i.modelo_llm, i.version_prompt FROM asistencia.intento_generacion i
+                    WHERE i.id_consulta = q.id_consulta
+                    ORDER BY i.numero_intento DESC LIMIT 1) ult ON true
+LEFT JOIN LATERAL (SELECT sum(i.tokens_entrada) AS tokens_entrada, sum(i.tokens_salida) AS tokens_salida,
+                          sum(i.costo_usd) AS costo_usd
+                     FROM asistencia.intento_generacion i WHERE i.id_consulta = q.id_consulta) tot ON true;
+
 CREATE VIEW asistencia.v_indicadores_operativos AS
+WITH reales AS (
+  SELECT q.* FROM asistencia.consulta q
+   WHERE q.fecha_hora_inicio >= now() - interval '30 days'
+     AND NOT EXISTS (SELECT 1 FROM asistencia.intento_generacion p
+                      WHERE p.id_consulta = q.id_consulta AND p.modelo_llm = 'modelo-falso')
+), intentos_reales AS (
+  SELECT i.* FROM asistencia.intento_generacion i
+   WHERE i.fecha_hora >= now() - interval '30 days'
+     AND i.modelo_llm IS DISTINCT FROM 'modelo-falso'
+)
 SELECT count(*) AS consultas,
        percentile_cont(0.9) WITHIN GROUP (ORDER BY latencia_total_ms)
          FILTER (WHERE numero_intentos <= 1) AS p90_flujo_normal_ms,
        round(100.0 * count(*) FILTER (WHERE numero_intentos = 2) / NULLIF(count(*), 0), 1) AS pct_con_reintento,
        round(100.0 * count(*) FILTER (WHERE estado = 'EVIDENCIA_INSUFICIENTE') / NULLIF(count(*), 0), 1) AS pct_evidencia_insuficiente,
-       (SELECT coalesce(sum(costo_usd), 0) FROM asistencia.intento_generacion
-         WHERE fecha_hora >= now() - interval '30 days'
-           AND modelo_llm IS DISTINCT FROM 'modelo-falso') AS costo_api_usd
-FROM asistencia.consulta q
-WHERE fecha_hora_inicio >= now() - interval '30 days'
-  AND NOT EXISTS (SELECT 1 FROM asistencia.intento_generacion p
-                   WHERE p.id_consulta = q.id_consulta AND p.modelo_llm = 'modelo-falso');
+       (SELECT coalesce(sum(costo_usd), 0) FROM intentos_reales) AS costo_api_usd,
+       percentile_cont(0.5) WITHIN GROUP (ORDER BY latencia_total_ms) AS p50_ms,
+       percentile_cont(0.9) WITHIN GROUP (ORDER BY latencia_total_ms) AS p90_ms,
+       count(*) FILTER (WHERE estado IN ('VERIFICADA', 'EVIDENCIA_INSUFICIENTE')) AS evaluadas,
+       count(*) FILTER (WHERE estado = 'VERIFICADA') AS verificadas,
+       count(*) FILTER (WHERE estado = 'EVIDENCIA_INSUFICIENTE') AS evidencia_insuficiente,
+       count(*) FILTER (WHERE estado = 'SOLICITUD_BLOQUEADA') AS solicitudes_bloqueadas,
+       count(*) FILTER (WHERE estado = 'ERROR') AS errores,
+       count(*) FILTER (WHERE estado = 'FUERA_DE_DOMINIO') AS fuera_de_dominio,
+       count(*) FILTER (WHERE estado = 'DATOS_FALTANTES') AS datos_faltantes,
+       count(*) FILTER (WHERE estado = 'TAMIZAJE_NO_VIGENTE') AS tamizaje_no_vigente,
+       count(*) FILTER (WHERE estado = 'EN_PROCESO') AS en_proceso,
+       count(*) FILTER (WHERE numero_intentos = 2) AS con_reintento,
+       round(100.0 * count(*) FILTER (WHERE estado = 'VERIFICADA') / NULLIF(count(*), 0), 1) AS pct_verificadas,
+       (SELECT coalesce(sum(tokens_entrada), 0) FROM intentos_reales) AS tokens_entrada,
+       (SELECT coalesce(sum(tokens_salida), 0) FROM intentos_reales) AS tokens_salida,
+       now() - interval '30 days' AS desde,
+       now() AS hasta
+FROM reales;
 
 CREATE VIEW conocimiento.v_uso_documento AS
 SELECT d.id_documento, d.titulo, d.nivel, d.estado, d.total_fragmentos,
@@ -918,6 +971,8 @@ WHERE q.estado = 'EVIDENCIA_INSUFICIENTE'
 -- Las vistas agregadas excluyen las consultas de prueba (modelo_llm = 'modelo-falso'), migración 011.
 COMMENT ON VIEW asistencia.v_consultas_sin_evidencia IS 'Consultas reales (sin las de prueba del cliente falso) cerradas con evidencia insuficiente, para evaluar la incorporación de nuevas guías (M11).';
 COMMENT ON VIEW asistencia.v_indicadores_operativos IS 'Indicadores de los últimos 30 días sin las consultas de prueba del cliente falso.';
+COMMENT ON VIEW asistencia.v_auditoria_consulta IS 'Detalle de auditoría por intento (M13): modelo, tokens, costo, solicitud enviada (solo si el control previo la aprobó), fragmentos con puntaje y origen, verificación y modo_prueba. Sin identidad del paciente ni texto original.';
+COMMENT ON VIEW asistencia.v_auditoria_lista IS 'Una fila por consulta para la lista paginada de M13: usuario, estado, intentos, latencia, modo_prueba, modelo, tokens y costo. Sin identidad del paciente ni texto original.';
 COMMENT ON VIEW conocimiento.v_uso_documento IS 'Uso de cada guía: citas de los últimos 30 días en recomendaciones de consultas reales.';
 
 -- ============================================================================
@@ -973,7 +1028,10 @@ REVOKE ALL ON clinico.paciente_identidad FROM rol_app_generacion;
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA seguridad, conocimiento, configuracion TO rol_app_admin;
 
 GRANT SELECT ON ALL TABLES IN SCHEMA auditoria TO rol_auditor;
-GRANT SELECT ON asistencia.v_auditoria_consulta, asistencia.v_indicadores_operativos TO rol_auditor;
+-- El auditor solo lee las vistas de auditoría y la bitácora: ningún permiso sobre las tablas clínicas
+-- (identidad, texto_consulta, observaciones ni la nota de la decisión) ni de escritura.
+GRANT SELECT ON asistencia.v_auditoria_consulta, asistencia.v_auditoria_lista,
+      asistencia.v_indicadores_operativos TO rol_auditor;
 
 -- El indexador solo trabaja con la base de conocimiento: sin acceso a datos
 -- clínicos ni a cuentas, y sin permiso de eliminación.

@@ -117,7 +117,7 @@ El administrador no tiene acceso a los datos clínicos. El coordinador puede con
 | M11 Base de conocimiento | `/admin/conocimiento` | ADMINISTRAR_GUIAS | Disponible («Retirar» en el Sprint 3) |
 | M09 Reporte exportable | `/consultas/:id/reporte` y la lista `/reportes` | EXPORTAR_REPORTE | Disponible (Sprint 3, parte C2) |
 | M12 Parámetros clínicos | `/admin/parametros` | CONFIGURAR_PARAMETROS | Sprint 3 |
-| M13 Auditoría y trazabilidad | `/admin/auditoria` | VER_AUDITORIA | Sprint 3 |
+| M13 Auditoría y trazabilidad | `/admin/auditoria` | VER_AUDITORIA | Sprint 3 (API lista en la parte D1: `docs/contrato_auditoria.md`; pantalla en D2) |
 
 Quien no tiene el permiso de una pantalla vuelve al inicio. Los contratos de la API están en [`docs/contrato_consultas.md`](docs/contrato_consultas.md) (consultas) y [`docs/contrato_conocimiento.md`](docs/contrato_conocimiento.md) (M11).
 
@@ -182,7 +182,7 @@ npm run dev
 
 ```bash
 cd backend
-cp .env.test.example .env.test   # conexiones a la base de pruebas (incluidas TEST_DATABASE_URL_SUPER y DATABASE_URL_INDEXADOR)
+cp .env.test.example .env.test   # conexiones a la base de pruebas (incluidas TEST_DATABASE_URL_SUPER, DATABASE_URL_INDEXADOR y DATABASE_URL_AUDITOR)
 python -m app.scripts.seed_demo
 pytest -q                        # 772 pruebas; excluye las marcas lenta y api_real
 pytest -q -m lenta               # PDF reales de data/guias y fragmentos indexados (no corren en CI)
@@ -239,7 +239,7 @@ docs/           documentación del desarrollo (contratos, mediciones, cambios re
 ## Base de datos
 
 - **Esquema:** 27 tablas en 6 esquemas (`seguridad`, `clinico`, `asistencia`, `conocimiento`, `configuracion`, `auditoria`), triggers de integridad y vistas.
-- **Usuarios de conexión:** un usuario por componente (`cdss_clinica`, `cdss_generacion`, `cdss_admin`, `cdss_auditor` y `cdss_indexador`). El de generación no puede leer la identidad de los pacientes, el texto original de la consulta ni las observaciones del tamizaje; el indexador y el administrador no acceden a los datos clínicos.
+- **Usuarios de conexión:** un usuario por componente (`cdss_clinica`, `cdss_generacion`, `cdss_admin`, `cdss_auditor` y `cdss_indexador`). El de generación no puede leer la identidad de los pacientes, el texto original de la consulta ni las observaciones del tamizaje; el indexador y el administrador no acceden a los datos clínicos. El auditor solo lee las vistas de auditoría (sin identidad, texto original, observaciones ni la nota de la decisión) y su conexión es de solo lectura.
 - **Identidad del paciente:** nombre, DNI, historia clínica y dirección se cifran con pgcrypto (AES-256) usando `CDSS_CLAVE_PII`. El DNI y la historia clínica se guardan además como HMAC para buscarlos sin descifrar. **Guarde `CDSS_CLAVE_PII`: sin ella no se puede recuperar la identidad.**
 - **Auditoría:** `auditoria.evento_auditoria` no admite cambios ni eliminaciones.
 - **Catálogos iniciales:** roles y permisos, síntomas, distritos con altitud, puntos de corte de hemoglobina, ajuste por altitud y parámetros del sistema versionados.

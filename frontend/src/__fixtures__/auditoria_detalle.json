@@ -1,0 +1,142 @@
+{
+  "id_consulta": "00000000-0000-4000-8000-000000000001",
+  "fecha_hora_inicio": "2026-10-20T15:42:00Z",
+  "fecha_hora_fin": "2026-10-20T15:42:05Z",
+  "nombre_usuario": "enf.rojas",
+  "estado": "VERIFICADA",
+  "numero_intentos": 2,
+  "latencia_total_ms": 14800,
+  "confirma_tamizaje_no_vigente": false,
+  "modo_prueba": false,
+  "tokens_entrada": 10020,
+  "tokens_salida": 792,
+  "tokens_total": 10812,
+  "costo_usd": 0.042,
+  "intentos": [
+    {
+      "numero_intento": 1,
+      "tipo_busqueda": "INICIAL",
+      "resultado": "REINTENTO",
+      "modelo_llm": "claude-sonnet-5-5",
+      "version_prompt": "v1.1",
+      "tokens_entrada": 5000,
+      "tokens_salida": 400,
+      "tokens_razonamiento": 12,
+      "costo_usd": 0.021,
+      "latencia_llm_ms": 3000,
+      "candidatos_evaluados": 8,
+      "verificacion": {
+        "valida_citas": true,
+        "valida_consistencia": true,
+        "valida_evidencia": false,
+        "relevancia_maxima": 0.412,
+        "umbral_relevancia": 0.15
+      },
+      "control_identificadores": true,
+      "hash_solicitud": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "solicitud_enviada": {
+        "consulta": "tratamiento de anemia leve en niño de [EDAD] meses",
+        "paciente": {
+          "hb": 9.8,
+          "sexo": "M",
+          "edad_meses": 14,
+          "clasificacion": "anemia leve",
+          "suplementacion": false
+        },
+        "evidencia": [
+          {
+            "texto": "Suplementación con hierro",
+            "etiqueta": "F-01"
+          },
+          {
+            "texto": "Control de hemoglobina",
+            "etiqueta": "F-02"
+          },
+          {
+            "texto": "Tabla de dosis",
+            "etiqueta": "F-03"
+          }
+        ]
+      },
+      "fragmentos": []
+    },
+    {
+      "numero_intento": 2,
+      "tipo_busqueda": "AMPLIADA",
+      "resultado": "APROBADO",
+      "modelo_llm": "claude-sonnet-5-5",
+      "version_prompt": "v1.1",
+      "tokens_entrada": 5020,
+      "tokens_salida": 392,
+      "tokens_razonamiento": 12,
+      "costo_usd": 0.021,
+      "latencia_llm_ms": 3000,
+      "candidatos_evaluados": 8,
+      "verificacion": {
+        "valida_citas": true,
+        "valida_consistencia": true,
+        "valida_evidencia": true,
+        "relevancia_maxima": 0.412,
+        "umbral_relevancia": 0.15
+      },
+      "control_identificadores": true,
+      "hash_solicitud": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "solicitud_enviada": {
+        "consulta": "tratamiento de anemia leve en niño de [EDAD] meses",
+        "paciente": {
+          "hb": 9.8,
+          "sexo": "M",
+          "edad_meses": 14,
+          "clasificacion": "anemia leve",
+          "suplementacion": false
+        },
+        "evidencia": [
+          {
+            "texto": "Suplementación con hierro",
+            "etiqueta": "F-01"
+          },
+          {
+            "texto": "Control de hemoglobina",
+            "etiqueta": "F-02"
+          },
+          {
+            "texto": "Tabla de dosis",
+            "etiqueta": "F-03"
+          }
+        ]
+      },
+      "fragmentos": [
+        {
+          "etiqueta": "F-01",
+          "puntaje_reranker": 0.8,
+          "origen": "RERANKER",
+          "posicion_final": 1,
+          "documento": "PRUEBA-C-MINSA",
+          "seccion": "Sección 1",
+          "pagina_inicio": 1,
+          "pagina_fin": 1
+        },
+        {
+          "etiqueta": "F-02",
+          "puntaje_reranker": 0.7,
+          "origen": "RERANKER",
+          "posicion_final": 2,
+          "documento": "PRUEBA-C-MINSA",
+          "seccion": "Sección 2",
+          "pagina_inicio": 2,
+          "pagina_fin": 2
+        },
+        {
+          "etiqueta": "F-03",
+          "puntaje_reranker": null,
+          "origen": "PUNTERO",
+          "posicion_final": null,
+          "documento": "PRUEBA-C-MINSA",
+          "seccion": "Sección 3",
+          "pagina_inicio": 3,
+          "pagina_fin": 3
+        }
+      ]
+    }
+  ]
+}

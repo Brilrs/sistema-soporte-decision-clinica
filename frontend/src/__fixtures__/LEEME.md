@@ -13,3 +13,19 @@ fechas `2026-10-20T10:00:00-05:00`; en el resultado, la vigencia y su mensaje so
 Los puntajes salen del reranker falso y el umbral es el de las pruebas (0,05), no los reales (0,15).
 `modo_prueba` es `true` en las consultas que llamaron al cliente falso. Contrato:
 `docs/contrato_consultas.md`.
+
+## Auditoría (M13, parte D1 del Sprint 3)
+
+Los genera `backend/tests/test_d1_auditoria.py` con consultas sintéticas insertadas en la base de
+pruebas (pacientes de `seed_demo`, sin el modelo de lenguaje). Contrato: `docs/contrato_auditoria.md`.
+
+- `auditoria_indicadores.json`: `GET /api/auditoria/indicadores` (seis consultas reales en varios
+  estados y una de prueba, que no cuenta). La ventana se fija en `2026-09-20` a `2026-10-20`.
+- `auditoria_consultas.json`: `GET /api/auditoria/consultas` de un día con `incluir_pruebas=true`
+  (una real con reintento, una de prueba y una fuera de dominio).
+- `auditoria_detalle.json`: `GET /api/auditoria/consultas/{id}` de la consulta real, con dos
+  intentos, la solicitud registrada y tres fragmentos (el último agregado por referencia).
+
+UUID en orden de aparición y fechas pasadas a octubre de 2026. Si al generarlos hay otras
+consultas de los últimos 30 días en la base de pruebas, la prueba se salta (los indicadores no
+serían reproducibles).

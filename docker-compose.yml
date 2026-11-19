@@ -56,6 +56,7 @@ services:
       DATABASE_URL_CLINICA: postgresql+psycopg://cdss_clinica:${CDSS_DB_PWD_CLINICA}@db:5432/cdss
       DATABASE_URL_GENERACION: postgresql+psycopg://cdss_generacion:${CDSS_DB_PWD_GENERACION}@db:5432/cdss
       DATABASE_URL_ADMIN: postgresql+psycopg://cdss_admin:${CDSS_DB_PWD_ADMIN}@db:5432/cdss
+      DATABASE_URL_AUDITOR: postgresql+psycopg://cdss_auditor:${CDSS_DB_PWD_AUDITOR}@db:5432/cdss
       JWT_SECRETO: ${JWT_SECRETO}
       CDSS_CLAVE_PII: ${CDSS_CLAVE_PII}
       CDSS_CLAVE_HMAC: ${CDSS_CLAVE_HMAC}

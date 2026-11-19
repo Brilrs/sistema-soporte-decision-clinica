@@ -11,11 +11,20 @@
 -- 3. conocimiento.v_uso_documento: las citas de los últimos 30 días cuentan solo las de
 --    recomendaciones de consultas reales.
 -- Los permisos de las vistas se conservan (CREATE OR REPLACE VIEW no los cambia).
--- Es idempotente. Replicada en db/init/01_esquema.sql.
+-- Es idempotente. Replicada en db/init/01_esquema.sql. v_indicadores_operativos no se redefine si
+-- ya tiene la forma de la migración 014.
 -- ============================================================================
 
 SET client_min_messages = warning;
 
+-- Desde la migración 014 la vista tiene más columnas (CREATE OR REPLACE no admite quitarlas):
+-- si ya tiene la forma de 014, no se vuelve a definir aquí.
+DO $migracion$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_schema = 'asistencia' AND table_name = 'v_indicadores_operativos'
+                    AND column_name = 'p50_ms') THEN
+    EXECUTE $vista$
 CREATE OR REPLACE VIEW asistencia.v_indicadores_operativos AS
 SELECT count(*) AS consultas,
        percentile_cont(0.9) WITHIN GROUP (ORDER BY latencia_total_ms)
@@ -28,7 +37,11 @@ SELECT count(*) AS consultas,
 FROM asistencia.consulta q
 WHERE fecha_hora_inicio >= now() - interval '30 days'
   AND NOT EXISTS (SELECT 1 FROM asistencia.intento_generacion p
-                   WHERE p.id_consulta = q.id_consulta AND p.modelo_llm = 'modelo-falso');
+                   WHERE p.id_consulta = q.id_consulta AND p.modelo_llm = 'modelo-falso')
+$vista$;
+  END IF;
+END
+$migracion$;
 
 CREATE OR REPLACE VIEW conocimiento.v_uso_documento AS
 SELECT d.id_documento, d.titulo, d.nivel, d.estado, d.total_fragmentos,

@@ -1,0 +1,29 @@
+{
+  "dias": 30,
+  "desde": "2026-09-20T15:00:00Z",
+  "hasta": "2026-10-20T15:00:00Z",
+  "consultas": 6,
+  "evaluadas": 3,
+  "por_estado": {
+    "VERIFICADA": 2,
+    "EVIDENCIA_INSUFICIENTE": 1,
+    "ERROR": 1,
+    "SOLICITUD_BLOQUEADA": 1,
+    "FUERA_DE_DOMINIO": 1,
+    "DATOS_FALTANTES": 0,
+    "TAMIZAJE_NO_VIGENTE": 0,
+    "EN_PROCESO": 0
+  },
+  "pct_verificadas": 33.3,
+  "pct_evidencia_insuficiente": 16.7,
+  "con_reintento": 1,
+  "pct_con_reintento": 16.7,
+  "latencia_p50_ms": 6650,
+  "latencia_p90_ms": 23150,
+  "latencia_p90_flujo_normal_ms": 20880,
+  "solicitudes_bloqueadas": 1,
+  "errores": 1,
+  "tokens_entrada": 19620,
+  "tokens_salida": 1572,
+  "costo_api_usd": 0.08
+}
