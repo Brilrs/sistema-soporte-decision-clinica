@@ -15,6 +15,7 @@ import time
 from pathlib import Path
 
 from app.indexador.config import ConfigIndexador, FuenteDocumento, cargar_config, cargar_manifiesto
+from app.indexador.errores import ErrorIndexacion
 from app.indexador.extraccion import extraer_pdf
 from app.indexador.indexacion import Indexador, Opciones, Resultado, preparar
 from app.indexador.informes import informe_extraccion, informe_valores, seccion_documento
@@ -204,15 +205,26 @@ def cmd_grupos_etarios(args, config: ConfigIndexador) -> int:
 
 MENSAJE_HUERFANO = ("Indexación interrumpida: el trabajador se detuvo mientras procesaba el documento. "
                     "No quedó nada a medias; use «Reintentar» para volver a indexarlo.")
+MENSAJE_HUERFANO_RETIRO = ("Retiro interrumpido: el trabajador se detuvo mientras actualizaba los vectores. La guía "
+                           "ya no se recupera; use «Reintentar» para volver a aplicar el retiro.")
+MENSAJE_OBSOLETA = "La guía está retirada (OBSOLETA): no se vuelve a indexar"
 
 
 def _procesar_trabajo(indexador: Indexador, config: ConfigIndexador, trabajo, manifiesto: str,
                       permitir_no_verificadas: bool) -> None:
-    fuente = _fuente(trabajo.id_documento, manifiesto)
     if trabajo.tipo == "RETIRO":
-        indexador.repo.finalizar_trabajo(trabajo.id_trabajo, "El retiro de guías (HU17) se implementa en el Sprint 3")
+        try:
+            n = indexador.retirar(trabajo.id_documento, trabajo.id_trabajo)
+            print(f"{trabajo.id_documento}: retiro aplicado a {n} vectores", flush=True)
+        except ErrorIndexacion as e:
+            print(f"{trabajo.id_documento}: retiro en ERROR: {e}", flush=True)
         return
+    fuente = _fuente(trabajo.id_documento, manifiesto)
     documento = indexador.repo.documento(trabajo.id_documento)
+    if documento.estado == "OBSOLETA":
+        # Defensa: la API no crea indexaciones de una guía retirada (409), pero la cola podría tenerla.
+        indexador.repo.finalizar_trabajo(trabajo.id_trabajo, MENSAJE_OBSOLETA)
+        return
     ruta = _ruta_pdf(config, fuente, documento.ruta_blob if not fuente.archivo else None)
     opciones = Opciones(permitir_no_verificadas, reindexar=trabajo.tipo == "REINDEXACION")
     _mostrar(fuente, indexador.indexar(fuente, ruta, opciones, trabajo.id_trabajo))
@@ -225,7 +237,7 @@ def procesar_pendientes(indexador: Indexador, config: ConfigIndexador, manifiest
     excepción fuera de indexar() (documento inexistente, base caída) no lo termina: se registra,
     el trabajo tomado queda en ERROR si se puede y el bucle sigue después de una pausa."""
     try:
-        for id_trabajo, id_documento in indexador.repo.marcar_trabajos_huerfanos(MENSAJE_HUERFANO):
+        for id_trabajo, id_documento in indexador.repo.marcar_trabajos_huerfanos(MENSAJE_HUERFANO, MENSAJE_HUERFANO_RETIRO):
             log.warning("Trabajo %s (documento %s) quedó EN_CURSO al detenerse el trabajador: pasa a ERROR",
                         id_trabajo, id_documento)
     except Exception:

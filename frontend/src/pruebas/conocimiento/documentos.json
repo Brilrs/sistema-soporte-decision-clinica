@@ -15,6 +15,9 @@
   "fecha_carga": "2026-10-22T19:49:24.815496Z",
   "fragmentos_vigentes": 60,
   "citas_30_dias": 0,
+  "retirado_por": null,
+  "fecha_retiro": null,
+  "motivo_retiro": null,
   "ultimo_trabajo": {
    "id_trabajo": "ae9a2572-5071-488e-9df2-f910432907f0",
    "tipo": "REINDEXACION",
@@ -43,6 +46,9 @@
   "fecha_carga": "2026-11-05T01:35:32.645352Z",
   "fragmentos_vigentes": 14,
   "citas_30_dias": 20,
+  "retirado_por": null,
+  "fecha_retiro": null,
+  "motivo_retiro": null,
   "ultimo_trabajo": {
    "id_trabajo": "fead9289-5201-48d1-9599-3449fbc8e7a7",
    "tipo": "REINDEXACION",
@@ -71,6 +77,9 @@
   "fecha_carga": "2026-10-22T19:49:24.815496Z",
   "fragmentos_vigentes": 83,
   "citas_30_dias": 133,
+  "retirado_por": null,
+  "fecha_retiro": null,
+  "motivo_retiro": null,
   "ultimo_trabajo": {
    "id_trabajo": "6fffd409-a0bf-4c6d-a59c-e12e6538b953",
    "tipo": "REINDEXACION",
@@ -99,6 +108,9 @@
   "fecha_carga": "2026-10-22T19:49:24.815496Z",
   "fragmentos_vigentes": 26,
   "citas_30_dias": 5,
+  "retirado_por": null,
+  "fecha_retiro": null,
+  "motivo_retiro": null,
   "ultimo_trabajo": {
    "id_trabajo": "da798f58-7ba1-44af-bb9e-94969448da02",
    "tipo": "REINDEXACION",

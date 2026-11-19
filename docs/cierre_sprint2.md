@@ -57,6 +57,8 @@ de la consulta. El registro de la decisión no tiene historia propia en el OE2: 
 
 - **HU17 en M11:** retirar guías («Retirar» se ve deshabilitado, con la nota del Sprint 3) y cargar
   guías de nivel 1 desde la pantalla con revisión («Aprobar»).
+  - Actualización del Sprint 3: el retiro (HU17) quedó resuelto en la parte F. La carga de nivel 1
+    con revisión sigue pendiente.
 - **M09** reporte exportable (y «Exportar reporte» en M05), **M12** parámetros clínicos y **M13**
   auditoría y trazabilidad: hoy muestran «En construcción».
   - Actualización del Sprint 3: M09 y HU10 quedaron resueltos en las partes C1 (API) y C2
@@ -252,7 +254,7 @@ la evaluación del OE3 ni el despliegue.
 | Tema | Detalle | Dueño | Fecha prevista |
 | --- | --- | --- | --- |
 | Carga de guías de nivel 1 desde M11, con revisión | Hoy las de nivel 1 se cargan por línea de comandos con transcripciones verificadas. Falta un flujo de revisión en pantalla («Aprobar») antes de que una guía se pueda citar | Desarrollo | Sprint 3 |
-| Retiro de guías (HU17) | «Retirar» está deshabilitado en M11; la limpieza del cierre se hizo a mano (anexo A) | Desarrollo | Sprint 3 |
+| Retiro de guías (HU17) | Resuelto en el Sprint 3, parte F: «Retirar» en M11 con las guardas del nivel 1 y el trabajo RETIRO del indexador | Desarrollo | Hecho (Sprint 3) |
 | Recorte de márgenes por documento | Las guías del manifiesto tienen su recorte de la zona del cuerpo (`fuentes_iniciales.yaml`); las cargadas desde M11 se extraen a página completa | Desarrollo | Sprint 3, junto con la carga de nivel 1 |
 | Recuperación de la Tabla N° 4 de la RM 429 | Es el resto del pendiente P4. Con la regla del puntero y d1 (el reranker puntúa el cuerpo sin el preámbulo de la RM 429, fila 103 de `cambios_respecto_al_OE2.md`) siguen sin la tabla A01 y A12 (conjunto A) y B01, B04, B06 y B08 (conjunto B). Las preguntas nuevas de `construir_consulta` (c1) resolvían A12, B06 y B08 pero perdían B11 y se revirtieron (`mediciones_sprint2.md`, parte G, fase 8). Opción medida en memoria y no aplicada: partir la tabla en dos bloques por edad, reindexando solo la RM 429 | Desarrollo | Antes de la evaluación del OE3 |
 | Tabla N° 20 en las consultas de tratamiento | Hallazgo de la parte G: en las consultas estructuradas de tratamiento, y en algunas libres y combinadas, no llega la Tabla N° 20 (control de hemoglobina en el tratamiento), sino el fragmento «Seguimiento de casos de anemia» que la cita. Con d1, criterio estricto: 2 de 4 en A (fallan A15 y A16) y 1 de 7 en B (fallan B14 a B18 y B20); criterio aceptado: 3 de 4 y 6 de 7 (fallan A15 y B15). c1 llevaba el estricto a 3 de 4 y 3 de 7, pero se revirtió (`mediciones_sprint2.md`, parte G, fase 8). B15, una pregunta libre, no recibe ni la tabla ni el fragmento que la cita | Desarrollo | Antes de la evaluación del OE3 |

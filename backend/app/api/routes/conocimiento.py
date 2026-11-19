@@ -5,7 +5,10 @@ La subida es un solo multipart; las validaciones van en este orden: extensión .
 %PDF- (415), tamaño máximo cortado mientras se copia (413), SHA-256 repetido (409), metadatos
 (422) y nivel distinto de 2 (422). Los metadatos se validan en la ruta, no como parámetros de
 FastAPI, para respetar ese orden. El archivo se guarda con el id del documento, nunca con el
-nombre enviado, y ninguna respuesta lleva rutas del servidor. Contrato en docs/contrato_conocimiento.md."""
+nombre enviado, y ninguna respuesta lleva rutas del servidor. Contrato en docs/contrato_conocimiento.md.
+
+Retiro (HU17, Sprint 3 parte F): GET .../referencias y POST .../retiro. La guía pasa a OBSOLETA y se
+conserva; el trabajo RETIRO del indexador actualiza después los metadatos de ChromaDB."""
 import logging
 from datetime import date, datetime
 from typing import Literal
@@ -13,6 +16,7 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -101,6 +105,9 @@ class DocumentoSalida(BaseModel):
     fecha_carga: datetime
     fragmentos_vigentes: int
     citas_30_dias: int
+    retirado_por: str | None
+    fecha_retiro: datetime | None
+    motivo_retiro: str | None
     ultimo_trabajo: TrabajoResumen | None
 
 
@@ -145,6 +152,29 @@ class DocumentoCreado(BaseModel):
 
 class ReintentoSalida(BaseModel):
     trabajo: TrabajoSalida
+
+
+class Referencia(BaseModel):
+    tipo: Literal["UMBRAL_HEMOGLOBINA", "AJUSTE_ALTITUD", "PARAMETRO_SISTEMA", "MODIFICACION", "MAPA_MODIFICACIONES",
+                  "PUNTERO"]
+    descripcion: str
+
+
+class ReferenciasSalida(BaseModel):
+    id_documento: str
+    nivel: int
+    estado: str
+    codigo_confirmacion: str | None
+    referencias: list[Referencia]
+    puede_retirarse: bool
+
+
+class RetiroEntrada(BaseModel):
+    """El largo del motivo se comprueba en la ruta, después del modo de evaluación."""
+    model_config = ConfigDict(extra="forbid")
+
+    motivo: str = Field(max_length=2000)
+    confirmacion: str | None = Field(None, max_length=255)
 
 
 # ---------------------------------------------------------------------------
@@ -302,7 +332,46 @@ def reintentar(id_documento: UUID, request: Request, actor: UsuarioActual = Depe
     except srv.ErrorGuia as e:
         sesion.rollback()
         raise HTTPException(e.codigo, str(e))
-    registrar_evento(sesion, "GUIA_REINDEXACION_SOLICITADA", actor.id_usuario, ENTIDAD, str(id_documento),
+    evento = "GUIA_RETIRO_REINTENTADO" if tipo == "RETIRO" else "GUIA_REINDEXACION_SOLICITADA"
+    registrar_evento(sesion, evento, actor.id_usuario, ENTIDAD, str(id_documento),
                      {"id_trabajo": id_trabajo, "tipo": tipo}, _ip(request))
     sesion.flush()
     return {"trabajo": _trabajo(sesion, id_trabajo)}
+
+
+# ---------------------------------------------------------------------------
+# Retiro (HU17)
+# ---------------------------------------------------------------------------
+@router.get("/documentos/{id_documento}/referencias", response_model=ReferenciasSalida)
+def referencias(id_documento: UUID, _: UsuarioActual = Depends(administrador),
+                sesion: Session = Depends(sesion_admin)) -> dict:
+    """Referencias vigentes que bloquean el retiro de una guía de nivel 1; lista vacía en el nivel 2."""
+    r = srv.referencias_de(sesion, str(id_documento))
+    if r is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, MENSAJE_NO_ENCONTRADO)
+    return r
+
+
+@router.post("/documentos/{id_documento}/retiro", response_model=DocumentoCreado,
+             status_code=status.HTTP_201_CREATED,
+             responses={409: {"description": "YA_OBSOLETA, TRABAJO_ACTIVO o REFERENCIAS_VIGENTES (con la lista)"},
+                        422: {"description": "MOTIVO_INVALIDO o CONFIRMACION_INCORRECTA"},
+                        423: {"description": "Modo de evaluación"}})
+def retirar(id_documento: UUID, entrada: RetiroEntrada, request: Request, actor: UsuarioActual = Depends(administrador),
+            sesion: Session = Depends(sesion_admin)):
+    """Orden: permiso, modo de evaluación (423), motivo (422), candado de la cola, guía existente (404),
+    ya obsoleta (409), trabajo activo (409), referencias del nivel 1 (409 con la lista), confirmación
+    del nivel 1 (422) y, en una transacción, OBSOLETA, el trabajo RETIRO y el evento GUIA_RETIRADA."""
+    id_doc = str(id_documento)
+    bloquear_en_evaluacion(sesion, actor.id_usuario, "RETIRAR_GUIA", ENTIDAD, id_doc, _ip(request))
+    try:
+        motivo = srv.validar_motivo(entrada.motivo)
+        srv.bloquear_cola(sesion)
+        datos, id_trabajo = srv.retirar(sesion, id_doc, motivo, entrada.confirmacion, actor.id_usuario)
+    except srv.ErrorRetiro as e:
+        sesion.rollback()
+        return JSONResponse(status_code=e.estado, content=e.cuerpo())
+    # Sin datos personales: ni el nombre de quien retira (va en id_usuario del evento) ni el título.
+    registrar_evento(sesion, "GUIA_RETIRADA", actor.id_usuario, ENTIDAD, id_doc, datos, _ip(request))
+    sesion.flush()
+    return {"documento": srv.documento(sesion, id_doc), "trabajo": _trabajo(sesion, id_trabajo)}

@@ -1,16 +1,18 @@
 // M11 · Base de conocimiento (HU12). Solo para el permiso ADMINISTRAR_GUIAS: tabla de guías,
 // «Cargar guía» (solo nivel 2), avance de la indexación consultado cada 3 s mientras haya trabajos
-// activos, detalle de cada guía y «Reintentar» para las que terminaron en error. «Retirar» (HU17)
-// queda deshabilitado hasta el Sprint 3. Sin datos clínicos. Contrato: docs/contrato_conocimiento.md.
+// activos, detalle de cada guía, «Reintentar» para las que terminaron en error y «Retirar» (HU17,
+// Sprint 3 parte F) para las vigentes. Sin datos clínicos. Contrato: docs/contrato_conocimiento.md.
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { mensajeError } from "../api/cliente";
 import { conocimientoApi, type Documento, type DocumentoCreado, type Trabajo } from "../api/conocimiento";
+import { useAuth } from "../auth/AuthContext";
 import AvanceIndexacion from "../components/conocimiento/AvanceIndexacion";
 import TablaGuias from "../components/conocimiento/TablaGuias";
-import { NOTA_OBSOLETAS, NOTA_RETIRAR } from "../components/conocimiento/textos";
+import { NOTA_OBSOLETAS, NOTA_RETIRAR, NOTA_RETIRAR_SIN_PERMISO } from "../components/conocimiento/textos";
 import { useTrabajosActivos } from "../components/conocimiento/useTrabajosActivos";
 import VentanaCargarGuia from "../components/conocimiento/VentanaCargarGuia";
 import VentanaDetalleGuia from "../components/conocimiento/VentanaDetalleGuia";
+import VentanaRetirarGuia from "../components/conocimiento/VentanaRetirarGuia";
 import { useTituloPagina } from "../utilidades/useTituloPagina";
 
 export default function BaseConocimiento() {
@@ -24,7 +26,11 @@ export default function BaseConocimiento() {
   const [aviso, setAviso] = useState<{ tipo: "exito" | "error"; texto: string } | null>(null);
   const botonCargar = useRef<HTMLButtonElement>(null);
   const botonVer = useRef<HTMLButtonElement | null>(null);
+  const botonRetirar = useRef<HTMLButtonElement | null>(null);
+  const [retiro, setRetiro] = useState<Documento | null>(null);
   const idNotaRetirar = useId();
+  const { tienePermiso } = useAuth();
+  const puedeRetirar = tienePermiso("ADMINISTRAR_GUIAS");
 
   const cargarDocumentos = useCallback(async () => {
     setErrorCarga(null);
@@ -62,9 +68,10 @@ export default function BaseConocimiento() {
     setReintentando(doc.id_documento);
     setAviso(null);
     try {
-      await conocimientoApi.reintentar(doc.id_documento);
+      const { trabajo } = await conocimientoApi.reintentar(doc.id_documento);
       setTerminados((t) => t.filter((id) => id !== doc.id_documento));
-      setAviso({ tipo: "exito", texto: `Se volvió a poner en cola la indexación de «${doc.titulo}».` });
+      setAviso({ tipo: "exito", texto: trabajo.tipo === "RETIRO" ? `Se volvió a poner en cola el retiro de «${doc.titulo}».`
+        : `Se volvió a poner en cola la indexación de «${doc.titulo}».` });
       await Promise.all([cargarDocumentos(), actualizar()]);
     } catch (e) {
       setAviso({ tipo: "error", texto: `No se pudo reintentar «${doc.titulo}»: ${mensajeError(e)}` });
@@ -76,6 +83,29 @@ export default function BaseConocimiento() {
   function ver(doc: Documento, boton: HTMLButtonElement) {
     botonVer.current = boton;
     setDetalle(doc);
+  }
+
+  function abrirRetiro(doc: Documento, boton: HTMLButtonElement) {
+    botonRetirar.current = boton;
+    setAviso(null);
+    setRetiro(doc);
+  }
+
+  // Tras retirar, el foco vuelve a «Cargar guía»: la fila ya no tiene un «Retirar» activo.
+  function alRetirar(creado: DocumentoCreado) {
+    setRetiro(null);
+    botonCargar.current?.focus();
+    setTerminados((t) => t.filter((id) => id !== creado.documento.id_documento));
+    setAviso({ tipo: "exito", texto: `«${creado.documento.titulo}» quedó retirada: ya no se citará en nuevas consultas. `
+      + "Las consultas anteriores conservan sus citas." });
+    void cargarDocumentos();
+    void actualizar();
+  }
+
+  function recargarTrasConflicto() {
+    setRetiro(null);
+    void cargarDocumentos();
+    void actualizar();
   }
 
   return (
@@ -114,16 +144,20 @@ export default function BaseConocimiento() {
           <p className="vacio">Aún no hay guías. Use «Cargar guía» para agregar la primera.</p>
         ) : (
           <TablaGuias documentos={documentos} ver={ver} reintentar={(d) => void reintentar(d)} reintentando={reintentando}
-                      idNotaRetirar={idNotaRetirar} />
+                      retirar={abrirRetiro} puedeRetirar={puedeRetirar} idNotaRetirar={idNotaRetirar} />
         )}
       </div>
       <p className="guias__pie">{NOTA_OBSOLETAS}</p>
-      <p className="guias__pie" id={idNotaRetirar}>{NOTA_RETIRAR}</p>
+      <p className="guias__pie" id={idNotaRetirar}>{puedeRetirar ? NOTA_RETIRAR : NOTA_RETIRAR_SIN_PERMISO}</p>
 
       {cargarAbierta && (
         <VentanaCargarGuia alCerrar={() => setCargarAbierta(false)} alCargar={alCargar} focoAlCerrar={botonCargar} />
       )}
       {detalle && <VentanaDetalleGuia documento={detalle} alCerrar={() => setDetalle(null)} focoAlCerrar={botonVer} />}
+      {retiro && (
+        <VentanaRetirarGuia documento={retiro} alCerrar={() => setRetiro(null)} alRetirar={alRetirar}
+                            alRecargar={recargarTrasConflicto} focoAlCerrar={botonRetirar} />
+      )}
     </section>
   );
 }

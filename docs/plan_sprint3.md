@@ -255,6 +255,22 @@ empiece.
   - queda de M12: verificar contra la norma los valores sembrados (desde la pantalla, con
     «Confirmar contra la norma») y validar con el asesor los umbrales de `parametros_reglas.py`.
 
+- **Hecho en la parte F** (HU17; filas 134 a 139 de `cambios_respecto_al_OE2.md`):
+  - API: `GET /api/conocimiento/documentos/{id}/referencias` y `POST .../retiro` (contrato en
+    `docs/contrato_conocimiento.md`), con las guardas del nivel 1 (puntos de corte, ajustes y
+    parámetros vigentes, modificaciones, mapas del indexador y punteros), el código exacto y el
+    evento GUIA_RETIRADA; «Reintentar» de un RETIRO en error crea otro RETIRO;
+  - indexador: trabajo RETIRO (metadatos de ChromaDB, sin borrar, idempotente, ERROR con mensaje);
+  - migración 017: restricción de coherencia del retiro (`ck_documento_fuente_retiro`), aplicada en
+    pruebas y en desarrollo (0 filas incoherentes);
+  - recuperación sin cambios: ya filtraba `d.estado = 'VIGENTE'`; las consultas anteriores conservan
+    sus citas en M05, M08, M09 y M13 (ninguna lectura filtraba por el estado del documento);
+  - M11: «Retirar» activo en las vigentes, ventana de retiro (`VentanaRetirarGuia.tsx`), avance del
+    trabajo de retiro y detalle de la guía obsoleta;
+  - pruebas en `tests/test_f_retiro.py` y `pages/RetiroGuias.test.tsx`; mutaciones del permiso, del
+    423, de cada guarda, del código, del filtro de la recuperación y de «Retirar» sin el código;
+  - auditoría visual con las vistas `m11_retiro_*` y `m11_obsoleta`.
+
 ### HU17 retirar guías: M, riesgo medio (alto en nivel 1)
 
 - **Ruta:** `POST /api/conocimiento/documentos/{id}/retiro`, con motivo. Llena `estado` OBSOLETA,

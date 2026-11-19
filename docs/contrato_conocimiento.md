@@ -46,6 +46,9 @@ Pruebas: `backend/tests/test_conocimiento_api.py`. El trabajador del indexador (
 | `fecha_carga` | fecha y hora | |
 | `fragmentos_vigentes` | entero | Fragmentos con `vigente = true` |
 | `citas_30_dias` | entero | Citas en recomendaciones de los últimos 30 días (`v_uso_documento`, sin consultas de prueba) |
+| `retirado_por` | texto o null | Nombre de quien retiró la guía (solo en OBSOLETA; Sprint 3, parte F) |
+| `fecha_retiro` | fecha y hora o null | Cuándo se retiró |
+| `motivo_retiro` | texto o null | Motivo del retiro (10 a 250 caracteres) |
 | `ultimo_trabajo` | `TrabajoResumen` o null | El trabajo más reciente del documento |
 
 ### `TrabajoResumen`
@@ -138,6 +141,80 @@ PENDIENTE.
 | 409 | El documento ya tiene un trabajo PENDIENTE o EN_CURSO |
 | 409 | El documento no está en ERROR |
 | 409 | Ya hay 2 trabajos activos |
+| 409 | La guía está retirada (OBSOLETA) y su último trabajo no es un RETIRO en ERROR: una obsoleta no se vuelve a indexar |
+
+Con una guía OBSOLETA cuyo último trabajo es un RETIRO en ERROR, crea otro trabajo **RETIRO** (no una
+reindexación) y no cambia `estado_indexacion`; el evento es GUIA_RETIRO_REINTENTADO.
+
+## Retiro de guías (HU17, Sprint 3 parte F)
+
+Reglas (decisión 6 del plan): la guía retirada pasa a OBSOLETA y se conserva (nunca se borra). Nivel 2:
+sin restricción. Nivel 1: solo sin referencias vigentes y escribiendo su código para confirmar. No hay
+«reactivar»: el retiro no se deshace desde la pantalla ni desde la API.
+
+### `GET /api/conocimiento/documentos/{id_documento}/referencias`
+
+Permiso ADMINISTRAR_GUIAS. Respuesta 200; 404 si la guía no existe.
+
+```json
+{"id_documento": "...", "nivel": 1, "estado": "VIGENTE", "codigo_confirmacion": "NTS 213-MINSA/DGIESP-2024",
+ "referencias": [{"tipo": "PUNTERO", "descripcion": "La regla de punteros «nts213-tabla4» (punteros.yaml) la usa como documento de origen"}],
+ "puede_retirarse": false}
+```
+
+`codigo_confirmacion` es lo que hay que escribir para confirmar el retiro de una guía de nivel 1 (su
+código o, si no tiene, su título); null en el nivel 2. En el nivel 2 `referencias` es siempre `[]`. En
+el nivel 1, en este orden:
+
+| `tipo` | Qué la bloquea |
+| --- | --- |
+| UMBRAL_HEMOGLOBINA | Puntos de corte vigentes (`vigente_hasta` nulo) con su `id_documento` |
+| AJUSTE_ALTITUD | Ajustes por altitud vigentes con su `id_documento` |
+| PARAMETRO_SISTEMA | Cada parámetro vigente con su `id_documento` |
+| MODIFICACION | Fragmentos de la última versión de otra guía vigente cuyo `id_documento_modificatorio` es ella (es una norma que modifica a otra) |
+| MAPA_MODIFICACIONES | Es la norma modificatoria o la guía base de un mapa del indexador (`app/indexador/modificaciones/*.yaml`; hoy la RM 429 sobre la NTS 213) |
+| PUNTERO | Una regla de `app/rag/punteros.yaml` la usa como documento de origen o de destino |
+
+### `POST /api/conocimiento/documentos/{id_documento}/retiro`
+
+Permiso ADMINISTRAR_GUIAS. Cuerpo: `{"motivo": "...", "confirmacion": "..."}` (`confirmacion` solo en
+el nivel 1; comparación exacta). Respuesta 201: `{"documento": Documento, "trabajo": Trabajo}`, como la
+subida, con el documento ya OBSOLETA y el trabajo RETIRO en PENDIENTE.
+
+Comprobaciones en orden: permiso (401, 403), modo de evaluación (423, acción RETIRAR_GUIA, evento
+PARAMETRO_CAMBIO_BLOQUEADO), motivo, candado de la cola, guía existente, ya obsoleta, trabajo activo,
+referencias del nivel 1 y confirmación del nivel 1. Después, en una sola transacción: `estado`
+OBSOLETA, `retirado_por`, `fecha_retiro`, `motivo_retiro` (sin espacios en los extremos), el trabajo
+RETIRO y el evento GUIA_RETIRADA. El retiro no cuenta para el límite de 2 trabajos activos (no usa el
+servicio de modelos).
+
+Los errores propios del retiro llevan `{"detail": "...", "codigo": "..."}`:
+
+| Código HTTP | `codigo` | Causa |
+| --- | --- | --- |
+| 404 | NO_ENCONTRADA | La guía no existe |
+| 409 | YA_OBSOLETA | La guía ya está retirada |
+| 409 | TRABAJO_ACTIVO | La guía tiene un trabajo PENDIENTE o EN_CURSO |
+| 409 | REFERENCIAS_VIGENTES | Nivel 1 con referencias; el cuerpo trae además `referencias` (la misma lista del GET) |
+| 422 | MOTIVO_INVALIDO | El motivo, sin espacios en los extremos, no tiene de 10 a 250 caracteres |
+| 422 | CONFIRMACION_INCORRECTA | Nivel 1 sin `confirmacion` o distinta del código |
+| 423 | (sin código) | Modo de evaluación |
+
+### Trabajo RETIRO (indexador)
+
+El trabajador (`cdss_indexador`) pone `estado_documento` = OBSOLETA en los metadatos de todos los
+vectores de la guía en ChromaDB, por lotes con `update`, sin borrar nada (`cdss_indexador` no tiene
+DELETE) y sin tocar los fragmentos de PostgreSQL. Comprueba al final que no quede ningún vector sin el
+estado nuevo. Es idempotente: repetirlo deja lo mismo, y una guía sin vectores termina igual. Si
+falla, el trabajo queda en ERROR con el mensaje «No se pudieron actualizar los vectores de la guía en
+ChromaDB (...)» y el evento GUIA_RETIRO_ERROR; al terminar bien, GUIA_RETIRO_APLICADO con el número de
+vectores. Un trabajo RETIRO interrumpido por un reinicio del trabajador pasa a ERROR con su propio
+mensaje. Una indexación de una guía OBSOLETA que llegue a la cola termina en ERROR sin indexar.
+
+Mientras el RETIRO no termina (o si falla), la guía ya no se recupera: BM25 y la comprobación final
+filtran `d.estado = 'VIGENTE'` en PostgreSQL (`CONDICION_RECUPERABLE`), la caché de BM25 cambia de
+huella y se reconstruye sola, y los punteros buscan su destino con la misma condición. Las consultas
+ya registradas conservan sus citas: M05, M08, M09 y M13 no filtran por el estado del documento.
 
 ## Auditoría
 
@@ -149,5 +226,8 @@ documento ni datos clínicos.
 | GUIA_CARGADA | `id_documento`, `nivel`, `tipo_documento`, `entidad_emisora`, `anio_publicacion`, `idioma`, `tamano_bytes`, `sha256` |
 | GUIA_CARGA_RECHAZADA | `motivo` (`no_es_pdf`, `tamano`, `duplicado` o `nivel`) y, según el motivo, `max_bytes`, `id_documento_existente` o `nivel` |
 | GUIA_REINDEXACION_SOLICITADA | `id_trabajo`, `tipo` |
+| GUIA_RETIRADA | `id_documento`, `codigo_documento`, `nivel`, `motivo`, `id_trabajo` (sin el título ni el nombre de quien retira, que va en `id_usuario`) |
+| GUIA_RETIRO_REINTENTADO | `id_trabajo`, `tipo` (RETIRO) |
 
-El trabajador registra además GUIA_INDEXADA y GUIA_INDEXACION_ERROR (`jobs/README.md`).
+El trabajador registra además GUIA_INDEXADA, GUIA_INDEXACION_ERROR, GUIA_RETIRO_APLICADO (`id_trabajo`,
+`vectores`) y GUIA_RETIRO_ERROR (`id_trabajo`, `error`) (`jobs/README.md`).

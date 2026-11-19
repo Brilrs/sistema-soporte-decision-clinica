@@ -1,7 +1,8 @@
-"""M11 · Base de conocimiento (HU12, parte F2b): lectura de guías y trabajos, subida de un PDF de
-nivel 2 y reintento de una indexación fallida. Todo con la conexión de cdss_admin (rol_app_admin:
-lectura y escritura en conocimiento, sin acceso a datos clínicos); el indexador (cdss_indexador)
-procesa después los trabajos PENDIENTE.
+"""M11 · Base de conocimiento (HU12, parte F2b; HU17, Sprint 3 parte F): lectura de guías y trabajos,
+subida de un PDF de nivel 2, reintento de una indexación fallida y retiro de guías. Todo con la
+conexión de cdss_admin (rol_app_admin: lectura y escritura en conocimiento y lectura de
+configuracion, sin acceso a datos clínicos); el indexador (cdss_indexador) procesa después los
+trabajos PENDIENTE.
 
 Ninguna función devuelve rutas del servidor: ruta_blob se guarda en la base para el indexador
 (local://guias_cargadas/<id_documento>.pdf), pero no sale en las respuestas."""
@@ -13,10 +14,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
 
+import yaml
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.indexador.modificaciones import DIR_MODIFICACIONES, cargar_mapa
+from app.rag.punteros import reglas_vigentes
 
 PERMISO = "ADMINISTRAR_GUIAS"
 NIVEL_API = 2  # M11 solo carga documentos de nivel 2 (decisión de la parte F2)
@@ -42,6 +46,21 @@ class ErrorGuia(Exception):
         self.codigo, self.motivo, self.detalle = codigo, motivo, detalle or {}
 
 
+class ErrorRetiro(Exception):
+    """Rechazo del retiro con su código HTTP, un código para la pantalla y, en REFERENCIAS_VIGENTES, la
+    lista de referencias que lo bloquean."""
+
+    def __init__(self, estado: int, codigo: str, mensaje: str, referencias: list[dict] | None = None):
+        super().__init__(mensaje)
+        self.estado, self.codigo, self.referencias = estado, codigo, referencias
+
+    def cuerpo(self) -> dict:
+        cuerpo = {"detail": str(self), "codigo": self.codigo}
+        if self.referencias is not None:
+            cuerpo["referencias"] = self.referencias
+        return cuerpo
+
+
 @dataclass(frozen=True)
 class ParametrosSubida:
     directorio: Path
@@ -60,6 +79,7 @@ def parametros_subida() -> ParametrosSubida:
 _DOCUMENTOS = """
     SELECT d.id_documento::text, d.titulo, d.codigo_documento, d.entidad_emisora, d.tipo_documento, d.nivel,
            d.version, d.anio_publicacion, d.idioma, d.estado, d.estado_indexacion, d.fecha_carga,
+           d.fecha_retiro, d.motivo_retiro, r.nombre_completo AS retirado_por,
            (SELECT max(f.version_indexacion) FROM conocimiento.fragmento f
              WHERE f.id_documento = d.id_documento) AS version_indexacion,
            (SELECT count(*) FROM conocimiento.fragmento f
@@ -70,6 +90,7 @@ _DOCUMENTOS = """
            t.fecha_solicitud AS t_solicitud, t.fecha_fin AS t_fin
       FROM conocimiento.documento_fuente d
       LEFT JOIN conocimiento.v_uso_documento u ON u.id_documento = d.id_documento
+      LEFT JOIN seguridad.usuario r ON r.id_usuario = d.retirado_por
       LEFT JOIN LATERAL (SELECT * FROM conocimiento.trabajo_indexacion x WHERE x.id_documento = d.id_documento
                           ORDER BY x.fecha_solicitud DESC, x.id_trabajo DESC LIMIT 1) t ON true
      {filtro}
@@ -245,20 +266,33 @@ def mover(temporal: Path, destino: Path) -> None:
 # ---------------------------------------------------------------------------
 # Reintento
 # ---------------------------------------------------------------------------
+MENSAJE_OBSOLETA = ("La guía está retirada: no se vuelve a indexar. Solo se puede reintentar un retiro que "
+                    "terminó en error.")
+
+
 def reintentar(sesion: Session, id_documento: str, id_usuario: str) -> tuple[str, str]:
     """Solo con el documento en ERROR y sin trabajo activo propio (409 en otro caso). REINDEXACION si
-    ya tiene fragmentos de una versión anterior; INDEXACION si nunca se indexó. Devuelve (trabajo, tipo)."""
+    ya tiene fragmentos de una versión anterior; INDEXACION si nunca se indexó. Con la guía retirada
+    (OBSOLETA) solo se reintenta un RETIRO que terminó en error, con otro trabajo RETIRO; indexarla de
+    nuevo es 409. Devuelve (trabajo, tipo)."""
     fila = sesion.execute(text(
-        """SELECT d.estado_indexacion,
+        """SELECT d.estado, d.estado_indexacion,
                   EXISTS (SELECT 1 FROM conocimiento.trabajo_indexacion t
                            WHERE t.id_documento = d.id_documento AND t.estado = ANY(:a)) AS activo,
-                  EXISTS (SELECT 1 FROM conocimiento.fragmento f WHERE f.id_documento = d.id_documento) AS indexado
+                  EXISTS (SELECT 1 FROM conocimiento.fragmento f WHERE f.id_documento = d.id_documento) AS indexado,
+                  (SELECT t.tipo || ':' || t.estado FROM conocimiento.trabajo_indexacion t
+                    WHERE t.id_documento = d.id_documento
+                    ORDER BY t.fecha_solicitud DESC, t.id_trabajo DESC LIMIT 1) AS ultimo
              FROM conocimiento.documento_fuente d WHERE d.id_documento = CAST(:id AS uuid) FOR UPDATE OF d"""),
         {"id": id_documento, "a": list(ACTIVOS)}).first()
     if fila is None:
         raise ErrorGuia(404, "La guía no existe")
     if fila.activo:
         raise ErrorGuia(409, "La guía ya tiene una indexación pendiente o en curso")
+    if fila.estado == "OBSOLETA":
+        if fila.ultimo != "RETIRO:ERROR":
+            raise ErrorGuia(409, MENSAJE_OBSOLETA)
+        return crear_trabajo(sesion, id_documento, "RETIRO", id_usuario), "RETIRO"
     if fila.estado_indexacion != "ERROR":
         raise ErrorGuia(409, "Solo se puede reintentar una guía cuya indexación terminó en error")
     comprobar_capacidad(sesion)
@@ -267,3 +301,153 @@ def reintentar(sesion: Session, id_documento: str, id_usuario: str) -> tuple[str
     sesion.execute(text("UPDATE conocimiento.documento_fuente SET estado_indexacion = 'PENDIENTE' "
                         "WHERE id_documento = CAST(:id AS uuid)"), {"id": id_documento})
     return id_trabajo, tipo
+
+
+# ---------------------------------------------------------------------------
+# Retiro (HU17, Sprint 3 parte F; decisión 6 del plan)
+# ---------------------------------------------------------------------------
+MOTIVO_MIN, MOTIVO_MAX = 10, 250  # motivo_retiro es VARCHAR(250)
+MANIFIESTO = Path(__file__).resolve().parents[1] / "indexador" / "fuentes_iniciales.yaml"
+MENSAJE_YA_OBSOLETA = "La guía ya está retirada"
+MENSAJE_RETIRO_ACTIVO = "La guía tiene una indexación pendiente o en curso: espere a que termine antes de retirarla"
+MENSAJE_REFERENCIAS = ("No se puede retirar: la guía es de nivel 1 y otros elementos vigentes la usan. Cambie o "
+                       "retire primero esas referencias.")
+MENSAJE_CONFIRMACION = "Para retirar una guía de nivel 1, escriba su código exactamente como aparece"
+MENSAJE_MOTIVO = f"El motivo del retiro debe tener entre {MOTIVO_MIN} y {MOTIVO_MAX} caracteres"
+
+
+def _plural(n: int, singular: str, plural: str) -> str:
+    return f"{n} {singular if n == 1 else plural}"
+
+
+def _ids_del_manifiesto() -> dict[str, str]:
+    """clave del manifiesto del indexador (rm251, rm429...) -> id_documento."""
+    datos = yaml.safe_load(MANIFIESTO.read_text(encoding="utf-8")) or {}
+    return {d["clave"]: str(d["id_documento"]) for d in datos.get("documentos") or []}
+
+
+def _mapas() -> list[tuple[str, object]]:
+    return [(p.name, cargar_mapa(p.name)) for p in sorted(DIR_MODIFICACIONES.glob("*.yaml"))]
+
+
+def _nombre(sesion: Session, id_documento: str | None) -> str:
+    if id_documento is None:
+        return "otra guía"
+    fila = sesion.execute(text("SELECT coalesce(codigo_documento, titulo) FROM conocimiento.documento_fuente "
+                               "WHERE id_documento = CAST(:id AS uuid)"), {"id": id_documento}).scalar()
+    return fila or id_documento
+
+
+def referencias(sesion: Session, id_documento: str, nivel: int, codigo: str | None) -> list[dict]:
+    """Referencias vigentes que impiden retirar una guía de nivel 1 (decisión 6). Para el nivel 2, lista
+    vacía: sin restricción. Cada una con tipo y descripción en español claro, en un orden fijo."""
+    if nivel != 1:
+        return []
+    p = {"id": id_documento}
+    refs: list[dict] = []
+    n = sesion.execute(text("SELECT count(*) FROM configuracion.umbral_hemoglobina "
+                            "WHERE id_documento = CAST(:id AS uuid) AND vigente_hasta IS NULL"), p).scalar_one()
+    if n:
+        refs.append({"tipo": "UMBRAL_HEMOGLOBINA", "descripcion":
+                     f"{_plural(n, 'punto de corte de hemoglobina vigente la cita', 'puntos de corte de hemoglobina vigentes la citan')}"
+                     " como norma (Parámetros clínicos, «Puntos de corte de hemoglobina»)"})
+    n = sesion.execute(text("SELECT count(*) FROM configuracion.ajuste_altitud "
+                            "WHERE id_documento = CAST(:id AS uuid) AND vigente_hasta IS NULL"), p).scalar_one()
+    if n:
+        refs.append({"tipo": "AJUSTE_ALTITUD", "descripcion":
+                     f"{_plural(n, 'ajuste por altitud vigente la cita', 'ajustes por altitud vigentes la citan')}"
+                     " como norma (Parámetros clínicos, «Ajuste por altitud»)"})
+    for f in sesion.execute(text(
+            """SELECT clave, descripcion FROM configuracion.parametro_sistema
+                WHERE id_documento = CAST(:id AS uuid) AND vigente_hasta IS NULL"""), p).all():
+        refs.append({"tipo": "PARAMETRO_SISTEMA",
+                     "descripcion": f"El parámetro vigente «{f.descripcion or f.clave}» ({f.clave}) la cita como norma"})
+    # Es una norma que modifica a otra: fragmentos de la última versión de otras guías vigentes
+    # sustituidos por su texto (fragmento.id_documento_modificatorio).
+    filas = sesion.execute(text(
+        """SELECT coalesce(d.codigo_documento, d.titulo) AS nombre, count(*) AS n
+             FROM conocimiento.fragmento f JOIN conocimiento.documento_fuente d ON d.id_documento = f.id_documento
+            WHERE f.id_documento_modificatorio = CAST(:id AS uuid) AND f.id_documento <> CAST(:id AS uuid)
+              AND d.estado = 'VIGENTE'
+              AND f.version_indexacion = (SELECT max(v.version_indexacion) FROM conocimiento.fragmento v
+                                           WHERE v.id_documento = f.id_documento)
+            GROUP BY 1"""), p).all()
+    for f in sorted(filas, key=lambda x: x.nombre):
+        refs.append({"tipo": "MODIFICACION", "descripcion":
+                     f"Modifica a «{f.nombre}»: {_plural(f.n, 'fragmento de esa guía quedó sustituido', 'fragmentos de esa guía quedaron sustituidos')}"
+                     " por su texto"})
+    ids = _ids_del_manifiesto()
+    for archivo, mapa in _mapas():
+        base = ids.get(mapa.documento_modificado)
+        if mapa.id_documento_modificatorio == id_documento:
+            refs.append({"tipo": "MAPA_MODIFICACIONES", "descripcion":
+                         f"Es la norma modificatoria del mapa de modificaciones del indexador ({archivo}): modifica a "
+                         f"«{_nombre(sesion, base)}»"})
+        if base == id_documento:
+            refs.append({"tipo": "MAPA_MODIFICACIONES", "descripcion":
+                         f"Es la guía base del mapa de modificaciones del indexador ({archivo}): «{mapa.codigo}» "
+                         "modifica su texto"})
+    if codigo:
+        for r in reglas_vigentes():
+            if r.documento_origen == codigo:
+                refs.append({"tipo": "PUNTERO", "descripcion":
+                             f"La regla de punteros «{r.id}» (punteros.yaml) la usa como documento de origen"})
+            if r.documento_destino == codigo:
+                refs.append({"tipo": "PUNTERO", "descripcion":
+                             f"La regla de punteros «{r.id}» (punteros.yaml) la usa como documento de destino"})
+    return refs
+
+
+def referencias_de(sesion: Session, id_documento: str) -> dict | None:
+    """Respuesta de GET .../referencias, o None si la guía no existe."""
+    d = sesion.execute(text("SELECT nivel, codigo_documento, titulo, estado FROM conocimiento.documento_fuente "
+                            "WHERE id_documento = CAST(:id AS uuid)"), {"id": id_documento}).first()
+    if d is None:
+        return None
+    refs = referencias(sesion, id_documento, d.nivel, d.codigo_documento)
+    return {"id_documento": id_documento, "nivel": d.nivel, "estado": d.estado,
+            "codigo_confirmacion": codigo_confirmacion(d.codigo_documento, d.titulo) if d.nivel == 1 else None,
+            "referencias": refs, "puede_retirarse": d.estado == "VIGENTE" and not refs}
+
+
+def codigo_confirmacion(codigo: str | None, titulo: str) -> str:
+    """Texto que confirma el retiro de una guía de nivel 1: su código (o el título si no tiene)."""
+    return codigo or titulo
+
+
+def validar_motivo(motivo: str) -> str:
+    limpio = (motivo or "").strip()
+    if not MOTIVO_MIN <= len(limpio) <= MOTIVO_MAX:
+        raise ErrorRetiro(422, "MOTIVO_INVALIDO", MENSAJE_MOTIVO)
+    return limpio
+
+
+def retirar(sesion: Session, id_documento: str, motivo: str, confirmacion: str | None, id_usuario: str) -> tuple[dict, str]:
+    """Guardas en orden (documento, ya obsoleta, trabajo activo, referencias y confirmación del nivel 1)
+    y, en la transacción del llamador, el retiro: estado OBSOLETA con quién, cuándo y por qué, y un
+    trabajo RETIRO en la cola. El documento nunca se borra. Devuelve (datos para la auditoría, trabajo)."""
+    d = sesion.execute(text(
+        """SELECT d.nivel, d.estado, d.codigo_documento, d.titulo,
+                  EXISTS (SELECT 1 FROM conocimiento.trabajo_indexacion t
+                           WHERE t.id_documento = d.id_documento AND t.estado = ANY(:a)) AS activo
+             FROM conocimiento.documento_fuente d WHERE d.id_documento = CAST(:id AS uuid) FOR UPDATE OF d"""),
+        {"id": id_documento, "a": list(ACTIVOS)}).first()
+    if d is None:
+        raise ErrorRetiro(404, "NO_ENCONTRADA", "La guía no existe")
+    if d.estado == "OBSOLETA":
+        raise ErrorRetiro(409, "YA_OBSOLETA", MENSAJE_YA_OBSOLETA)
+    if d.activo:
+        raise ErrorRetiro(409, "TRABAJO_ACTIVO", MENSAJE_RETIRO_ACTIVO)
+    if d.nivel == 1:
+        refs = referencias(sesion, id_documento, d.nivel, d.codigo_documento)
+        if refs:
+            raise ErrorRetiro(409, "REFERENCIAS_VIGENTES", MENSAJE_REFERENCIAS, refs)
+        if confirmacion != codigo_confirmacion(d.codigo_documento, d.titulo):
+            raise ErrorRetiro(422, "CONFIRMACION_INCORRECTA", MENSAJE_CONFIRMACION)
+    sesion.execute(text(
+        """UPDATE conocimiento.documento_fuente
+              SET estado = 'OBSOLETA', retirado_por = CAST(:u AS uuid), fecha_retiro = now(), motivo_retiro = :m
+            WHERE id_documento = CAST(:id AS uuid)"""), {"id": id_documento, "u": id_usuario, "m": motivo})
+    id_trabajo = crear_trabajo(sesion, id_documento, "RETIRO", id_usuario)
+    return {"id_documento": id_documento, "codigo_documento": d.codigo_documento, "nivel": d.nivel,
+            "motivo": motivo, "id_trabajo": id_trabajo}, id_trabajo

@@ -6,7 +6,30 @@ import { ANIO_MINIMO, MAX_BYTES_GUIA, type EstadoIndexacion, type EtapaTrabajo, 
 
 export const AVISO_P14 = "Indexar una guía puede demorar las consultas varios minutos. Cargue guías fuera del horario de atención.";
 export const NOTA_NIVEL_1 = "Las guías de nivel 1 se cargan por línea de comandos con transcripciones verificadas por el equipo.";
-export const NOTA_RETIRAR = "«Retirar» estará disponible en el Sprint 3 (HU17).";
+export const NOTA_RETIRAR =
+  "«Retirar» solo se aplica a guías vigentes. Una guía retirada queda como obsoleta y no se puede reactivar desde la pantalla.";
+export const NOTA_RETIRAR_SIN_PERMISO = "Su rol no tiene permiso para retirar guías.";
+
+// --- Ventana de retiro (HU17) ---------------------------------------------------------
+export const TEXTO_RETIRO =
+  "La guía dejará de citarse en nuevas consultas. Las consultas anteriores conservan sus citas. Este cambio no se puede deshacer desde la pantalla.";
+export const TEXTO_BLOQUEO_REFERENCIAS =
+  "No se puede retirar: es una guía de nivel 1 y estos elementos vigentes la usan. Cambie o retire primero esas referencias; mientras existan, «Retirar» queda deshabilitado.";
+export const TIPOS_REFERENCIA: Record<string, string> = {
+  UMBRAL_HEMOGLOBINA: "Puntos de corte",
+  AJUSTE_ALTITUD: "Ajuste por altitud",
+  PARAMETRO_SISTEMA: "Parámetro del sistema",
+  MODIFICACION: "Modificación de otra guía",
+  MAPA_MODIFICACIONES: "Mapa de modificaciones",
+  PUNTERO: "Regla de punteros",
+};
+
+// «Reintentar» de una guía: una indexación que terminó en error o, en una guía retirada, el retiro
+// que terminó en error (el backend crea otro trabajo RETIRO; una obsoleta no se vuelve a indexar).
+export function puedeReintentar(d: { estado: string; estado_indexacion: string; ultimo_trabajo: { tipo: string; estado: string } | null }): boolean {
+  if (d.estado === "OBSOLETA") return d.ultimo_trabajo?.tipo === "RETIRO" && d.ultimo_trabajo.estado === "ERROR";
+  return d.estado_indexacion === "ERROR";
+}
 export const NOTA_OBSOLETAS =
   "Las guías marcadas como obsoletas dejan de citarse en nuevas consultas, pero se conservan para la trazabilidad de evaluaciones anteriores.";
 

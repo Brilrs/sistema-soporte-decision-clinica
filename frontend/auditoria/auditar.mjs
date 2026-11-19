@@ -183,8 +183,23 @@ const DOCS_EXTRA = [
     ultimo_trabajo: trabajo("t-2", "ERROR", { etapa: "EXTRACCION", mensaje_error: "ValueError: el PDF no tiene capa de texto", fecha_fin: AHORA }) },
   { ...DOCS_REALES[2], id_documento: "20000000-0000-4000-8000-000000000003", codigo_documento: "NTS 134-MINSA/DGIESP-2017",
     titulo: "Norma técnica: manejo terapéutico y preventivo de la anemia", anio_publicacion: 2017, version: "RM 250-2017/MINSA",
-    estado: "OBSOLETA", fragmentos_vigentes: 0, citas_30_dias: 0, version_indexacion: 2 },
+    estado: "OBSOLETA", fragmentos_vigentes: 0, citas_30_dias: 0, version_indexacion: 2,
+    retirado_por: "Administrador CDSS", fecha_retiro: AHORA,
+    motivo_retiro: "Reemplazada por la NTS 213-MINSA/DGIESP-2024 y su modificatoria RM 429-2024/MINSA; se conserva para la trazabilidad de evaluaciones anteriores." },
 ];
+// Retiro (HU17, Sprint 3 parte F): referencias de la NTS 213 (las reales de la base) y del resto.
+const ID_NTS = "10000000-0000-0000-0000-000000000213";
+const REFERENCIAS_NTS = [
+  { tipo: "MAPA_MODIFICACIONES", descripcion: "Es la guía base del mapa de modificaciones del indexador (rm429_2024.yaml): «RM 429-2024/MINSA» modifica su texto" },
+  { tipo: "PUNTERO", descripcion: "La regla de punteros «nts213-tabla4» (punteros.yaml) la usa como documento de origen" },
+  { tipo: "PARAMETRO_SISTEMA", descripcion: "El parámetro vigente «Días durante los que un tamizaje se considera vigente para evaluar» (DIAS_VIGENCIA_TAMIZAJE) la cita como norma" },
+];
+function referenciasM11(id) {
+  const d = DOCS_M11.find((x) => x.id_documento === id) ?? DOCS_REALES[0];
+  const refs = id === ID_NTS ? REFERENCIAS_NTS : [];
+  return { id_documento: id, nivel: d.nivel, estado: d.estado, codigo_confirmacion: d.nivel === 1 ? (d.codigo_documento ?? d.titulo) : null,
+           referencias: refs, puede_retirarse: refs.length === 0 };
+}
 const DOCS_M11 = [...DOCS_REALES, ...DOCS_EXTRA];
 const ACTIVOS_M11 = [
   { ...DOCS_EXTRA[0].ultimo_trabajo, id_documento: DOCS_EXTRA[0].id_documento, titulo: DOCS_EXTRA[0].titulo, fecha_inicio: AHORA,
@@ -249,6 +264,11 @@ const PANTALLAS = {
   m11_cargar_errores: m11({ abrir: "cargar", enviarVacio: true }),
   m11_detalle: m11({ abrir: "detalle" }),
   m11_vacio: m11({ docs: [] }),
+  m11_retiro_n2: m11({ abrir: "retiro", guia: "LIT-RAG-2025" }),
+  m11_retiro_bloqueado: m11({ abrir: "retiro", guia: "NTS 213-MINSA/DGIESP-2024" }),
+  m11_retiro_codigo: m11({ abrir: "retiro", guia: "OMS 2016" }),
+  m11_retiro_error: m11({ abrir: "retiro", guia: "LIT-RAG-2025", enviarRetiro: true }),
+  m11_obsoleta: m11({ abrir: "obsoleta" }),
   en_construccion: { ruta: "/admin/parametros", admin: true, esperar: null },
   // Parte C2 del Sprint 3: M09 en ambos destinos, con el reporte generado, y «Reportes» (/reportes).
   m09_expediente_real: m09({ prueba: false, generar: true }),
@@ -369,6 +389,9 @@ async function simular(p, ruta) {
   if (p.m11) {
     if (u.pathname === "/api/conocimiento/documentos" && req.method() === "GET") return json(p.docs);
     if (u.pathname === "/api/conocimiento/trabajos") return json(p.activos);
+    if (u.pathname.endsWith("/referencias")) return json(referenciasM11(u.pathname.split("/")[4]));
+    if (u.pathname.endsWith("/retiro")) return json({ detail: "El sistema está en modo de evaluación: los cambios de parámetros y de la base de conocimiento están bloqueados hasta que termine la evaluación." }, 423);
+    if (u.pathname === `/api/conocimiento/documentos/${DOCS_EXTRA[2].id_documento}`) return json({ ...DETALLE_M11, ...DOCS_EXTRA[2] });
     if (u.pathname.startsWith("/api/conocimiento/documentos/")) return json(DETALLE_M11);
   }
   if (p.m12 && u.pathname.startsWith("/api/parametros")) {
@@ -485,6 +508,24 @@ async function preparar(pagina, p) {
       await pagina.getByRole("dialog").getByRole("button", { name: "Cargar guía" }).click();
       await pagina.locator(".campo__error").first().waitFor();
     }
+  }
+  if (p.abrir === "retiro") {
+    await pagina.getByRole("button", { name: `Retirar: ${p.guia}` }).click();
+    const ventana = pagina.getByRole("dialog");
+    await ventana.getByRole("button", { name: "Cancelar" }).waitFor();
+    await pagina.waitForLoadState("networkidle");
+    const motivo = ventana.getByLabel("Motivo del retiro", { exact: false });
+    if (await motivo.count()) await motivo.fill("Reemplazada por una revisión metodológica más reciente del mismo equipo");
+    const codigo = ventana.getByLabel("Escriba el código del documento", { exact: false });
+    if (await codigo.count()) await codigo.fill("OMS 20");
+    if (p.enviarRetiro) {
+      await ventana.getByRole("button", { name: "Retirar", exact: true }).click();
+      await ventana.getByRole("alert").waitFor();
+    }
+  }
+  if (p.abrir === "obsoleta") {
+    await pagina.getByRole("button", { name: "Ver: NTS 134-MINSA/DGIESP-2017" }).click();
+    await pagina.getByText("Motivo del retiro").waitFor();
   }
   if (p.abrir === "detalle") {
     await pagina.getByRole("button", { name: "Ver: NTS 213-MINSA/DGIESP-2024" }).click();

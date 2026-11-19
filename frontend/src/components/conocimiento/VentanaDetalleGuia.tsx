@@ -57,6 +57,13 @@ export default function VentanaDetalleGuia({ documento, alCerrar, focoAlCerrar }
             <div><dt>Fragmentos vigentes</dt><dd>{d.fragmentos_vigentes}</dd></div>
             <div><dt>Cargada por</dt><dd>{d.cargado_por}</dd></div>
             <div><dt>Fecha de carga</dt><dd>{fechaHora(d.fecha_carga)}</dd></div>
+            {d.estado === "OBSOLETA" && (
+              <>
+                <div><dt>Retirada por</dt><dd>{d.retirado_por ?? VACIO}</dd></div>
+                <div><dt>Fecha de retiro</dt><dd>{d.fecha_retiro ? fechaHora(d.fecha_retiro) : VACIO}</dd></div>
+                <div className="detalle-guia__motivo"><dt>Motivo del retiro</dt><dd>{d.motivo_retiro ?? VACIO}</dd></div>
+              </>
+            )}
             <div className="detalle-guia__hash"><dt>Huella del archivo (SHA-256)</dt><dd><code>{d.hash_archivo ?? VACIO}</code></dd></div>
           </dl>
 

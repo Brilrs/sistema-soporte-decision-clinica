@@ -88,26 +88,23 @@ describe("M11 · tabla de guías", () => {
     expect(screen.getByText(NOTA_OBSOLETAS)).toBeInTheDocument();
   });
 
-  it("los botones nombran la guía; «Retirar» está deshabilitado con la nota del Sprint 3; sin «Reintentar»", async () => {
+  it("los botones nombran la guía; «Retirar» está activo en las vigentes; sin «Reintentar»; nota del retiro", async () => {
     renderizar();
     await tabla();
     expect(screen.getByRole("button", { name: "Ver: NTS 213-MINSA/DGIESP-2024" })).toBeEnabled();
-    const retirar = screen.getByRole("button", { name: "Retirar: NTS 213-MINSA/DGIESP-2024" });
-    // aria-disabled: se anuncia como no disponible, recibe el foco (para leer la nota) y no hace nada.
-    expect(retirar).toHaveAttribute("aria-disabled", "true");
-    expect(retirar).toHaveClass("boton--peligro");
-    expect(retirar).toHaveAccessibleDescription(NOTA_RETIRAR);
-    retirar.focus();
-    expect(retirar).toHaveFocus();
-    const llamadas = vi.mocked(fetch).mock.calls.length;
-    fireEvent.click(retirar);
-    expect(vi.mocked(fetch).mock.calls.length).toBe(llamadas);
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /^Retirar: / })).toHaveLength(4);
+    const retirar = screen.getAllByRole("button", { name: /^Retirar: / });
+    expect(retirar).toHaveLength(4);
+    for (const b of retirar) {
+      expect(b).toBeEnabled();
+      expect(b).not.toHaveAttribute("aria-disabled");
+      expect(b).toHaveClass("boton--peligro");
+    }
+    expect(screen.getByText(NOTA_RETIRAR)).toBeInTheDocument();
+    expect(screen.queryByText(/Sprint 3/)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Reintentar/ })).not.toBeInTheDocument();
   });
 
-  it("guía obsoleta, en cola, indexando y en error: etiquetas, sin «Retirar» si es obsoleta y «Reintentar» solo en error", async () => {
+  it("guía obsoleta, en cola, indexando y en error: etiquetas, «Retirar» deshabilitado si es obsoleta y «Reintentar» solo en error", async () => {
     const obsoleta: Documento = { ...DOCUMENTOS()[2], id_documento: "obs", codigo_documento: "NTS 134-MINSA/DGIESP-2017", estado: "OBSOLETA" };
     renderizar({ [GET_DOCUMENTOS]: () => respuestaJson(200, [
       guiaNueva(), guiaNueva({ id_documento: "b", titulo: "Otra guía", estado_indexacion: "EN_PROCESO" }),
@@ -121,7 +118,17 @@ describe("M11 · tabla de guías", () => {
     expect(within(error).getByText("Error al indexar")).toHaveClass("etiqueta--indexacion-ERROR");
     expect(within(error).getByRole("button", { name: "Reintentar: LIT-2025" })).toBeEnabled();
     expect(within(vieja).getByText("Obsoleta")).toHaveClass("etiqueta--obsoleta");
-    expect(within(vieja).queryByRole("button", { name: /Retirar/ })).not.toBeInTheDocument();
+    // aria-disabled: se anuncia como no disponible, recibe el foco (para leer la nota) y no hace nada.
+    const retirarVieja = within(vieja).getByRole("button", { name: "Retirar: NTS 134-MINSA/DGIESP-2017" });
+    expect(retirarVieja).toHaveAttribute("aria-disabled", "true");
+    expect(retirarVieja).toHaveAccessibleDescription(NOTA_RETIRAR);
+    retirarVieja.focus();
+    expect(retirarVieja).toHaveFocus();
+    const antes = vi.mocked(fetch).mock.calls.length;
+    fireEvent.click(retirarVieja);
+    expect(vi.mocked(fetch).mock.calls.length).toBe(antes);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(within(enCola).getByRole("button", { name: `Retirar: ${TITULO_NUEVA}` })).toBeEnabled();
     expect(screen.getAllByRole("button", { name: /^Reintentar/ })).toHaveLength(1);
   });
 
