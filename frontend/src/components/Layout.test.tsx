@@ -155,7 +155,7 @@ describe("menú en pantalla angosta", () => {
     renderizar("Administrador", ROLES[4][1]);
     fireEvent.click(await botonMenu());
     fireEvent.click(within(panel() as HTMLElement).getByRole("link", { name: "Auditoría" }));
-    expect(await screen.findByRole("heading", { level: 1, name: "Auditoría" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Auditoría y trazabilidad" })).toBeInTheDocument();
   });
 
   it("pulsar fuera (el fondo oscuro) o «Cerrar menú» lo cierra", async () => {

@@ -6,6 +6,10 @@ import { vi } from "vitest";
 import type { Ficha, Historial, TamizajeHistorial } from "../api/pacientes";
 import type { EstadoFinal, ResultadoConsulta } from "../api/tipos_consulta";
 import type { DestinoReporte, ReporteListado, VistaPreviaReporte } from "../api/tipos_reporte";
+import type { DetalleAuditoria, IndicadoresAuditoria, PaginaAuditoria } from "../api/tipos_auditoria";
+import auditoriaConsultas from "../__fixtures__/auditoria_consultas.json";
+import auditoriaDetalle from "../__fixtures__/auditoria_detalle.json";
+import auditoriaIndicadores from "../__fixtures__/auditoria_indicadores.json";
 import listaReportes from "../__fixtures__/reportes_lista.json";
 import vistaCuidador from "../__fixtures__/reporte_vista_previa_cuidador.json";
 import vistaExpediente from "../__fixtures__/reporte_vista_previa_expediente.json";
@@ -233,4 +237,30 @@ export function respuestaPdf(numero: string, hash = "b".repeat(64)): Response {
     headers: { "Content-Type": "application/pdf", "X-Reporte-Numero": numero, "X-Reporte-Hash": hash,
                "Content-Disposition": `attachment; filename="${numero}.pdf"`, "Cache-Control": "no-store" },
   });
+}
+
+// ---------------------------------------------------------------------------
+// Auditoría (M13, parte D2): fixtures de la parte D1 (generados por el backend) y un usuario con
+// VER_AUDITORIA (Coordinador CRED)
+// ---------------------------------------------------------------------------
+export const USUARIO_AUDITOR = {
+  id_usuario: "u-0004",
+  nombre_usuario: "coord.prueba",
+  nombre_completo: "Lic. Coordinadora Prueba",
+  rol: "Coordinador CRED",
+  permisos: ["REALIZAR_CONSULTA", "EXPORTAR_REPORTE", "CONFIGURAR_PARAMETROS", "VER_AUDITORIA"],
+};
+export const GET_AUDITORIA_INDICADORES = "GET /api/auditoria/indicadores";
+export const GET_AUDITORIA_CONSULTAS = "GET /api/auditoria/consultas";
+
+export function indicadoresAuditoriaFixture(): IndicadoresAuditoria {
+  return structuredClone(auditoriaIndicadores as IndicadoresAuditoria);
+}
+
+export function paginaAuditoriaFixture(): PaginaAuditoria {
+  return structuredClone(auditoriaConsultas as PaginaAuditoria);
+}
+
+export function detalleAuditoriaFixture(): DetalleAuditoria {
+  return structuredClone(auditoriaDetalle as DetalleAuditoria);
 }

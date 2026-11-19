@@ -291,6 +291,39 @@ describe("estilos · desbordes horizontales", () => {
     }
   });
 
+  it("M13: el bloque de la solicitud corta las líneas dentro de su caja, 44 px y etiquetas legibles", () => {
+    expect(valor(".auditoria__codigo", "white-space")).toBe("pre-wrap");
+    expect(valor(".auditoria__codigo", "overflow-wrap")).toBe("anywhere");
+    expect(valor(".auditoria__codigo", "overflow")).toBe("auto");
+    expect(valor(".auditoria__codigo", "max-width")).toBe("100%");
+    expect(valor(".auditoria__codigo", "min-width")).toBe("0");
+    for (const sel of [".auditoria__usuario", ".auditoria__modelo", ".auditoria__documento", ".auditoria__hash",
+                       ".auditoria__datos dd", ".auditoria__periodo"]) {
+      expect(valor(sel, "overflow-wrap"), sel).toBe("anywhere");
+    }
+    for (const sel of [".auditoria__filtros", ".auditoria__botones", ".auditoria__estados", ".auditoria__etiquetas",
+                       ".auditoria__tarjeta-cabecera", ".auditoria__paginacion", ".auditoria__verificacion"]) {
+      expect(valor(sel, "flex-wrap"), sel).toBe("wrap");
+    }
+    expect(valor(".auditoria__tarjetas-lista", "grid-template-columns")).toBe("minmax(0, 1fr)");
+    expect(valor(".auditoria__tarjeta", "min-width")).toBe("0");
+    expect(valor(".auditoria__interruptor", "min-height")).toBe("44px");
+    const angosta = /max-width: 799px/;
+    expect(valor(".auditoria .boton", "min-height", angosta)).toBe("44px");
+    expect(valor(".auditoria__campo select", "min-height", angosta)).toBe("44px");
+    expect(valor(".auditoria__campo input", "min-height", angosta)).toBe("44px");
+    const color = (v: string | null) => {
+      const nombre = v!.replace(/^var\((--[\w-]+)\)$/, "$1");
+      for (const r of REGLAS) if (r.selector === ":root" && r.media === null) { const x = propiedad(r.cuerpo, nombre); if (x) return x; }
+      throw new Error(`Token ${nombre} no definido`);
+    };
+    for (const clase of [".etiqueta--reintento", ".etiqueta--puntero", ".etiqueta--reranker"]) {
+      expect(contraste(color(valor(clase, "color")), color(valor(clase, "background"))), clase).toBeGreaterThanOrEqual(4.5);
+    }
+    expect(contraste(color(valor(".auditoria__nota-solicitud", "color")), color(valor(".auditoria__nota-solicitud", "background"))))
+      .toBeGreaterThanOrEqual(4.5);
+  });
+
   // Un grid-area global sobre una tarjeta compartida (la de riesgo también se usa en
   // .estado-consulta) crea filas y columnas implícitas en la rejilla de una columna.
   it("M05: las áreas de la rejilla de dos columnas solo se aplican a los hijos de .resultado__cuerpo", () => {

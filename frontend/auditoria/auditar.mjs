@@ -128,6 +128,27 @@ const vistaM09 = (destino, prueba) => {
 };
 const REPORTES_M09 = leerJson(path.join(FIX, "reportes_lista.json"));
 
+// M13 (auditoría, Sprint 3 parte D2): fixtures de la parte D1 con 45 consultas en total (paginación),
+// un modelo largo y un detalle con una solicitud de líneas largas (una palabra sin espacios) y un intento
+// bloqueado por el control previo.
+const IND_M13 = leerJson(path.join(FIX, "auditoria_indicadores.json"));
+const LISTA_M13 = (() => {
+  const p = leerJson(path.join(FIX, "auditoria_consultas.json"));
+  p.total = 45;
+  p.consultas = p.consultas.map((c, i) => (i === 0 ? { ...c, modelo_llm: "claude-sonnet-5-5-20261101-version-larga-de-prueba" } : c));
+  return p;
+})();
+const DETALLE_M13 = (() => {
+  const d = leerJson(path.join(FIX, "auditoria_detalle.json"));
+  const sol = d.intentos[1].solicitud_enviada;
+  sol.evidencia = sol.evidencia.map((e, i) => ({ ...e, texto: i === 0
+    ? "Suplementación" + "conhierropreventivaparaniñosdeseismeses".repeat(4)
+    : `${LARGA} ${LARGA}` }));
+  d.intentos[0] = { ...d.intentos[0], control_identificadores: false, solicitud_enviada: null };
+  return d;
+})();
+const ID_M13 = DETALLE_M13.id_consulta;
+
 // M11: guías reales (fixtures) más tres ficticias con estados que la base real no tiene.
 const DOCS_REALES = leerJson(path.join(FIX_M11, "documentos.json"));
 const DETALLE_M11 = leerJson(path.join(FIX_M11, "detalle_nts213.json"));
@@ -164,6 +185,8 @@ const m05 = (estado, extra = {}) => ({ ruta: `/consultas/${ID_CON}`, resultado: 
 const m09 = (extra = {}) => ({ ruta: `/consultas/${ID_CON}/reporte`, resultado: "VERIFICADA", esperar: "Reportes generados de esta consulta",
   m09: { destino: "EXPEDIENTE", prueba: true, ...extra },
   cambios: { modo_prueba: extra.prueba ?? true, ...(extra.prueba === false ? { decision: DECISION, opciones_decision: [] } : {}) } });
+const m13 = (extra = {}) => ({ ruta: "/admin/auditoria", admin: true, m13: { ...extra }, esperar: "Auditoría y trazabilidad",
+  ...(extra.ruta ? { ruta: extra.ruta } : {}) });
 const m11 = (extra = {}) => ({ ruta: "/admin/conocimiento", admin: true, m11: true, docs: DOCS_M11, activos: [], ...extra });
 const PANTALLAS = {
   login: { ruta: "/login", sinSesion: true, esperar: "Ingresar" },
@@ -216,6 +239,12 @@ const PANTALLAS = {
   m09_cuidador: m09({ prueba: true, destino: "CUIDADOR" }),
   m09_vista_error: m09({ prueba: false, vistaError: true }),
   reportes_lista: { ruta: "/reportes", esperar: "Mostrando 1 a 4 de 45 consultas", lista: paginaPropias },
+  // Parte D2 del Sprint 3: M13 (indicadores y lista, con y sin el interruptor de pruebas), el detalle con la
+  // solicitud larga y la vista de error.
+  m13_lista: m13(),
+  m13_pruebas: m13({ ruta: "/admin/auditoria?pruebas=1" }),
+  m13_detalle: { ...m13({ ruta: `/admin/auditoria/${ID_M13}`, detalle: true }), esperar: "Volver a la auditoría" },
+  m13_error: m13({ error: true }),
   // Parte B del Sprint 3: lista de consultas propias, sus estados y el buscador de «Nueva consulta».
   consultas_lista: { ruta: "/consultas", esperar: "Mostrando 1 a 4 de 45 consultas", lista: paginaPropias },
   consultas_filtros_error: { ruta: "/consultas?desde=2026-11-15&hasta=2026-11-01", esperar: "Mostrando 1 a 4 de 45 consultas",
@@ -287,12 +316,13 @@ function medir() {
 
 // Controles de menos de 44 px de alto por debajo de 800 px, en el alcance donde el Sprint 2 fijó esa
 // regla (menú móvil, M11 y ventanas; ver estilos.test.ts) y en lo nuevo de la parte C2 del Sprint 3
-// (M09, sus entradas en M08 y la lista de consultas). Es un aviso, no una falla. Los botones de
+// (M09, sus entradas en M08 y la lista de consultas) y de la parte D2 (M13). Es un aviso, no una falla. Los botones de
 // las pantallas clínicas (42 px) y los enlaces dentro del texto quedan fuera de ese alcance.
 function tactiles() {
   return [...document.querySelectorAll(".boton-menu, .menu-movil a, .menu-movil button, .conocimiento .boton, .guia__opcion, " +
     ".modal .boton, .modal input:not([type=radio]):not([type=checkbox]), .modal select, .reporte .boton, .reporte__opcion, " +
-    ".evaluaciones__acciones .boton, .consultas-propias .boton")]
+    ".evaluaciones__acciones .boton, .consultas-propias .boton, .auditoria .boton, .auditoria__interruptor, " +
+    ".auditoria__campo select, .auditoria__campo input")]
     .filter((b) => b.getBoundingClientRect().height > 0)
     .map((b) => ({ t: (b.getAttribute("aria-label") ?? b.textContent ?? b.id).trim().slice(0, 30),
                    h: Math.round(b.getBoundingClientRect().height), w: Math.round(b.getBoundingClientRect().width) }))
@@ -316,6 +346,12 @@ async function simular(p, ruta) {
     if (u.pathname === "/api/conocimiento/documentos" && req.method() === "GET") return json(p.docs);
     if (u.pathname === "/api/conocimiento/trabajos") return json(p.activos);
     if (u.pathname.startsWith("/api/conocimiento/documentos/")) return json(DETALLE_M11);
+  }
+  if (p.m13 && u.pathname.startsWith("/api/auditoria/")) {
+    if (p.m13.error) return json({ detail: "Error interno del servidor" }, 500);
+    if (u.pathname === "/api/auditoria/indicadores") return json(IND_M13);
+    if (u.pathname === "/api/auditoria/consultas") return json({ ...LISTA_M13, incluir_pruebas: u.searchParams.get("incluir_pruebas") === "true" });
+    if (u.pathname === `/api/auditoria/consultas/${ID_M13}`) return json(DETALLE_M13);
   }
   if (p.lista && u.pathname === "/api/consultas")
     return p.lista === "error" ? json({ detail: "Error interno del servidor" }, 500) : json(p.lista);
@@ -365,6 +401,11 @@ async function preparar(pagina, p) {
     else await pagina.getByRole("heading", { name: "Estado de la consulta" }).waitFor({ timeout: 8000 });
   }
   if (p.cerrarVentana || p.ventana) await pagina.getByRole("dialog").waitFor();
+  if (p.m13) {
+    if (p.m13.error) await pagina.getByText("No se pudieron cargar las consultas", { exact: false }).waitFor({ timeout: 8000 });
+    else if (p.m13.detalle) await pagina.getByRole("region", { name: "Solicitud enviada al modelo en el intento 2" }).waitFor({ timeout: 8000 });
+    else await pagina.getByText("Mostrando 1 a", { exact: false }).waitFor({ timeout: 8000 });
+  }
   if (p.m09) {
     if (p.m09.vistaError) await pagina.getByText("No se pudo cargar la vista previa", { exact: false }).waitFor({ timeout: 8000 });
     else await pagina.getByRole("article", { name: "Vista previa del documento" }).waitFor({ timeout: 8000 });

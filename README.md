@@ -117,7 +117,7 @@ El administrador no tiene acceso a los datos clínicos. El coordinador puede con
 | M11 Base de conocimiento | `/admin/conocimiento` | ADMINISTRAR_GUIAS | Disponible («Retirar» en el Sprint 3) |
 | M09 Reporte exportable | `/consultas/:id/reporte` y la lista `/reportes` | EXPORTAR_REPORTE | Disponible (Sprint 3, parte C2) |
 | M12 Parámetros clínicos | `/admin/parametros` | CONFIGURAR_PARAMETROS | Sprint 3 |
-| M13 Auditoría y trazabilidad | `/admin/auditoria` | VER_AUDITORIA | Sprint 3 (API lista en la parte D1: `docs/contrato_auditoria.md`; pantalla en D2) |
+| M13 Auditoría y trazabilidad | `/admin/auditoria` y el detalle `/admin/auditoria/:id` | VER_AUDITORIA | Disponible (Sprint 3, partes D1 y D2; `docs/contrato_auditoria.md`) |
 
 Quien no tiene el permiso de una pantalla vuelve al inicio. Los contratos de la API están en [`docs/contrato_consultas.md`](docs/contrato_consultas.md) (consultas) y [`docs/contrato_conocimiento.md`](docs/contrato_conocimiento.md) (M11).
 
