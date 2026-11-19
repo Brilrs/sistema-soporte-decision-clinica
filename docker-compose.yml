@@ -221,6 +221,58 @@ services:
       modelos:
         condition: service_healthy
 
+  # Respaldo de la colección de ChromaDB y de las guías cargadas (parte K, docs/respaldo.md). No arranca
+  # con el stack. Imagen de jobs y usuario cdss_indexador; escribe en ./data/respaldos y lee las guías
+  # cargadas en solo lectura:
+  #   docker compose run --rm respaldo python -m app.respaldo crear|verificar|restaurar|comparar|descartar-coleccion
+  respaldo:
+    build:
+      context: ./backend
+      target: jobs
+    profiles: ["respaldo"]
+    command: ["python", "-m", "app.respaldo", "--help"]
+    environment: &entorno_respaldo
+      CDSS_ENTORNO: desarrollo
+      DATABASE_URL_INDEXADOR: postgresql+psycopg://cdss_indexador:${CDSS_DB_PWD_INDEXADOR}@db:5432/cdss
+      CHROMA_URL: http://chromadb:8000
+      ANONYMIZED_TELEMETRY: "FALSE"
+      RESPALDO_DIR: /datos/respaldos
+      RESPALDO_DIR_GUIAS: /datos/guias_cargadas
+      CDSS_VERSION_CODIGO: ${CDSS_VERSION_CODIGO:-}
+      # Destino blob (--destino blob): contenedor y conexión o identidad administrada (parte L)
+      RESPALDO_CONTENEDOR_BLOB: ${RESPALDO_CONTENEDOR_BLOB:-}
+      AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING:-}
+      AZURE_STORAGE_ACCOUNT_URL: ${AZURE_STORAGE_ACCOUNT_URL:-}
+      AZURE_CLIENT_ID: ${AZURE_CLIENT_ID:-}
+    volumes:
+      - ./data/respaldos:/datos/respaldos
+      - datos_guias_cargadas:/datos/guias_cargadas:ro
+    mem_limit: 768m
+    depends_on:
+      db:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
+
+  # Igual que respaldo, con las guías cargadas en lectura y escritura: solo para
+  #   docker compose run --rm respaldo-guias python -m app.respaldo restaurar <respaldo> --con-guias
+  respaldo-guias:
+    build:
+      context: ./backend
+      target: jobs
+    profiles: ["respaldo"]
+    command: ["python", "-m", "app.respaldo", "--help"]
+    environment: *entorno_respaldo
+    volumes:
+      - ./data/respaldos:/datos/respaldos
+      - datos_guias_cargadas:/datos/guias_cargadas
+    mem_limit: 768m
+    depends_on:
+      db:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
+
 volumes:
   datos_pg:
   datos_chroma:
