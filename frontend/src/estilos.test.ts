@@ -324,6 +324,34 @@ describe("estilos · desbordes horizontales", () => {
       .toBeGreaterThanOrEqual(4.5);
   });
 
+  it("M12: tablas que se apilan por debajo de 1100 px, textos que se cortan, 44 px y etiquetas legibles", () => {
+    const angosta = /max-width: 799px/;
+    const apilada = /max-width: 1099px/;
+    expect(valor(".tabla-apilable thead", "display", apilada)).toBe("none");
+    expect(valor(".tabla-apilable tr", "display", apilada)).toBe("block");
+    expect(valor(".tabla-apilable [data-etiqueta]::before", "content", apilada)).toBe("attr(data-etiqueta)");
+    for (const sel of [".parametros__efecto", ".parametros__huella-valor", ".parametros__huella-componente", ".parametros__referencia",
+                       ".parametros__descripcion", ".parametros__exito"]) {
+      expect(valor(sel, "overflow-wrap"), sel).toBe("anywhere");
+    }
+    for (const sel of [".parametros__cabecera-seccion", ".parametros__huella", ".parametros__paginacion", ".parametros__tarjeta-cabecera"]) {
+      expect(valor(sel, "flex-wrap"), sel).toBe("wrap");
+    }
+    expect(valor(".parametros__tarjetas", "grid-template-columns")).toBe("minmax(0, 1fr)");
+    for (const sel of [".parametros__campo", ".parametros__casilla", ".parametros__acciones .boton", ".parametros__filtro select"]) {
+      expect(valor(sel, "min-height"), sel).toBe("44px");
+    }
+    expect(valor(".parametros .boton", "min-height", angosta)).toBe("44px");
+    const color = (v: string | null) => {
+      const nombre = v!.replace(/^var\((--[\w-]+)\)$/, "$1");
+      for (const r of REGLAS) if (r.selector === ":root" && r.media === null) { const x = propiedad(r.cuerpo, nombre); if (x) return x; }
+      throw new Error(`Token ${nombre} no definido`);
+    };
+    for (const clase of [".etiqueta--verificado", ".etiqueta--pendiente", ".alerta--info"]) {
+      expect(contraste(color(valor(clase, "color")), color(valor(clase, "background"))), clase).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
   // Un grid-area global sobre una tarjeta compartida (la de riesgo también se usa en
   // .estado-consulta) crea filas y columnas implícitas en la rejilla de una columna.
   it("M05: las áreas de la rejilla de dos columnas solo se aplican a los hijos de .resultado__cuerpo", () => {

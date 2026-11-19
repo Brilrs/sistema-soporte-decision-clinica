@@ -69,7 +69,8 @@ de la consulta. El registro de la decisión no tiene historia propia en el OE2: 
   - Actualización del Sprint 3: HU14 (M12) en curso. La parte E1a dejó la base (migración 015,
     rutas de lectura, huella de la configuración y modo de evaluación; `docs/contrato_parametros.md`)
     y la parte E1b, la edición por grupo (migración 016, control optimista, validaciones,
-    confirmación escrita y confirmar contra la norma). Falta la pantalla (E2).
+    confirmación escrita y confirmar contra la norma) y la parte E2, la pantalla M12. HU14 resuelta;
+    quedan las verificaciones de abajo.
   - **Verificaciones pendientes antes del OE3** (ninguno de estos valores está confirmado contra su
     fuente; M12 muestra `verificado = false` en los tres primeros):
     - puntos de corte de Hb (NTS 213 y OMS 2024): la coordinadora CRED, con el asesor;
