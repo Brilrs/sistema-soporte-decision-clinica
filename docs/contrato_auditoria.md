@@ -136,6 +136,21 @@ escribe), el usuario que consultó, la entidad `asistencia.consulta` y nunca dat
 | Lista | null | `vista: "lista"`, `estado`, `fecha_desde`, `fecha_hasta`, `incluir_pruebas`, `limite`, `desplazamiento`, `total` y `consultas` (cantidad devuelta) |
 | Detalle | id de la consulta | `vista: "detalle"` y `encontrada` (false en un 404) |
 
+## Uso desde la interfaz (M13, parte D2)
+
+- `/admin/auditoria` pide los indicadores y la primera página de la lista al abrirse. Los filtros
+  (`estado`, `desde`, `hasta`), el interruptor (`pruebas=1`) y la página (`pagina`) van en la
+  dirección; la pantalla los traduce a `estado`, `fecha_desde`, `fecha_hasta`, `incluir_pruebas=true`,
+  `limite=20` y `desplazamiento`. Sin el interruptor no se envía `incluir_pruebas`.
+- Cada fila abre `/admin/auditoria/{id}`, que pide el detalle; «Volver a la auditoría» regresa con
+  los mismos filtros y la misma página.
+- La pantalla solo llama a estas tres rutas (además de la sesión), no guarda nada en localStorage
+  ni sessionStorage y reduce cada respuesta a los campos de este contrato: un campo nuevo que
+  enviara el servidor no se muestra.
+- La solicitud se muestra con `JSON.stringify(solicitud, null, 2)`. Si es null, la pantalla explica
+  si el control previo la bloqueó (`control_identificadores` false) o si el intento no llegó a
+  enviarla.
+
 ## Configuración
 
 - `DATABASE_URL_AUDITOR`: en `docker-compose.yml` se arma con `CDSS_DB_PWD_AUDITOR` (que ya crean

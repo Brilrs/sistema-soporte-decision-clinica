@@ -1,8 +1,10 @@
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
 import Layout from "./components/Layout";
+import Auditoria from "./pages/Auditoria";
 import BaseConocimiento from "./pages/BaseConocimiento";
 import ConsultaClinica from "./pages/ConsultaClinica";
+import DetalleAuditoria from "./pages/DetalleAuditoria";
 import EditarPaciente from "./pages/EditarPaciente";
 import EnConstruccion from "./pages/EnConstruccion";
 import ExportarReporte from "./pages/ExportarReporte";
@@ -35,6 +37,7 @@ const LEER_PACIENTES = ["REGISTRAR_PACIENTE", "REALIZAR_CONSULTA"];
 const REGISTRAR = ["REGISTRAR_PACIENTE"];
 const CONSULTAR = ["REALIZAR_CONSULTA"];
 const EXPORTAR = ["EXPORTAR_REPORTE"];
+const AUDITAR = ["VER_AUDITORIA"];
 
 export default function App() {
   return (
@@ -56,7 +59,8 @@ export default function App() {
         <Route path="admin/usuarios" element={<ConPermiso permisos={["ADMINISTRAR_USUARIOS"]}><GestionUsuarios /></ConPermiso>} />
         <Route path="admin/conocimiento" element={<ConPermiso permisos={["ADMINISTRAR_GUIAS"]}><BaseConocimiento /></ConPermiso>} />
         <Route path="admin/parametros" element={<EnConstruccion titulo="Parámetros clínicos" pantalla="M12 Parámetros clínicos" sprint={3} />} />
-        <Route path="admin/auditoria" element={<EnConstruccion titulo="Auditoría" pantalla="M13 Auditoría y trazabilidad" sprint={3} />} />
+        <Route path="admin/auditoria" element={<ConPermiso permisos={AUDITAR}><Auditoria /></ConPermiso>} />
+        <Route path="admin/auditoria/:id" element={<ConPermiso permisos={AUDITAR}><DetalleAuditoria /></ConPermiso>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

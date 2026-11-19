@@ -150,6 +150,17 @@ empiece.
   - tipos y fixtures para D2 en `frontend/src/api/tipos_auditoria.ts` y
     `frontend/src/__fixtures__/auditoria_*.json`;
   - pendiente para D2: la pantalla M13, axe y desbordes.
+- **Hecho en la parte D2** (HU13 resuelta; fila 121 de `cambios_respecto_al_OE2.md`):
+  - M13 en `pages/Auditoria.tsx` (indicadores en `components/auditoria/IndicadoresAuditoria.tsx`,
+    filtros, interruptor de pruebas y página en la dirección, tabla desde 800 px y tarjetas por
+    debajo) y el detalle en `pages/DetalleAuditoria.tsx` (`/admin/auditoria/:id`, con el enlace de
+    vuelta que conserva los filtros);
+  - llamadas en `api/auditoria.ts`, que reducen cada respuesta a los campos conocidos;
+  - pruebas en `pages/Auditoria.test.tsx` y reglas de M13 en `src/estilos.test.ts`; mutaciones del
+    permiso de la ruta, el parámetro `incluir_pruebas`, el campo inesperado, la etiqueta «Prueba» y
+    la nota de datos no identificables;
+  - auditoría con las pantallas `m13_lista`, `m13_pruebas`, `m13_detalle` y `m13_error`;
+  - pendiente: nada de HU13. La revisión de los indicadores con datos reales queda para el OE3.
 
 ### M12 parámetros clínicos (HU14): L, riesgo alto
 

@@ -12,8 +12,8 @@ mide, en cada ancho:
   desbordes no veía. Lo marca aunque la página todavía no se desplace.
 - **Accesibilidad con axe-core** (WCAG 2.0 y 2.1, niveles A y AA), con `--axe`.
 - **Aviso de áreas táctiles** de menos de 44 px por debajo de 800 px, solo en el alcance donde
-  `src/estilos.test.ts` fija esa regla (menú móvil, M11, ventanas, M09 y las acciones de M08 y de
-  las listas de consultas). Es un aviso, no una falla.
+  `src/estilos.test.ts` fija esa regla (menú móvil, M11, ventanas, M09, las acciones de M08 y de
+  las listas de consultas y M13). Es un aviso, no una falla.
 
 Está fuera del CI a propósito: necesita el stack levantado, Chrome instalado y unos 7 minutos.
 
@@ -69,6 +69,10 @@ Variables opcionales: `CDSS_API` (por omisión `http://localhost:8080`), `CDSS_A
   (`m09_expediente_prueba`), el destino del cuidador con el aviso de revisión (`m09_cuidador`), el
   error de la vista previa (`m09_vista_error`) y la lista con «Exportar» (`reportes_lista`). El
   POST del reporte se responde aquí con bytes ficticios y las cabeceras del contrato.
+- **M13 (Sprint 3, parte D2):** indicadores, lista y detalle salen de los fixtures de la parte D1
+  (`auditoria_*.json`), con 45 consultas en total, un modelo de nombre largo y un detalle con la
+  solicitud de líneas largas (una palabra sin espacios) y un intento bloqueado. Pantallas
+  `m13_lista`, `m13_pruebas` (interruptor activo), `m13_detalle` y `m13_error`.
 - **Escrituras:** ninguna llega al backend. El script las responde con 409, salvo el POST del
   reporte de M09.
 

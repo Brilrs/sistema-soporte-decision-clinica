@@ -782,3 +782,93 @@ a.boton { display: inline-block; text-decoration: none; text-align: center; }
   .hoja { padding: .9rem; }
   .hoja__campos div { grid-template-columns: minmax(0, 1fr); gap: 0; }
 }
+
+/* M13 · Auditoría y trazabilidad (/admin/auditoria y /admin/auditoria/:id, Sprint 3 parte D2).
+   Indicadores en rejilla, filtros que pasan a otra línea, tabla compacta desde 800 px (con desplazamiento
+   interno de respaldo) y tarjetas por debajo. La solicitud enviada al modelo va en un bloque de código que
+   corta las líneas largas dentro de su caja y se desplaza en vertical. Por debajo de 800 px, 44 px. */
+.auditoria__titulo { flex: 1 1 20rem; min-width: 0; }
+.auditoria__titulo h1 { overflow-wrap: anywhere; }
+.auditoria__indicadores-cabecera { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
+  gap: .2rem 1rem; }
+.auditoria__indicadores-cabecera h2 { margin: 0; }
+.auditoria__periodo { margin: 0; font-size: .85rem; overflow-wrap: anywhere; }
+.auditoria__tarjetas { margin-top: .75rem; }
+.auditoria__tarjetas .indicador { min-width: 0; overflow-wrap: anywhere; }
+.auditoria__tarjetas .indicador__valor { white-space: nowrap; overflow-wrap: normal; }
+.auditoria__subtitulo { font-size: .95rem; margin: 1.1rem 0 .4rem; }
+.auditoria__estados { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .4rem .9rem; }
+.auditoria__estado { display: inline-flex; align-items: center; gap: .35rem; }
+.auditoria__estado-numero { font-weight: 700; font-variant-numeric: tabular-nums; }
+.auditoria__filtros { display: flex; flex-wrap: wrap; gap: .75rem 1rem; align-items: flex-end; }
+.auditoria__campo { display: flex; flex-direction: column; flex: 1 1 10rem; min-width: 0; max-width: 16rem; }
+.auditoria__campo label { margin: 0 0 .25rem; }
+.auditoria__campo select, .auditoria__campo input { width: 100%; max-width: 100%; }
+.auditoria__botones { display: flex; gap: .5rem; flex-wrap: wrap; }
+.auditoria__interruptor { display: inline-flex; align-items: center; gap: .5rem; min-height: 44px; margin: 0; font-weight: 600;
+  cursor: pointer; flex-basis: 100%; }
+.auditoria__interruptor input { width: 1.15rem; height: 1.15rem; flex: none; margin: 0; }
+.auditoria__ayuda { flex-basis: 100%; margin: 0; font-size: .82rem; }
+.auditoria__error { flex-basis: 100%; }
+.auditoria__subtitulo-lista { margin: 0 0 .6rem; }
+.auditoria__conteo { margin: 0 0 .6rem; font-size: .85rem; }
+.auditoria__tabla table { min-width: 720px; }
+.auditoria__tabla td { vertical-align: middle; }
+.auditoria__tabla:focus-visible, .auditoria__fragmentos:focus-visible, .auditoria__codigo:focus-visible {
+  outline: 2px solid var(--azul-600); outline-offset: 2px; }
+.auditoria__fecha { white-space: nowrap; }
+.auditoria__usuario, .auditoria__modelo, .auditoria__documento { overflow-wrap: anywhere; }
+.auditoria__modelo { font-size: .85rem; }
+.auditoria__numero { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.auditoria__ver { white-space: nowrap; text-align: right; }
+.auditoria__etiquetas { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; margin: .3rem 0 0; }
+.auditoria__etiquetas .etiqueta--prueba { margin-left: 0; }
+.etiqueta--reintento { background: var(--azul-50); color: var(--azul-700); }
+.etiqueta--puntero { background: var(--ambar-50); color: var(--ambar); }
+.etiqueta--reranker { background: var(--gris-100); color: var(--gris-700); }
+.auditoria__tarjetas-lista { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: .75rem; }
+.auditoria__tarjeta { border: 1px solid var(--gris-300); border-radius: var(--radio); padding: .8rem; min-width: 0;
+  display: flex; flex-direction: column; gap: .5rem; }
+.auditoria__tarjeta p { margin: 0; }
+.auditoria__tarjeta-cabecera { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .3rem .6rem; }
+.auditoria__tarjeta-datos { display: grid; grid-template-columns: minmax(0, 1fr); gap: .25rem; margin: 0; }
+.auditoria__tarjeta-datos div { display: grid; grid-template-columns: minmax(0, 6.5rem) minmax(0, 1fr); gap: .5rem; }
+.auditoria__tarjeta-datos dt { font-weight: 600; font-size: .85rem; }
+.auditoria__tarjeta-datos dd { margin: 0; min-width: 0; }
+.auditoria__tarjeta-ver { display: flex; align-items: center; justify-content: center; }
+.auditoria__paginacion { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem;
+  margin-top: 1rem; }
+/* Detalle */
+.auditoria__volver { flex: none; }
+.auditoria__nota-prueba { margin: .4rem 0 0; font-size: .85rem; }
+.auditoria__datos { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr)); gap: .6rem 1.25rem;
+  margin: .5rem 0 0; }
+.auditoria__datos div { min-width: 0; }
+.auditoria__datos dt { font-size: .8rem; color: var(--gris-600); }
+.auditoria__datos dd { margin: .1rem 0 0; font-weight: 600; overflow-wrap: anywhere; }
+.auditoria__hash { font-size: .8rem; word-break: break-all; overflow-wrap: anywhere; }
+.auditoria__intento h3 { font-size: .95rem; margin: 1.1rem 0 .4rem; }
+.auditoria__verificaciones { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: .35rem; }
+.auditoria__verificacion { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .2rem 1rem; padding: .45rem .7rem;
+  border-radius: 8px; border-left: 4px solid var(--gris-300); background: var(--gris-100); min-width: 0; }
+.auditoria__verificacion--cumplido { border-left-color: var(--verde); }
+.auditoria__verificacion--cumplido strong { color: var(--verde); }
+.auditoria__verificacion--no-cumplido { border-left-color: var(--rojo); }
+.auditoria__verificacion--no-cumplido strong { color: var(--rojo); }
+.auditoria__fragmentos table { min-width: 480px; }
+.auditoria__solicitud { min-width: 0; }
+.auditoria__nota-solicitud { margin: 0 0 .5rem; font-size: .85rem; color: var(--verde); background: var(--verde-50); border-radius: 8px;
+  padding: .5rem .7rem; overflow-wrap: anywhere; }
+.auditoria__codigo { margin: 0; max-height: 28rem; overflow: auto; background: var(--gris-900); color: #f9fafb; border-radius: 8px;
+  padding: .9rem 1rem; font-size: .8rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;
+  min-width: 0; max-width: 100%; }
+.auditoria__codigo code { font-family: Consolas, "Courier New", monospace; }
+.auditoria__sin-solicitud { margin: 0; }
+@media (max-width: 479px) {
+  .auditoria__tarjetas { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 799px) {
+  .auditoria .boton, .auditoria__campo select, .auditoria__campo input { min-height: 44px; }
+  .auditoria__campo { max-width: none; }
+  .auditoria__codigo { padding: .7rem .75rem; font-size: .75rem; }
+}
