@@ -5,6 +5,10 @@
 import { vi } from "vitest";
 import type { Ficha, Historial, TamizajeHistorial } from "../api/pacientes";
 import type { EstadoFinal, ResultadoConsulta } from "../api/tipos_consulta";
+import type { DestinoReporte, ReporteListado, VistaPreviaReporte } from "../api/tipos_reporte";
+import listaReportes from "../__fixtures__/reportes_lista.json";
+import vistaCuidador from "../__fixtures__/reporte_vista_previa_cuidador.json";
+import vistaExpediente from "../__fixtures__/reporte_vista_previa_expediente.json";
 
 const codificador = new TextEncoder();
 
@@ -204,4 +208,29 @@ export function lineasReanudadas(estado: EstadoFinal, idNueva = ID_CONSULTA_REAN
 
 export function resultadoReanudado(estado: EstadoFinal, idNueva = ID_CONSULTA_REANUDADA, idPrevia = ID_CONSULTA): ResultadoConsulta {
   return { ...resultadoFixture(estado), id_consulta: idNueva, id_consulta_previa: idPrevia };
+}
+
+// ---------------------------------------------------------------------------
+// Reporte exportable (M09, parte C2): fixtures de la parte C1 (generados por el backend)
+// ---------------------------------------------------------------------------
+export const RUTA_REPORTES = `/api/consultas/${ID_CONSULTA}/reportes`;
+export const GET_VISTA_PREVIA = `GET ${RUTA_REPORTES}/vista-previa`;
+export const GET_REPORTES = `GET ${RUTA_REPORTES}`;
+export const POST_REPORTE = `POST ${RUTA_REPORTES}`;
+
+export function vistaPreviaFixture(destino: DestinoReporte): VistaPreviaReporte {
+  return structuredClone((destino === "EXPEDIENTE" ? vistaExpediente : vistaCuidador) as VistaPreviaReporte);
+}
+
+export function reportesFixture(): ReporteListado[] {
+  return structuredClone(listaReportes as ReporteListado[]);
+}
+
+// Respuesta del POST: el PDF (bytes ficticios) con el número y la huella en las cabeceras.
+export function respuestaPdf(numero: string, hash = "b".repeat(64)): Response {
+  return new Response(new Uint8Array([37, 80, 68, 70, 45]), {
+    status: 201,
+    headers: { "Content-Type": "application/pdf", "X-Reporte-Numero": numero, "X-Reporte-Hash": hash,
+               "Content-Disposition": `attachment; filename="${numero}.pdf"`, "Cache-Control": "no-store" },
+  });
 }

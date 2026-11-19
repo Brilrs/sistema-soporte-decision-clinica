@@ -99,7 +99,8 @@ describe("M05 · Resultado de la consulta (VERIFICADA)", () => {
     expect(screen.getByRole("button", { name: "Nueva consulta" })).toBeEnabled();
     // E5: habilitado según opciones_decision (las pruebas de la ventana están en DecisionClinica.test.tsx).
     expect(screen.getByRole("button", { name: "Registrar decisión clínica" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Exportar reporte" })).toBeDisabled();
+    // Parte C2: «Exportar reporte» es un enlace a M09 (consulta con resultado y rol con EXPORTAR_REPORTE).
+    expect(screen.getByRole("link", { name: "Exportar reporte" })).toHaveAttribute("href", `/consultas/${ID_CONSULTA}/reporte`);
   });
 
   it("los encabezados van en orden, sin saltos de nivel", async () => {

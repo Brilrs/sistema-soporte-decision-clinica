@@ -59,6 +59,9 @@ de la consulta. El registro de la decisión no tiene historia propia en el OE2: 
   guías de nivel 1 desde la pantalla con revisión («Aprobar»).
 - **M09** reporte exportable (y «Exportar reporte» en M05), **M12** parámetros clínicos y **M13**
   auditoría y trazabilidad: hoy muestran «En construcción».
+  - Actualización del Sprint 3: M09 y HU10 quedaron resueltos en las partes C1 (API) y C2
+    (pantalla), con «Exportar reporte» en M05 (P11). Queda la revisión clínica de las frases del
+    reporte para el cuidador.
 - Las historias HU10, HU13 y HU14, y los pendientes de la sección 5 asignados al Sprint 3.
 
 ## 2. Cómo se verificó
@@ -218,7 +221,7 @@ la evaluación del OE3 ni el despliegue.
 | P8 | Preguntas de dos partes con una parte sin evidencia | Abierto | Desarrollo | Evaluación del OE3 |
 | P9 | Consultas de seguimiento encadenadas | Abierto | Desarrollo | Sprint 3 |
 | P10 | Lista de todas las consultas del usuario | Abierto al cierre. Resuelto en la parte B del Sprint 3: `GET /api/consultas` y «Historial de consultas» en `/consultas` (filas 109 y 110 de `cambios_respecto_al_OE2.md`) | Desarrollo | Sprint 3, parte B |
-| P11 | «Exportar reporte» (M09) | Abierto al cierre. Avanzado en la parte C1 del Sprint 3: API del reporte (vista previa, PDF con número y hash, lista; `docs/contrato_reportes.md`, filas 112 y 113). Falta la pantalla M09 y activar «Exportar reporte» en M05 (parte C2) | Desarrollo | Sprint 3, parte C2 |
+| P11 | «Exportar reporte» (M09) | Abierto al cierre. Resuelto en el Sprint 3: API en la parte C1 (vista previa, PDF con número y hash, lista; `docs/contrato_reportes.md`, filas 112 y 113) y pantalla M09 en la parte C2, con «Exportar reporte» en M05 y M07, «Reporte» en M08 y «Exportar» en «Reportes» (filas 114 a 117). Queda la revisión clínica de las frases del cuidador: mientras `revisado` sea false, el reporte lleva «Texto en revisión clínica: no entregar a pacientes» | Desarrollo (revisión de frases: asesor y personal de salud) | Sprint 3, parte C2 |
 | P12 | Nombre de quien registró la decisión | Abierto al cierre. Resuelto en la parte B del Sprint 3: `registrada_por` en la decisión y «Registrada por» en M05 (fila 111) | Desarrollo | Sprint 3, parte B |
 | P13 | La auditoría de desbordes no mide los elementos absolutos que escapan de su contenedor | Abierto al cierre. Resuelto en la parte A del Sprint 3: la auditoría pasa a `frontend/auditoria/` y mide esos elementos | Desarrollo | Sprint 3, parte A |
 | P14 | Indexación y consultas a la vez (la recuperación pasa de unos 4 s a unos 24 s) | Abierto, con aviso en M11 y como máximo 2 trabajos activos | Desarrollo | Antes del despliegue en Azure |

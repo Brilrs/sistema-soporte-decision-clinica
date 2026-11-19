@@ -256,6 +256,41 @@ describe("estilos · desbordes horizontales", () => {
     }
   });
 
+  it("M09: dos columnas que se apilan por debajo de 1101 px, 44 px en lo nuevo y etiquetas de destino legibles", () => {
+    expect(valor(".reporte__cuerpo", "grid-template-columns")).toBe("minmax(0, 21rem) minmax(0, 1fr)");
+    expect(valor(".reporte__cuerpo", "grid-template-columns", /max-width: 1100px/)).toBe("minmax(0, 1fr)");
+    expect(valor(".reporte__cuerpo > *", "min-width")).toBe("0");
+    for (const sel of [".reporte__datos", ".reporte__huella", ".reporte__huella code", ".hoja", ".reporte__opcion"]) {
+      expect(valor(sel, "overflow-wrap"), sel).toBe("anywhere");
+    }
+    for (const sel of [".reporte__acciones", ".reporte__emitido-cabecera", ".hoja__cabecera"]) {
+      expect(valor(sel, "flex-wrap"), sel).toBe("wrap");
+    }
+    // «Ver» y «Exportar» o «Reporte» alineados a la derecha en todas las filas; en una línea desde 1101 px.
+    for (const sel of [".evaluaciones__acciones", ".consultas-propias__acciones"]) {
+      expect(valor(sel, "flex-wrap"), sel).toBe("wrap");
+      expect(valor(sel, "justify-content"), sel).toBe("flex-end");
+      expect(valor(sel, "flex-wrap", /min-width: 1101px/), sel).toBe("nowrap");
+    }
+    expect(valor(".reporte__opciones .boton--primario", "min-height")).toBe("44px");
+    expect(valor(".reporte__acciones .boton", "min-height")).toBe("44px");
+    const angosta = /max-width: 799px/;
+    expect(valor(".reporte .boton", "min-height", angosta)).toBe("44px");
+    expect(valor(".evaluaciones__acciones .boton", "min-height", angosta)).toBe("44px");
+    expect(valor(".reporte__opcion", "min-height", angosta)).toBe("44px");
+    expect(valor(".hoja__campos div", "grid-template-columns", angosta)).toBe("minmax(0, 1fr)");
+    // Los tokens están repartidos en varios bloques :root.
+    const color = (v: string | null) => {
+      const nombre = v!.replace(/^var\((--[\w-]+)\)$/, "$1");
+      for (const r of REGLAS) if (r.selector === ":root" && r.media === null) { const x = propiedad(r.cuerpo, nombre); if (x) return x; }
+      throw new Error(`Token ${nombre} no definido`);
+    };
+    for (const destino of ["EXPEDIENTE", "CUIDADOR"]) {
+      const clase = `.etiqueta--destino-${destino}`;
+      expect(contraste(color(valor(clase, "color")), color(valor(clase, "background"))), clase).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
   // Un grid-area global sobre una tarjeta compartida (la de riesgo también se usa en
   // .estado-consulta) crea filas y columnas implícitas en la rejilla de una columna.
   it("M05: las áreas de la rejilla de dos columnas solo se aplican a los hijos de .resultado__cuerpo", () => {

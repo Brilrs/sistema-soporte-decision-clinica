@@ -214,6 +214,18 @@ Cada elemento:
 ]
 ```
 
+## Uso desde la interfaz (M09, parte C2)
+
+- La vista previa se pide al cambiar el destino o las secciones, 350 ms después del último cambio,
+  con `secciones` separadas por comas y las obligatorias incluidas.
+- «Generar reporte (PDF)» hace un solo POST por clic y no admite un segundo mientras el primero
+  está en curso. El número y el hash se leen de `X-Reporte-Numero` y `X-Reporte-Hash`.
+- «Descargar PDF» y «Abrir para imprimir» usan el mismo PDF recibido, guardado como blob en la
+  memoria de la página, sin otro POST. El blob se libera al generar otro o al salir de M09; nada
+  se guarda en localStorage, sessionStorage ni en la caché del navegador.
+- Un reporte perdido no se vuelve a descargar desde la lista: se genera otro, con otro número.
+- Un 409 deshabilita «Generar»; un 401 cierra la sesión como en el resto de la aplicación.
+
 ## Auditoría
 
 Sin datos del paciente; entidad `asistencia.consulta` con el id de la consulta:

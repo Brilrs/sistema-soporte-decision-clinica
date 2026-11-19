@@ -115,7 +115,7 @@ El administrador no tiene acceso a los datos clínicos. El coordinador puede con
 | Registrar decisión clínica | ventana sobre M05 y M07 | REALIZAR_CONSULTA | Disponible |
 | M10 Gestión de usuarios | `/admin/usuarios` | ADMINISTRAR_USUARIOS | Disponible |
 | M11 Base de conocimiento | `/admin/conocimiento` | ADMINISTRAR_GUIAS | Disponible («Retirar» en el Sprint 3) |
-| M09 Reporte exportable | `/reportes` | EXPORTAR_REPORTE | Sprint 3 |
+| M09 Reporte exportable | `/consultas/:id/reporte` y la lista `/reportes` | EXPORTAR_REPORTE | Disponible (Sprint 3, parte C2) |
 | M12 Parámetros clínicos | `/admin/parametros` | CONFIGURAR_PARAMETROS | Sprint 3 |
 | M13 Auditoría y trazabilidad | `/admin/auditoria` | VER_AUDITORIA | Sprint 3 |
 

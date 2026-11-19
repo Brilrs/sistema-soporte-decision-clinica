@@ -705,3 +705,80 @@ a.boton { display: inline-block; text-decoration: none; text-align: center; }
   .guia__opcion { min-height: 44px; }
   .detalle-guia__datos { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* M09 · Exportar reporte (/consultas/:id/reporte, Sprint 3 parte C2). Opciones y vista previa en dos
+   columnas desde 1101 px; en una sola por debajo (como M05). Por debajo de 800 px, botones de 44 px. */
+.reporte__titulo { flex: 1 1 20rem; min-width: 0; }
+.reporte__datos { overflow-wrap: anywhere; }
+.reporte__aviso { margin: .75rem 0 0; }
+.reporte__cuerpo { display: grid; grid-template-columns: minmax(0, 21rem) minmax(0, 1fr); gap: 1.25rem; align-items: start;
+  margin-top: 1.25rem; }
+.reporte__cuerpo > * { min-width: 0; }
+.reporte__cuerpo .tarjeta { max-width: none; margin-top: 0; }
+.reporte__grupo { border: 0; padding: 0; margin: 0 0 1.1rem; min-width: 0; }
+.reporte__grupo legend { font-size: .9rem; font-weight: 700; padding: 0; margin-bottom: .35rem; }
+.reporte__opcion { display: flex; align-items: flex-start; gap: .55rem; min-height: 32px; margin: 0; padding: .25rem 0;
+  font-size: .92rem; font-weight: 400; cursor: pointer; overflow-wrap: anywhere; }
+.reporte__opcion input { width: auto; flex: none; margin: .2rem 0 0; }
+.reporte__opcion input:disabled { cursor: not-allowed; }
+.reporte__obligatoria { color: var(--gris-600); font-size: .85rem; }
+.reporte__ayuda { font-size: .82rem; margin: .4rem 0 0; }
+.reporte__opciones .boton--primario { min-height: 44px; }
+.reporte__estado { margin: .4rem 0 0; font-size: .85rem; min-height: 1.2em; }
+.reporte__generado { border-top: 1px solid var(--gris-300); margin-top: 1rem; padding-top: 1rem; }
+.reporte__generado-titulo { font-size: 1rem; margin: 0 0 .3rem; }
+.reporte__huella { margin: .2rem 0 0; font-size: .82rem; overflow-wrap: anywhere; }
+.reporte__huella code { overflow-wrap: anywhere; word-break: break-all; }
+.reporte__acciones { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .6rem; }
+.reporte__acciones .boton { flex: 1 1 9rem; width: auto; min-height: 44px; display: inline-flex; align-items: center;
+  justify-content: center; }
+.reporte__lista { margin-top: 1.25rem; }
+.reporte__emitidos { list-style: none; margin: .6rem 0 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: .5rem; }
+.reporte__emitido { border: 1px solid var(--gris-300); border-radius: var(--radio); padding: .6rem .8rem; min-width: 0; }
+.reporte__emitido p { margin: 0; }
+.reporte__emitido-cabecera { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .7rem; }
+.etiqueta--destino-EXPEDIENTE { background: var(--azul-50); color: var(--azul-700); }
+.etiqueta--destino-CUIDADOR { background: var(--turquesa-50); color: var(--turquesa); }
+/* Hoja de la vista previa: el mismo orden que el PDF. */
+.hoja { background: var(--blanco); border: 1px solid var(--gris-300); border-radius: 6px; padding: 1.25rem; margin-top: .6rem;
+  font-size: .9rem; min-width: 0; overflow-wrap: anywhere; box-shadow: 0 1px 3px rgba(17, 24, 39, .08); }
+.hoja__cabecera { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .3rem 1rem;
+  border-bottom: 2px solid var(--azul-900); padding-bottom: .6rem; }
+.hoja__cabecera > * { min-width: 0; }
+.hoja__titulo { font-size: 1.05rem; font-weight: 700; color: var(--azul-900); margin: 0; }
+.hoja__establecimiento, .hoja__numero { color: var(--gris-600); font-size: .82rem; margin: .15rem 0 0; }
+.hoja__avisos { list-style: none; margin: .6rem 0 0; padding: 0; color: var(--rojo); font-weight: 700; text-align: center; }
+.hoja__bloque { min-width: 0; }
+.hoja__titulo-bloque { font-size: .95rem; color: var(--azul-900); margin: 1rem 0 .35rem; }
+.hoja__campos { display: grid; grid-template-columns: minmax(0, 1fr); gap: .2rem; margin: 0; }
+.hoja__campos div { display: grid; grid-template-columns: minmax(0, 11rem) minmax(0, 1fr); gap: .6rem; }
+.hoja__campos dt { font-weight: 600; }
+.hoja__campos dd { margin: 0; }
+.hoja__parrafo { margin: .35rem 0; }
+.hoja__items { margin: .3rem 0; padding-left: 1.2rem; }
+.hoja__items > li { margin: .2rem 0; }
+.hoja__detalle { list-style: none; margin: .1rem 0 .3rem; padding-left: .6rem; color: var(--gris-600); font-size: .82rem; }
+.hoja__final { font-weight: 700; margin: 1rem 0 .2rem; }
+.hoja__pie { color: var(--gris-600); font-size: .78rem; margin: 0; }
+.hoja__firma { display: flex; flex-direction: column; align-items: flex-end; margin-top: 2rem; color: var(--gris-600); font-size: .85rem; }
+.hoja__linea { display: block; width: min(16rem, 100%); border-bottom: 1px solid var(--gris-900); margin-bottom: .3rem; }
+/* Entradas a M09 desde M05, M07, M08 y «Reportes». */
+.estado-consulta__exportar { margin-top: .75rem; }
+/* Acciones de la fila alineadas a la derecha en todas las filas: en una sola línea desde 1101 px; por
+   debajo se apilan para que las tablas sigan cabiendo desde unos 1000 px. */
+.evaluaciones__acciones, .consultas-propias__acciones { display: flex; flex-wrap: wrap; gap: .3rem; justify-content: flex-end;
+  align-items: center; }
+.consultas-propias__sin-reporte { font-size: .82rem; white-space: normal; text-align: right; }
+@media (min-width: 1101px) {
+  .evaluaciones__acciones, .consultas-propias__acciones { flex-wrap: nowrap; }
+}
+@media (max-width: 1100px) {
+  .reporte__cuerpo { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 799px) {
+  .reporte .boton, .evaluaciones__acciones .boton { min-height: 44px; }
+  .reporte__opcion { min-height: 44px; align-items: center; }
+  .reporte__opcion input { margin: 0; }
+  .hoja { padding: .9rem; }
+  .hoja__campos div { grid-template-columns: minmax(0, 1fr); gap: 0; }
+}
