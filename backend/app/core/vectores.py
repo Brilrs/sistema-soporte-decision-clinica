@@ -24,6 +24,10 @@ class AlmacenVectorial(Protocol):
 
     def ids_de_documento(self, id_documento: str) -> list[str]: ...
 
+    def metadatos_de_documento(self, id_documento: str) -> dict[str, dict]: ...
+
+    def actualizar_metadatos(self, ids: list[str], cambios: dict) -> None: ...
+
     def consultar(self, vector: list[float], n: int, filtro: dict | None = None) -> list[tuple[str, float]]: ...
 
 
@@ -60,6 +64,15 @@ class AlmacenMemoria:
     def ids_de_documento(self, id_documento: str) -> list[str]:
         return [r.id for r in self.registros.values() if r.metadatos.get("id_documento") == id_documento]
 
+    def metadatos_de_documento(self, id_documento: str) -> dict[str, dict]:
+        return {r.id: dict(r.metadatos) for r in self.registros.values() if r.metadatos.get("id_documento") == id_documento}
+
+    def actualizar_metadatos(self, ids: list[str], cambios: dict) -> None:
+        """Cambia solo los metadatos indicados; el vector y el texto no se tocan."""
+        for i in ids:
+            if i in self.registros:
+                self.registros[i].metadatos = {**self.registros[i].metadatos, **cambios}
+
     def consultar(self, vector: list[float], n: int, filtro: dict | None = None) -> list[tuple[str, float]]:
         """Los n registros más cercanos que cumplen el filtro, con su distancia coseno."""
         distancias = [(r.id, _distancia_coseno(vector, r.vector))
@@ -95,6 +108,18 @@ class AlmacenChroma:
 
     def ids_de_documento(self, id_documento: str) -> list[str]:
         return self._coleccion.get(where={"id_documento": id_documento}, include=[])["ids"]
+
+    def metadatos_de_documento(self, id_documento: str) -> dict[str, dict]:
+        r = self._coleccion.get(where={"id_documento": id_documento}, include=["metadatas"])
+        return {i: dict(m or {}) for i, m in zip(r["ids"], r["metadatas"])}
+
+    def actualizar_metadatos(self, ids: list[str], cambios: dict) -> None:
+        """Actualiza los metadatos por lotes con update (sin borrar ni volver a calcular vectores). Se
+        envía el metadato completo, ya combinado, para no depender de cómo combina la versión de ChromaDB."""
+        for i in range(0, len(ids), self._lote):
+            actuales = self._coleccion.get(ids=ids[i:i + self._lote], include=["metadatas"])
+            self._coleccion.update(ids=actuales["ids"],
+                                   metadatas=[{**(m or {}), **cambios} for m in actuales["metadatas"]])
 
     def consultar(self, vector: list[float], n: int, filtro: dict | None = None) -> list[tuple[str, float]]:
         r = self._coleccion.query(query_embeddings=[vector], n_results=n, where=filtro_chroma(filtro),

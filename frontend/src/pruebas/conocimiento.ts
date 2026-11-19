@@ -37,7 +37,7 @@ export function guiaNueva(cambios: Partial<Documento> = {}): Documento {
     id_documento: ID_NUEVA, titulo: TITULO_NUEVA, codigo_documento: null, entidad_emisora: "OTRA", tipo_documento: "LITERATURA",
     nivel: 2, version: null, version_indexacion: null, anio_publicacion: 2025, idioma: "en", estado: "VIGENTE",
     estado_indexacion: "PENDIENTE", fecha_carga: "2026-11-16T15:00:00Z", fragmentos_vigentes: 0, citas_30_dias: 0,
-    ultimo_trabajo: trabajoResumen(), ...cambios,
+    retirado_por: null, fecha_retiro: null, motivo_retiro: null, ultimo_trabajo: trabajoResumen(), ...cambios,
   };
 }
 

@@ -25,6 +25,10 @@ from app.indexador.transcripciones import cargar_transcripciones
 from app.core.vectores import AlmacenVectorial, RegistroVector
 
 log = logging.getLogger("indexador")
+ESTADO_RETIRADO = "OBSOLETA"
+MENSAJE_RETIRO_ERROR = ("No se pudieron actualizar los vectores de la guía en ChromaDB ({error}). La guía retirada ya no "
+                        "se recupera, porque la recuperación la filtra en PostgreSQL; use «Reintentar» para volver a "
+                        "aplicar el retiro.")
 ESPACIO_IDS = uuid.UUID("6f1c2b0e-5d1a-4c4e-9a57-2b8f0c3d7e21")
 
 
@@ -165,6 +169,36 @@ class Indexador:
                                      {"clave": fuente.clave, "hash": hash_archivo, "error": mensaje[:500]})
             return Resultado(documento.id_documento, "ERROR", mensaje=mensaje,
                              segundos_total=time.perf_counter() - inicio)
+
+    def retirar(self, id_documento: str, id_trabajo: str | None = None) -> int:
+        """Trabajo RETIRO (HU17): pone estado_documento = OBSOLETA en los metadatos de todos los vectores
+        del documento, sin borrar nada (cdss_indexador no tiene DELETE) y sin tocar los fragmentos de
+        PostgreSQL. Idempotente: repetirlo deja lo mismo, y un documento sin vectores termina igual.
+        Si falla, el trabajo queda en ERROR con un mensaje claro. Devuelve el número de vectores."""
+        try:
+            documento = self.repo.documento(id_documento)
+            if documento.estado != ESTADO_RETIRADO:
+                raise ErrorIndexacion("la guía no está retirada (estado VIGENTE)")
+            ids = sorted(self.almacen.ids_de_documento(id_documento))
+            self.repo.avance(id_trabajo, "INDEXACION", 0, len(ids))
+            for i in range(0, len(ids), self.lote_progreso):
+                parte = ids[i:i + self.lote_progreso]
+                self.almacen.actualizar_metadatos(parte, {"estado_documento": ESTADO_RETIRADO})
+                self.repo.avance(id_trabajo, "INDEXACION", i + len(parte), len(ids))
+            pendientes = [i for i, m in self.almacen.metadatos_de_documento(id_documento).items()
+                          if m.get("estado_documento") != ESTADO_RETIRADO]
+            if pendientes:
+                raise ErrorIndexacion(f"{len(pendientes)} vectores siguen sin el estado OBSOLETA")
+        except Exception as e:
+            detalle = str(e) if isinstance(e, ErrorIndexacion) else f"{type(e).__name__}: {e}"
+            mensaje = MENSAJE_RETIRO_ERROR.format(error=detalle)
+            log.error("Retiro del documento %s en ERROR: %s", id_documento, detalle)
+            self.repo.finalizar_trabajo(id_trabajo, mensaje)
+            self.repo.auditar_aparte("GUIA_RETIRO_ERROR", id_documento, {"id_trabajo": id_trabajo, "error": detalle[:500]})
+            raise ErrorIndexacion(mensaje) from e
+        self.repo.finalizar_trabajo(id_trabajo)
+        self.repo.auditar_aparte("GUIA_RETIRO_APLICADO", id_documento, {"id_trabajo": id_trabajo, "vectores": len(ids)})
+        return len(ids)
 
     def _indexar(self, fuente, documento, ruta_pdf, opciones, id_trabajo, extraer, hash_archivo) -> Resultado:
         self.repo.avance(id_trabajo, "EXTRACCION")

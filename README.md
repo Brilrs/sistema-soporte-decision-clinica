@@ -114,7 +114,7 @@ El administrador no tiene acceso a los datos clínicos. El coordinador puede con
 | M06 Datos faltantes y M15 Tamizaje no vigente | ventanas sobre M04 y M05 | REALIZAR_CONSULTA | Disponible |
 | Registrar decisión clínica | ventana sobre M05 y M07 | REALIZAR_CONSULTA | Disponible |
 | M10 Gestión de usuarios | `/admin/usuarios` | ADMINISTRAR_USUARIOS | Disponible |
-| M11 Base de conocimiento | `/admin/conocimiento` | ADMINISTRAR_GUIAS | Disponible («Retirar» en el Sprint 3) |
+| M11 Base de conocimiento | `/admin/conocimiento` | ADMINISTRAR_GUIAS | Disponible (con «Retirar» desde el Sprint 3, parte F: `docs/contrato_conocimiento.md`) |
 | M09 Reporte exportable | `/consultas/:id/reporte` y la lista `/reportes` | EXPORTAR_REPORTE | Disponible (Sprint 3, parte C2) |
 | M12 Parámetros clínicos | `/admin/parametros` | VER_PARAMETROS (editar: CONFIGURAR_PARAMETROS, solo el Coordinador CRED) | Disponible (Sprint 3, partes E1a, E1b y E2; `docs/contrato_parametros.md`) |
 | M13 Auditoría y trazabilidad | `/admin/auditoria` y el detalle `/admin/auditoria/:id` | VER_AUDITORIA | Disponible (Sprint 3, partes D1 y D2; `docs/contrato_auditoria.md`) |
@@ -274,7 +274,7 @@ Las mejoras pendientes para el despliegue en Azure están en [`docs/mejoras_desp
 El plan, con sus partes, dependencias y decisiones, está en [`docs/plan_sprint3.md`](docs/plan_sprint3.md). En resumen:
 
 - **M09** reporte exportable (HU10, incluido «Exportar reporte» en M05), **M13** auditoría y trazabilidad (HU13) y **M12** parámetros clínicos (HU14).
-- **HU17:** retirar guías desde M11. La carga de guías de nivel 1 desde la pantalla, con revisión («Aprobar») y recorte de márgenes por documento, queda para después de la evaluación del OE3.
+- **HU17:** retirar guías desde M11 (hecho en la parte F). La carga de guías de nivel 1 desde la pantalla, con revisión («Aprobar») y recorte de márgenes por documento, queda para después de la evaluación del OE3.
 - Lista de las consultas propias (P10), cambio obligatorio de contraseña, prioridad de las consultas frente a la indexación (P14), respaldo y despliegue en Azure.
 - Trabajo de evaluación del OE3, con el sistema congelado y solo datos sintéticos. P3, P4, P7 y P8 no se tocan antes del OE3.
 

@@ -78,6 +78,9 @@ Variables opcionales: `CDSS_API` (por omisión `http://localhost:8080`), `CDSS_A
   `m12_admin`). Pantallas `m12_admin` (solo lectura), `m12_edicion` (puntos de corte en edición),
   `m12_advertencias` (ventana con CONFIRMO), `m12_validacion` (errores) y `m12_evaluacion`. El
   historial lleva 45 versiones y una fila con motivo y referencia largos.
+- **M11 retiro (Sprint 3, parte F):** `m11_retiro_n2` (nivel 2 con el motivo), `m11_retiro_bloqueado`
+  (NTS 213 con su lista de referencias), `m11_retiro_codigo` (nivel 1 con el código a medio escribir),
+  `m11_retiro_error` (el POST responde 423) y `m11_obsoleta` (detalle con quién, cuándo y el motivo).
 - **Escrituras:** ninguna llega al backend. El script las responde con 409, salvo el POST del
   reporte de M09.
 

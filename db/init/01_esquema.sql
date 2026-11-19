@@ -202,7 +202,12 @@ CREATE TABLE conocimiento.documento_fuente (
     CHECK ((pagina_inicio_cuerpo IS NULL AND pagina_fin_cuerpo IS NULL)
         OR (pagina_inicio_cuerpo >= 1 AND pagina_inicio_cuerpo <= pagina_fin_cuerpo)),
   CONSTRAINT ck_documento_fuente_archivo_indexado
-    CHECK (estado_indexacion <> 'COMPLETADA' OR (ruta_blob IS NOT NULL AND hash_archivo IS NOT NULL))
+    CHECK (estado_indexacion <> 'COMPLETADA' OR (ruta_blob IS NOT NULL AND hash_archivo IS NOT NULL)),
+  -- Migración 017 (HU17): una guía OBSOLETA tiene quién, cuándo y motivo; una VIGENTE, ninguno.
+  CONSTRAINT ck_documento_fuente_retiro
+    CHECK ((estado = 'VIGENTE' AND retirado_por IS NULL AND fecha_retiro IS NULL AND motivo_retiro IS NULL)
+        OR (estado = 'OBSOLETA' AND retirado_por IS NOT NULL AND fecha_retiro IS NOT NULL
+            AND length(btrim(motivo_retiro)) BETWEEN 10 AND 250))
 );
 COMMENT ON TABLE conocimiento.documento_fuente IS 'Catálogo de las guías clínicas y documentos que conforman la base de conocimiento. El nivel 1 agrupa las fuentes citables (normas MINSA y guías OMS) y el nivel 2, la literatura metodológica que no se cita al usuario. Los documentos no se eliminan: al retirarse pasan a estado OBSOLETA para conservar la trazabilidad de las evaluaciones anteriores.';
 COMMENT ON COLUMN conocimiento.documento_fuente.id_documento IS 'Identificador del documento.';
@@ -228,6 +233,8 @@ COMMENT ON COLUMN conocimiento.documento_fuente.fecha_carga IS 'Fecha y hora de 
 COMMENT ON COLUMN conocimiento.documento_fuente.retirado_por IS 'Usuario que retiró el documento.';
 COMMENT ON COLUMN conocimiento.documento_fuente.fecha_retiro IS 'Fecha y hora del retiro.';
 COMMENT ON COLUMN conocimiento.documento_fuente.motivo_retiro IS 'Justificación del retiro.';
+COMMENT ON CONSTRAINT ck_documento_fuente_retiro ON conocimiento.documento_fuente IS
+  'Una guía OBSOLETA tiene quién la retiró, cuándo y el motivo (10 a 250 caracteres); una VIGENTE no tiene datos de retiro.';
 CREATE INDEX ix_documento_fuente_id_documento_reemplazado ON conocimiento.documento_fuente (id_documento_reemplazado);
 CREATE INDEX ix_documento_fuente_cargado_por ON conocimiento.documento_fuente (cargado_por);
 CREATE INDEX ix_documento_fuente_retirado_por ON conocimiento.documento_fuente (retirado_por);

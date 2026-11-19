@@ -1,23 +1,26 @@
 // Tabla de guías de M11, compacta como las de M08: cabe sin desplazamiento interno desde unos
 // 1000 px; por debajo se desplaza dentro de su contenedor. Los botones nombran la guía para los
-// lectores de pantalla («Ver: NTS 213...»). «Retirar» queda deshabilitado hasta el Sprint 3 (HU17):
-// gris, con cursor no permitido y la nota como descripción accesible.
+// lectores de pantalla («Ver: NTS 213...»). «Retirar» (HU17, Sprint 3 parte F) abre la ventana de
+// retiro en las guías vigentes, con el permiso ADMINISTRAR_GUIAS; en las obsoletas (o sin el permiso)
+// queda gris, con aria-disabled y la nota como descripción accesible.
 import type { Documento } from "../../api/conocimiento";
 import { VACIO } from "../../utilidades/formato";
-import { ESTADOS_DOCUMENTO, ESTADOS_INDEXACION, NIVELES } from "./textos";
+import { ESTADOS_DOCUMENTO, ESTADOS_INDEXACION, NIVELES, puedeReintentar } from "./textos";
 
 type Props = {
   documentos: Documento[];
   ver: (doc: Documento, boton: HTMLButtonElement) => void;
   reintentar: (doc: Documento) => void;
   reintentando: string | null;
+  retirar: (doc: Documento, boton: HTMLButtonElement) => void;
+  puedeRetirar: boolean;
   idNotaRetirar: string;
 };
 
 // Nombre corto para los botones: el código si existe (NTS 213-MINSA/DGIESP-2024); si no, el título.
 export const nombreGuia = (d: Documento) => d.codigo_documento ?? d.titulo;
 
-export default function TablaGuias({ documentos, ver, reintentar, reintentando, idNotaRetirar }: Props) {
+export default function TablaGuias({ documentos, ver, reintentar, reintentando, retirar, puedeRetirar, idNotaRetirar }: Props) {
   return (
     <div className="tabla-contenedor guias__tabla" tabIndex={0} role="region" aria-label="Guías de la base de conocimiento">
       <table className="tabla tabla--compacta">
@@ -61,18 +64,23 @@ export default function TablaGuias({ documentos, ver, reintentar, reintentando, 
                   <div className="guias__acciones">
                     <button type="button" className="boton boton--neutro boton--chico" aria-label={`Ver: ${nombre}`}
                             onClick={(e) => ver(d, e.currentTarget)}>Ver</button>
-                    {d.estado_indexacion === "ERROR" && (
+                    {puedeReintentar(d) && (
                       <button type="button" className="boton boton--secundario boton--chico" aria-label={`Reintentar: ${nombre}`}
                               disabled={reintentando === d.id_documento} onClick={() => reintentar(d)}>
                         {reintentando === d.id_documento ? "Reintentando…" : "Reintentar"}
                       </button>
                     )}
-                    {d.estado === "VIGENTE" && (
+                    {d.estado === "VIGENTE" && puedeRetirar ? (
+                      <button type="button" className="boton boton--peligro boton--chico" aria-label={`Retirar: ${nombre}`}
+                              onClick={(e) => retirar(d, e.currentTarget)}>Retirar</button>
+                    ) : (
                       // aria-disabled y no disabled: sigue recibiendo el foco, así el lector de pantalla
-                      // anuncia que no está disponible y lee la nota del Sprint 3. No hace nada al pulsarlo.
+                      // anuncia que no está disponible y lee la nota. No hace nada al pulsarlo.
                       <button type="button" className="boton boton--peligro boton--chico" aria-disabled="true"
                               aria-label={`Retirar: ${nombre}`} aria-describedby={idNotaRetirar}
-                              title="Disponible en el Sprint 3">Retirar</button>
+                              title={d.estado === "OBSOLETA" ? "La guía ya está retirada" : "Sin permiso para retirar guías"}>
+                        Retirar
+                      </button>
                     )}
                   </div>
                 </td>

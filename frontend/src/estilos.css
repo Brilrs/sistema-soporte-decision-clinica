@@ -684,6 +684,13 @@ a.boton { display: inline-block; text-decoration: none; text-align: center; }
 .detalle-guia__datos dd { margin: .1rem 0 0; font-weight: 600; }
 .detalle-guia__hash { grid-column: 1 / -1; }
 .detalle-guia__hash code { font-size: .8rem; font-weight: 400; overflow-wrap: anywhere; }
+/* Retiro de guías (HU17): motivo del retiro a todo el ancho, en peso normal; ventana de retiro. */
+.detalle-guia__motivo { grid-column: 1 / -1; }
+.detalle-guia__motivo dd { font-weight: 400; overflow-wrap: anywhere; }
+.retiro__referencias ul { margin: .5rem 0 0; padding-left: 1.2rem; }
+.retiro__referencias li { overflow-wrap: anywhere; }
+.retiro__codigo { font-family: var(--fuente-mono, monospace); font-weight: 700; overflow-wrap: anywhere; }
+.retiro__razon { margin-top: .4rem; }
 .detalle-guia__subtitulo { font-size: 1rem; margin: 1.25rem 0 .4rem; }
 .detalle-guia__tabla table { min-width: 460px; }
 .detalle-guia__tabla:focus-visible { outline: 2px solid var(--azul-600); }

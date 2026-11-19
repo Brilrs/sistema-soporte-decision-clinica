@@ -91,6 +91,17 @@ contenedor `jobs` sigue disponible para la línea de comandos.
 - M11 solo carga documentos de nivel 2 (decisión de la parte F2): no se recuperan ni se citan.
   Los de nivel 1 se cargan por línea de comandos, con sus transcripciones verificadas.
 
+#### Trabajo RETIRO (Sprint 3, parte F)
+
+Lo crea «Retirar» de M11 (`POST /api/conocimiento/documentos/{id}/retiro`). El trabajador pone
+`estado_documento` = `OBSOLETA` en los metadatos de todos los vectores de la guía en ChromaDB (por
+lotes, con `update`), sin borrar nada y sin tocar los fragmentos de PostgreSQL, y comprueba que no
+quede ninguno con el estado viejo. Es idempotente. Audita `GUIA_RETIRO_APLICADO` (número de vectores)
+o, si falla, deja el trabajo en `ERROR` con un mensaje claro y audita `GUIA_RETIRO_ERROR`; «Reintentar»
+crea otro RETIRO. Un RETIRO interrumpido por un reinicio pasa a `ERROR` con su propio mensaje. Una
+indexación de una guía `OBSOLETA` termina en `ERROR` sin indexar. La recuperación no depende de este
+trabajo: PostgreSQL ya filtra la guía retirada.
+
 #### Volumen de las guías cargadas
 
 El backend escribe los PDF de M11 en el volumen `datos_guias_cargadas` (`/datos/guias_cargadas`)

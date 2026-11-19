@@ -4,7 +4,7 @@
 // (solo la etapa, no cada fragmento, para no saturar al lector de pantalla).
 import { useEffect, useRef, useState } from "react";
 import type { Documento, Trabajo } from "../../api/conocimiento";
-import { ETAPAS, TIPOS_TRABAJO, textoEtapa } from "./textos";
+import { ETAPAS, TIPOS_TRABAJO, puedeReintentar, textoEtapa } from "./textos";
 
 type Props = {
   trabajos: Trabajo[];
@@ -49,7 +49,9 @@ export default function AvanceIndexacion({ trabajos, terminados, reintentar, rei
       const clave = `${t.estado}:${t.etapa ?? ""}`;
       if (vistos.current.get(t.id_trabajo) !== clave) {
         const etapa = textoEtapa(t.etapa);
-        cambios.push(t.estado === "PENDIENTE" ? `«${t.titulo}» está en cola para indexarse.`
+        cambios.push(t.tipo === "RETIRO"
+          ? (t.estado === "PENDIENTE" ? `El retiro de «${t.titulo}» está en cola.` : `Retirando «${t.titulo}».`)
+          : t.estado === "PENDIENTE" ? `«${t.titulo}» está en cola para indexarse.`
           : etapa ? `Indexación de «${t.titulo}»: etapa ${etapa}.` : `Comenzó la indexación de «${t.titulo}».`);
         vistos.current.set(t.id_trabajo, clave);
       }
@@ -57,8 +59,9 @@ export default function AvanceIndexacion({ trabajos, terminados, reintentar, rei
     for (const d of terminados) {
       const clave = `fin:${d.ultimo_trabajo?.id_trabajo}`;
       if (!vistos.current.has(clave)) {
-        cambios.push(d.ultimo_trabajo?.estado === "ERROR" ? `La indexación de «${d.titulo}» terminó con error.`
-          : `La indexación de «${d.titulo}» terminó.`);
+        const accion = d.ultimo_trabajo?.tipo === "RETIRO" ? "El retiro" : "La indexación";
+        cambios.push(d.ultimo_trabajo?.estado === "ERROR" ? `${accion} de «${d.titulo}» terminó con error.`
+          : `${accion} de «${d.titulo}» terminó.`);
         vistos.current.set(clave, "1");
       }
     }
@@ -75,9 +78,17 @@ export default function AvanceIndexacion({ trabajos, terminados, reintentar, rei
           {trabajos.map((t) => (
             <article key={t.id_trabajo} className="indexacion__trabajo" aria-label={`${TIPOS_TRABAJO[t.tipo] ?? t.tipo} de ${t.titulo}`}>
               <p className="indexacion__documento">
-                <span className="texto-tenue">{t.estado === "PENDIENTE" ? "En cola: " : "Indexando: "}</span>
+                <span className="texto-tenue">
+                  {t.tipo === "RETIRO" ? (t.estado === "PENDIENTE" ? "Retiro en cola: " : "Retirando: ")
+                    : t.estado === "PENDIENTE" ? "En cola: " : "Indexando: "}
+                </span>
                 <strong>{t.titulo}</strong>
               </p>
+              {t.tipo === "RETIRO" ? (
+                <p className="texto-tenue indexacion__nota">
+                  Se marca la guía como obsoleta en la base vectorial. Ya no se cita en nuevas consultas.
+                </p>
+              ) : (
               <ol className="indexacion__etapas">
                 {ETAPAS.map((e, i) => {
                   const estado = estadoEtapa(t, i);
@@ -90,16 +101,27 @@ export default function AvanceIndexacion({ trabajos, terminados, reintentar, rei
                   );
                 })}
               </ol>
+              )}
               <Barra t={t} />
             </article>
           ))}
           {terminados.map((d) => {
             const fallo = d.ultimo_trabajo?.estado === "ERROR";
+            const esRetiro = d.ultimo_trabajo?.tipo === "RETIRO";
             return (
               <article key={d.ultimo_trabajo?.id_trabajo ?? d.id_documento}
                        className={`indexacion__fin indexacion__fin--${fallo ? "error" : "ok"}`}
-                       aria-label={`Resultado de la indexación de ${d.titulo}`}>
-                {fallo ? (
+                       aria-label={`Resultado ${esRetiro ? "del retiro" : "de la indexación"} de ${d.titulo}`}>
+                {esRetiro ? (
+                  <>
+                    <p className="indexacion__fin-titulo">
+                      <strong>{fallo ? `El retiro de «${d.titulo}» no terminó.` : `«${d.titulo}» quedó retirada.`}</strong>
+                      {fallo ? " La guía ya no se cita en nuevas consultas; falta actualizar la base vectorial."
+                        : " Ya no se cita en nuevas consultas."}
+                    </p>
+                    {fallo && d.ultimo_trabajo?.mensaje_error && <p className="indexacion__mensaje">{d.ultimo_trabajo.mensaje_error}</p>}
+                  </>
+                ) : fallo ? (
                   <>
                     <p className="indexacion__fin-titulo"><strong>No se pudo indexar «{d.titulo}».</strong></p>
                     {d.ultimo_trabajo?.mensaje_error && <p className="indexacion__mensaje">{d.ultimo_trabajo.mensaje_error}</p>}
@@ -110,7 +132,7 @@ export default function AvanceIndexacion({ trabajos, terminados, reintentar, rei
                   </p>
                 )}
                 <div className="indexacion__fin-acciones">
-                  {fallo && d.estado_indexacion === "ERROR" && (
+                  {fallo && puedeReintentar(d) && (
                     <button type="button" className="boton boton--secundario boton--chico" disabled={reintentando === d.id_documento}
                             onClick={() => reintentar(d)} aria-label={`Reintentar: ${d.titulo}`}>
                       {reintentando === d.id_documento ? "Reintentando…" : "Reintentar"}

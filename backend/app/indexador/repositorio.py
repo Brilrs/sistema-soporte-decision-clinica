@@ -192,18 +192,20 @@ class Repositorio:
                     WHERE id_trabajo = :id"""
             ), {"e": etapa, "p": procesados, "t": total, "id": id_trabajo})
 
-    def marcar_trabajos_huerfanos(self, mensaje: str) -> list[tuple[str, str]]:
+    def marcar_trabajos_huerfanos(self, mensaje: str, mensaje_retiro: str | None = None) -> list[tuple[str, str]]:
         """Al arrancar el trabajador: los trabajos EN_CURSO quedaron huérfanos (el proceso se
         detuvo a mitad de la indexación). Pasan a ERROR con el mensaje, y su documento, si
         seguía EN_PROCESO, también; nada de lo indexado a medias quedó escrito (la versión se
-        escribe en una sola transacción). Devuelve (id_trabajo, id_documento)."""
+        escribe en una sola transacción). Un trabajo RETIRO huérfano lleva mensaje_retiro y no cambia el
+        documento (el retiro ya quedó en PostgreSQL). Devuelve (id_trabajo, id_documento)."""
         with self.engine.begin() as c:
             filas = [tuple(f) for f in c.execute(text(
                 """UPDATE conocimiento.trabajo_indexacion
-                      SET estado = 'ERROR', mensaje_error = :m, fecha_fin = now()
+                      SET estado = 'ERROR', fecha_fin = now(),
+                          mensaje_error = CASE WHEN tipo = 'RETIRO' THEN :mr ELSE :m END
                     WHERE estado = 'EN_CURSO'
                 RETURNING id_trabajo::text, id_documento::text"""
-            ), {"m": mensaje[:500]})]
+            ), {"m": mensaje[:500], "mr": (mensaje_retiro or mensaje)[:500]})]
             documentos = sorted({d for _, d in filas})
             if documentos:
                 c.execute(text(
