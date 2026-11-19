@@ -100,6 +100,20 @@ empiece.
   - medido: 1,2 s y unos 20 MB la primera vez en el proceso (carga de la fuente) y de 12 a 26 ms
     después;
   - las frases del cuidador siguen con `revisado: false` hasta la revisión clínica.
+- **Hecho en la parte C2** (filas 114 a 117 de `cambios_respecto_al_OE2.md`; HU10 y P11
+  resueltos):
+  - M09 en `pages/ExportarReporte.tsx`, piezas en `components/reporte/` y llamadas en
+    `api/reportes.ts`;
+  - vista previa con espera de 350 ms, un solo POST y el PDF solo en memoria (se libera al generar
+    otro o al salir); los reportes anteriores se listan sin descarga;
+  - «Exportar reporte» en M05 y M07, «Reporte» junto a «Ver» en M08 (decisión: «Ver» se mantiene)
+    y «Reportes» como la lista de consultas propias con «Exportar» por fila;
+  - pruebas en `pages/ExportarReporte.test.tsx` y reglas de M09 en `src/estilos.test.ts`;
+    mutaciones de las obligatorias, el permiso, el único POST, la liberación del blob y el aviso de
+    prueba;
+  - auditoría con las pantallas `m09_expediente_real`, `m09_expediente_prueba`, `m09_cuidador`,
+    `m09_vista_error` y `reportes_lista`: sin desbordes en 10 anchos y sin infracciones de axe;
+  - pendiente: la revisión clínica de las frases del cuidador (`revisado: false`).
 
 ### M13 auditoría (HU13): L, riesgo bajo
 
@@ -175,7 +189,7 @@ empiece.
 - **Ruta:** `GET /api/consultas` con las consultas propias, paginadas, con filtros de estado y
   fecha y orden explícito.
 - **Pantallas:** `/consultas` («Historial de consultas») deja de ser el buscador de pacientes. La
-  misma lista con «Exportar» por fila es «Reportes» (decisión 16; el botón se activa en C2).
+  misma lista con «Exportar» por fila es «Reportes» (decisión 16; activado en C2).
 - **Permisos:** REALIZAR_CONSULTA. Sin migración.
 - **Pruebas:** no ve las de otro, filtros, orden estable sin depender de la colación.
 - **Hecho en la parte B** (filas 109 a 111 de `cambios_respecto_al_OE2.md`):

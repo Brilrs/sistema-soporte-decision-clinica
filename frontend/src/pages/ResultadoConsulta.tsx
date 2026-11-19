@@ -19,6 +19,7 @@ import Migas from "../components/Migas";
 import VentanaDatosFaltantes from "../components/consulta/VentanaDatosFaltantes";
 import VentanaTamizajeNoVigente from "../components/consulta/VentanaTamizajeNoVigente";
 import DecisionClinica from "../components/resultado/DecisionClinica";
+import BotonExportarReporte from "../components/reporte/BotonExportarReporte";
 import DetalleBusqueda from "../components/resultado/DetalleBusqueda";
 import EstadoSinRecomendacion from "../components/resultado/EstadoSinRecomendacion";
 import { idCita } from "../components/resultado/EnlaceCita";
@@ -254,7 +255,7 @@ function Verificada({ resultado, hbObservada, resaltada, irACita, decision }: Pr
         <p className="resultado__aviso-decision" role="note">{AVISO_DECISION}</p>
         <h3>Evidencias citadas</h3>
         <TablaCitas citas={resultado.citas} resaltada={resaltada} />
-        <Decisiones decision={decision} />
+        <Decisiones decision={decision} idConsulta={resultado.id_consulta} estado={resultado.estado} />
       </section>
 
       <VerificacionRespuesta verificacion={resultado.verificacion} intentos={resultado.intentos}
@@ -272,17 +273,12 @@ function Verificada({ resultado, hbObservada, resaltada, irACita, decision }: Pr
   );
 }
 
-// «Registrar decisión clínica» (parte E5) y «Exportar reporte» (Sprint 3).
-function Decisiones({ decision }: { decision: ReactNode }) {
+// «Registrar decisión clínica» (parte E5) y «Exportar reporte» (M09, Sprint 3 parte C2).
+function Decisiones({ decision, idConsulta, estado }: { decision: ReactNode; idConsulta: string; estado: string }) {
   return (
     <div className="resultado__decisiones">
       <div className="resultado__decision">{decision}</div>
-      <div>
-        <button type="button" className="boton boton--neutro boton--auto" disabled aria-describedby="nota-exportar">
-          Exportar reporte
-        </button>
-        <span id="nota-exportar" className="resultado__nota">disponible en el Sprint 3</span>
-      </div>
+      <div><BotonExportarReporte idConsulta={idConsulta} estado={estado} /></div>
     </div>
   );
 }
@@ -311,6 +307,9 @@ function OtroEstado({ resultado, estado, tamizaje, ultimoTamizaje, decision, res
   const conVentana = CON_VENTANA.includes(estado);
   const pregunta = resultado.texto_filtrado ?? "";
   const conDecision = !!resultado.decision || resultado.opciones_decision.length > 0;
+  // M07 (evidencia insuficiente) también tiene reporte: queda junto a la decisión.
+  const exportar = <BotonExportarReporte idConsulta={resultado.id_consulta} estado={estado} />;
+  const conExportar = estado === "EVIDENCIA_INSUFICIENTE";
 
   // ¿Ya se reanudó? La consulta nueva lleva id_consulta_previa igual a esta.
   useEffect(() => {
@@ -352,7 +351,9 @@ function OtroEstado({ resultado, estado, tamizaje, ultimoTamizaje, decision, res
     <>
       <EstadoSinRecomendacion estado={estado} mensaje={resultado.mensaje} clasificacion={resultado.clasificacion}
                               hbObservada={tamizaje?.hemoglobina_g_dl ?? null} acciones={acciones}
-                              decision={conDecision ? decision : undefined}
+                              decision={conDecision || conExportar
+                                ? <>{conDecision && decision}{conExportar && <div className="estado-consulta__exportar">{exportar}</div>}</>
+                                : undefined}
                               complementos={estado === "EVIDENCIA_INSUFICIENTE" &&
                                 <ComplementosEvidencia resultado={resultado} resaltada={resaltada} />}>
         {estado === "EVIDENCIA_INSUFICIENTE" && <EvidenciaInsuficiente resultado={resultado} />}

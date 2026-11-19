@@ -2,7 +2,9 @@
 // autenticado de todos sus pacientes (GET /api/consultas; el backend nunca lista las de otro), de la
 // más reciente a la más antigua, con filtros de estado y fechas (días de Lima) y paginación. Desde
 // 800 px es una tabla compacta; por debajo, tarjetas apiladas (solo se monta una de las dos). Cada
-// consulta abre su resultado (/consultas/:id). «Nueva consulta» lleva al buscador de pacientes
+// consulta abre su resultado (/consultas/:id). Con modo «reportes» es la pantalla «Reportes» del menú
+// (/reportes, decisión 16, Sprint 3 parte C2): la misma lista con «Exportar» (M09) en las consultas con
+// resultado, sin «Nueva consulta». «Nueva consulta» lleva al buscador de pacientes
 // (/consultas/nueva), que antes estaba en esta ruta. Los filtros y la página van en la dirección
 // (sin datos del paciente) para conservarlos al volver del resultado.
 import { useEffect, useId, useState, type FormEvent } from "react";
@@ -45,8 +47,25 @@ function escribirParametros(f: Filtros, pagina: number): URLSearchParams {
 
 type Carga = { estado: "cargando" } | { estado: "error"; mensaje: string } | { estado: "listo"; pagina: PaginaConsultas };
 
-export default function HistorialConsultas() {
-  useTituloPagina("Historial de consultas");
+export type ModoLista = "historial" | "reportes";
+const TEXTOS: Record<ModoLista, { titulo: string; descripcion: string; vacio: string }> = {
+  historial: {
+    titulo: "Historial de consultas",
+    descripcion: "Las consultas clínicas que usted realizó, de la más reciente a la más antigua. Solo se muestran las suyas.",
+    vacio: "Aún no realizó consultas clínicas. Use «Nueva consulta» para iniciar una.",
+  },
+  reportes: {
+    titulo: "Reportes",
+    descripcion: "Exporte el reporte de sus consultas verificadas o con evidencia insuficiente, para el expediente o para el cuidador.",
+    vacio: "Aún no realizó consultas clínicas: el reporte se exporta desde una consulta con resultado.",
+  },
+};
+// Solo las consultas con resultado tienen reporte (docs/contrato_reportes.md).
+const CON_RESULTADO = ["VERIFICADA", "EVIDENCIA_INSUFICIENTE"];
+
+export default function HistorialConsultas({ modo = "historial" }: { modo?: ModoLista }) {
+  const textos = TEXTOS[modo];
+  useTituloPagina(textos.titulo);
   const [parametros, setParametros] = useSearchParams();
   const actual = leerParametros(parametros);
   const clave = escribirParametros(actual, actual.pagina).toString();
@@ -99,12 +118,10 @@ export default function HistorialConsultas() {
     <section className="consultas-propias">
       <div className="encabezado-pagina">
         <div className="consultas-propias__titulo">
-          <h1>Historial de consultas</h1>
-          <p className="texto-tenue">
-            Las consultas clínicas que usted realizó, de la más reciente a la más antigua. Solo se muestran las suyas.
-          </p>
+          <h1>{textos.titulo}</h1>
+          <p className="texto-tenue">{textos.descripcion}</p>
         </div>
-        <Link className="boton boton--primario boton--auto" to="/consultas/nueva">Nueva consulta</Link>
+        {modo === "historial" && <Link className="boton boton--primario boton--auto" to="/consultas/nueva">Nueva consulta</Link>}
       </div>
 
       <form className="tarjeta tarjeta--ancha consultas-propias__filtros" onSubmit={filtrar} aria-label="Filtros de las consultas"
@@ -153,14 +170,14 @@ export default function HistorialConsultas() {
           </div>
         ) : carga.pagina.consultas.length === 0 ? (
           <p className="vacio" role="status">
-            {conFiltros ? "No hay consultas con esos filtros." : "Aún no realizó consultas clínicas. Use «Nueva consulta» para iniciar una."}
+            {conFiltros ? "No hay consultas con esos filtros." : textos.vacio}
           </p>
         ) : (
           <>
             <p className="texto-tenue consultas-propias__conteo" role="status">
               {rango(carga.pagina)}
             </p>
-            {angosto ? <Tarjetas consultas={carga.pagina.consultas} /> : <Tabla consultas={carga.pagina.consultas} />}
+            {angosto ? <Tarjetas consultas={carga.pagina.consultas} modo={modo} /> : <Tabla consultas={carga.pagina.consultas} modo={modo} />}
             <Paginacion pagina={actual.pagina} total={carga.pagina.total} irA={irA} />
           </>
         )}
@@ -194,7 +211,18 @@ function enlaceVer(c: ConsultaPropia): { to: string; "aria-label": string } {
   return { to: `/consultas/${c.id_consulta}`, "aria-label": `Ver la consulta de ${c.nombres_apellidos} del ${fechaHora(c.fecha_hora_inicio)}` };
 }
 
-function Tabla({ consultas }: { consultas: ConsultaPropia[] }) {
+// «Exportar» (modo reportes): hacia M09 si la consulta tiene resultado; si no, el motivo en texto.
+function Exportar({ c, chico }: { c: ConsultaPropia; chico?: boolean }) {
+  if (!CON_RESULTADO.includes(c.estado)) return <span className="texto-tenue consultas-propias__sin-reporte">Sin resultado para exportar</span>;
+  return (
+    <Link className={`boton boton--primario boton--auto${chico ? " boton--chico" : ""}`} to={`/consultas/${c.id_consulta}/reporte`}
+          aria-label={`Exportar el reporte de la consulta de ${c.nombres_apellidos} del ${fechaHora(c.fecha_hora_inicio)}`}>
+      Exportar
+    </Link>
+  );
+}
+
+function Tabla({ consultas, modo }: { consultas: ConsultaPropia[]; modo: ModoLista }) {
   return (
     <div className="tabla-contenedor consultas-propias__tabla" tabIndex={0} role="region" aria-label="Consultas realizadas">
       <table className="tabla tabla--compacta">
@@ -227,7 +255,10 @@ function Tabla({ consultas }: { consultas: ConsultaPropia[] }) {
               <td className="consultas-propias__pregunta-celda"><Pregunta texto={c.pregunta} /></td>
               <td><Estado c={c} /></td>
               <td className="consultas-propias__ver">
-                <Link className="boton boton--secundario boton--chico" {...enlaceVer(c)}>Ver</Link>
+                <span className="consultas-propias__acciones">
+                  <Link className="boton boton--secundario boton--chico" {...enlaceVer(c)}>Ver</Link>
+                  {modo === "reportes" && <Exportar c={c} chico />}
+                </span>
               </td>
             </tr>
           ))}
@@ -237,7 +268,7 @@ function Tabla({ consultas }: { consultas: ConsultaPropia[] }) {
   );
 }
 
-function Tarjetas({ consultas }: { consultas: ConsultaPropia[] }) {
+function Tarjetas({ consultas, modo }: { consultas: ConsultaPropia[]; modo: ModoLista }) {
   return (
     <ul className="consultas-propias__tarjetas" aria-label="Consultas realizadas">
       {consultas.map((c) => (
@@ -256,6 +287,7 @@ function Tarjetas({ consultas }: { consultas: ConsultaPropia[] }) {
           </p>
           <p className="consultas-propias__tarjeta-pregunta"><Pregunta texto={c.pregunta} /></p>
           <Link className="boton boton--secundario consultas-propias__tarjeta-ver" {...enlaceVer(c)}>Ver resultado</Link>
+          {modo === "reportes" && <Exportar c={c} />}
         </li>
       ))}
     </ul>

@@ -5,6 +5,7 @@ import BaseConocimiento from "./pages/BaseConocimiento";
 import ConsultaClinica from "./pages/ConsultaClinica";
 import EditarPaciente from "./pages/EditarPaciente";
 import EnConstruccion from "./pages/EnConstruccion";
+import ExportarReporte from "./pages/ExportarReporte";
 import GestionUsuarios from "./pages/GestionUsuarios";
 import HistorialConsultas from "./pages/HistorialConsultas";
 import HistorialPaciente from "./pages/HistorialPaciente";
@@ -33,6 +34,7 @@ function ConPermiso({ permisos, children }: { permisos: string[]; children: JSX.
 const LEER_PACIENTES = ["REGISTRAR_PACIENTE", "REALIZAR_CONSULTA"];
 const REGISTRAR = ["REGISTRAR_PACIENTE"];
 const CONSULTAR = ["REALIZAR_CONSULTA"];
+const EXPORTAR = ["EXPORTAR_REPORTE"];
 
 export default function App() {
   return (
@@ -49,7 +51,8 @@ export default function App() {
         <Route path="consultas/:id" element={<ConPermiso permisos={CONSULTAR}><ResultadoConsulta /></ConPermiso>} />
         <Route path="consultas" element={<ConPermiso permisos={CONSULTAR}><HistorialConsultas /></ConPermiso>} />
         <Route path="consultas/nueva" element={<ConPermiso permisos={CONSULTAR}><PanelPacientes modo="nueva" /></ConPermiso>} />
-        <Route path="reportes" element={<EnConstruccion titulo="Reportes" pantalla="M09 Reporte exportable" sprint={3} />} />
+        <Route path="consultas/:id/reporte" element={<ConPermiso permisos={EXPORTAR}><ExportarReporte /></ConPermiso>} />
+        <Route path="reportes" element={<ConPermiso permisos={EXPORTAR}><HistorialConsultas modo="reportes" /></ConPermiso>} />
         <Route path="admin/usuarios" element={<ConPermiso permisos={["ADMINISTRAR_USUARIOS"]}><GestionUsuarios /></ConPermiso>} />
         <Route path="admin/conocimiento" element={<ConPermiso permisos={["ADMINISTRAR_GUIAS"]}><BaseConocimiento /></ConPermiso>} />
         <Route path="admin/parametros" element={<EnConstruccion titulo="Parámetros clínicos" pantalla="M12 Parámetros clínicos" sprint={3} />} />

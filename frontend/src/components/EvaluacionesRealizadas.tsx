@@ -1,7 +1,8 @@
 // M08 · «Evaluaciones realizadas»: consultas clínicas del paciente hechas por el usuario
 // autenticado (GET /api/pacientes/{id}/historial, campo consultas; el backend no lista las de
 // otros profesionales), de la más reciente a la más antigua. Cada fila enlaza a /consultas/:id.
-// La Hb sale del tamizaje de la consulta (por id_tamizaje); la decisión, de tipo_decision.
+// La Hb sale del tamizaje de la consulta (por id_tamizaje); la decisión, de tipo_decision. Las
+// consultas con resultado tienen además «Reporte» hacia M09 si el rol puede exportar (parte C2).
 import { useId, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { TamizajeHistorial } from "../api/pacientes";
@@ -9,6 +10,7 @@ import type { ConsultaListada } from "../api/tipos_consulta";
 import { TIPOS_DECISION } from "../consulta/textos";
 import { VACIO, decimal, fechaHora } from "../utilidades/formato";
 import { EtiquetaClasificacion, EtiquetaEstadoConsulta } from "./Etiquetas";
+import BotonExportarReporte from "./reporte/BotonExportarReporte";
 
 // Fecha local (aaaa-mm-dd) de una fecha y hora ISO, para compararla con <input type="date">.
 export function fechaLocal(iso: string): string {
@@ -95,10 +97,14 @@ export default function EvaluacionesRealizadas({ consultas, tamizajes, realizaCo
                     </td>
                     <td>{c.tipo_decision ? TIPOS_DECISION[c.tipo_decision]?.etiqueta ?? c.tipo_decision : <span className="texto-tenue">Sin decisión</span>}</td>
                     <td className="evaluaciones__ver">
-                      <Link className="boton boton--secundario boton--chico" to={`/consultas/${c.id_consulta}`}
-                            aria-label={`Ver la consulta del ${cuando}`}>
-                        Ver
-                      </Link>
+                      <span className="evaluaciones__acciones">
+                        <Link className="boton boton--secundario boton--chico" to={`/consultas/${c.id_consulta}`}
+                              aria-label={`Ver la consulta del ${cuando}`}>
+                          Ver
+                        </Link>
+                        <BotonExportarReporte idConsulta={c.id_consulta} estado={c.estado} texto="Reporte" chico
+                                              etiqueta={`Exportar el reporte de la consulta del ${cuando}`} />
+                      </span>
                     </td>
                   </tr>
                 );

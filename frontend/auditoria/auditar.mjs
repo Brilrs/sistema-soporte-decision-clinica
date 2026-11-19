@@ -113,6 +113,21 @@ const citaPuntero = () => {
       seccion: "6.1.1 A Tabla 4 (mod. RM 429-2024/MINSA, modificación N.° 5)" }];
 };
 
+// M09 (reporte exportable, Sprint 3 parte C2): vistas previas y lista de los fixtures de la parte C1.
+// La consulta «real» no es de prueba y lleva una decisión con nota y nombre largos; el POST se responde
+// aquí con bytes ficticios y las cabeceras del contrato (nunca llega al backend).
+const AVISO_PRUEBA = "MODO DE PRUEBA, no es un documento clínico";
+const vistaM09 = (destino, prueba) => {
+  const v = leerJson(path.join(FIX, `reporte_vista_previa_${destino.toLowerCase()}.json`));
+  v.modo_prueba = prueba;
+  if (!prueba) v.avisos = v.avisos.filter((a) => a !== AVISO_PRUEBA);
+  v.bloques = v.bloques.map((b) => (b.seccion !== "DECISION" ? b : { ...b, campos: [
+    { etiqueta: "Tipo de decisión", valor: "Modifica la recomendación" }, { etiqueta: "Nota", valor: NOTA_LARGA },
+    { etiqueta: "Registrada por", valor: DECISION.registrada_por }, { etiqueta: "Fecha y hora", valor: "15/11/2026 10:30" }] }));
+  return v;
+};
+const REPORTES_M09 = leerJson(path.join(FIX, "reportes_lista.json"));
+
 // M11: guías reales (fixtures) más tres ficticias con estados que la base real no tiene.
 const DOCS_REALES = leerJson(path.join(FIX_M11, "documentos.json"));
 const DETALLE_M11 = leerJson(path.join(FIX_M11, "detalle_nts213.json"));
@@ -146,6 +161,9 @@ const ACTIVOS_M11 = [
 // Pantallas y estados
 // ---------------------------------------------------------------------------
 const m05 = (estado, extra = {}) => ({ ruta: `/consultas/${ID_CON}`, resultado: estado, esperar: "Pregunta realizada", ...extra });
+const m09 = (extra = {}) => ({ ruta: `/consultas/${ID_CON}/reporte`, resultado: "VERIFICADA", esperar: "Reportes generados de esta consulta",
+  m09: { destino: "EXPEDIENTE", prueba: true, ...extra },
+  cambios: { modo_prueba: extra.prueba ?? true, ...(extra.prueba === false ? { decision: DECISION, opciones_decision: [] } : {}) } });
 const m11 = (extra = {}) => ({ ruta: "/admin/conocimiento", admin: true, m11: true, docs: DOCS_M11, activos: [], ...extra });
 const PANTALLAS = {
   login: { ruta: "/login", sinSesion: true, esperar: "Ingresar" },
@@ -191,7 +209,13 @@ const PANTALLAS = {
   m11_cargar_errores: m11({ abrir: "cargar", enviarVacio: true }),
   m11_detalle: m11({ abrir: "detalle" }),
   m11_vacio: m11({ docs: [] }),
-  en_construccion: { ruta: "/reportes", esperar: null },
+  en_construccion: { ruta: "/admin/parametros", admin: true, esperar: null },
+  // Parte C2 del Sprint 3: M09 en ambos destinos, con el reporte generado, y «Reportes» (/reportes).
+  m09_expediente_real: m09({ prueba: false, generar: true }),
+  m09_expediente_prueba: m09({ prueba: true }),
+  m09_cuidador: m09({ prueba: true, destino: "CUIDADOR" }),
+  m09_vista_error: m09({ prueba: false, vistaError: true }),
+  reportes_lista: { ruta: "/reportes", esperar: "Mostrando 1 a 4 de 45 consultas", lista: paginaPropias },
   // Parte B del Sprint 3: lista de consultas propias, sus estados y el buscador de «Nueva consulta».
   consultas_lista: { ruta: "/consultas", esperar: "Mostrando 1 a 4 de 45 consultas", lista: paginaPropias },
   consultas_filtros_error: { ruta: "/consultas?desde=2026-11-15&hasta=2026-11-01", esperar: "Mostrando 1 a 4 de 45 consultas",
@@ -262,11 +286,13 @@ function medir() {
 }
 
 // Controles de menos de 44 px de alto por debajo de 800 px, en el alcance donde el Sprint 2 fijó esa
-// regla (menú móvil, M11 y ventanas; ver estilos.test.ts). Es un aviso, no una falla. Los botones de
+// regla (menú móvil, M11 y ventanas; ver estilos.test.ts) y en lo nuevo de la parte C2 del Sprint 3
+// (M09, sus entradas en M08 y la lista de consultas). Es un aviso, no una falla. Los botones de
 // las pantallas clínicas (42 px) y los enlaces dentro del texto quedan fuera de ese alcance.
 function tactiles() {
   return [...document.querySelectorAll(".boton-menu, .menu-movil a, .menu-movil button, .conocimiento .boton, .guia__opcion, " +
-    ".modal .boton, .modal input:not([type=radio]):not([type=checkbox]), .modal select")]
+    ".modal .boton, .modal input:not([type=radio]):not([type=checkbox]), .modal select, .reporte .boton, .reporte__opcion, " +
+    ".evaluaciones__acciones .boton, .consultas-propias .boton")]
     .filter((b) => b.getBoundingClientRect().height > 0)
     .map((b) => ({ t: (b.getAttribute("aria-label") ?? b.textContent ?? b.id).trim().slice(0, 30),
                    h: Math.round(b.getBoundingClientRect().height), w: Math.round(b.getBoundingClientRect().width) }))
@@ -293,6 +319,16 @@ async function simular(p, ruta) {
   }
   if (p.lista && u.pathname === "/api/consultas")
     return p.lista === "error" ? json({ detail: "Error interno del servidor" }, 500) : json(p.lista);
+  if (p.m09 && u.pathname === `/api/consultas/${ID_CON}/reportes/vista-previa`) {
+    if (p.m09.vistaError) return json({ detail: "Error interno del servidor" }, 500);
+    return json(vistaM09(u.searchParams.get("destino") === "CUIDADOR" ? "CUIDADOR" : "EXPEDIENTE", p.m09.prueba));
+  }
+  if (p.m09 && u.pathname === `/api/consultas/${ID_CON}/reportes`) {
+    if (req.method() === "GET") return json(REPORTES_M09);
+    return ruta.fulfill({ status: 201, contentType: "application/pdf", body: Buffer.from("%PDF-1.4 auditoria"),
+      headers: { "X-Reporte-Numero": "EV-2026-00918", "X-Reporte-Hash": "9f".repeat(32), "Cache-Control": "no-store",
+                 "Content-Disposition": 'attachment; filename="EV-2026-00918.pdf"' } });
+  }
   if (p.resultado && u.pathname === `/api/consultas/${ID_CON}`) return json(resultadoFix(p.resultado, p.cambios));
   if (u.pathname === `/api/pacientes/${ID_PAC_FIX}`) return json(fichaFix);
   if (u.pathname === `/api/pacientes/${ID_PAC_FIX}/historial`) return json(historialFix);
@@ -329,6 +365,18 @@ async function preparar(pagina, p) {
     else await pagina.getByRole("heading", { name: "Estado de la consulta" }).waitFor({ timeout: 8000 });
   }
   if (p.cerrarVentana || p.ventana) await pagina.getByRole("dialog").waitFor();
+  if (p.m09) {
+    if (p.m09.vistaError) await pagina.getByText("No se pudo cargar la vista previa", { exact: false }).waitFor({ timeout: 8000 });
+    else await pagina.getByRole("article", { name: "Vista previa del documento" }).waitFor({ timeout: 8000 });
+    if (p.m09.destino === "CUIDADOR") {
+      await pagina.getByRole("radio", { name: "Entrega al cuidador" }).check();
+      await pagina.getByText("Información para la familia").waitFor({ timeout: 8000 });
+    }
+    if (p.m09.generar) {
+      await pagina.getByRole("button", { name: "Generar reporte (PDF)" }).click();
+      await pagina.getByRole("heading", { name: "Reporte EV-2026-00918" }).waitFor({ timeout: 8000 });
+    }
+  }
   if (p.detalle) await pagina.getByText("Detalle de la búsqueda").click();
   if (p.filtrar) {
     await pagina.getByRole("button", { name: "Filtrar" }).click();
