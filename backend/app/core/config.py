@@ -66,6 +66,10 @@ class Settings(BaseSettings):
     # búsqueda ampliada) o error (rechazo del modelo, ERROR sin reintento). normal es el valor
     # neutro: docker-compose.yml lo pasa siempre. Otro valor exige CDSS_LLM=falso y desarrollo.
     llm_falso_modo: Literal["normal", "evidencia_insuficiente", "error"] = Field("normal", alias="CDSS_LLM_FALSO_MODO")
+    # Modo de evaluación (OE3, parte E1a): con true, las escrituras de M12 (parámetros) y de M11
+    # (carga y reintento de guías) responden 423 y dejan el evento PARAMETRO_CAMBIO_BLOQUEADO. Solo
+    # se configura en el entorno; ninguna ruta de la API lo cambia.
+    modo_evaluacion: bool = Field(False, alias="CDSS_MODO_EVALUACION")
 
     @model_validator(mode="after")
     def _llm_falso_solo_en_desarrollo(self):

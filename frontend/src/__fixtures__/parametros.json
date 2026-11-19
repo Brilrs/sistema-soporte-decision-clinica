@@ -1,0 +1,701 @@
+{
+  "puede_editar": true,
+  "modo_evaluacion": false,
+  "puntos_corte": {
+    "version": "da994960c67363d5a0cd34133c8dede918cc9acb2a6c04c7fada36c62568977e",
+    "tramos": [
+      {
+        "edad_min_meses": 6,
+        "edad_max_meses": 23,
+        "categorias": [
+          {
+            "documento": {
+              "id_documento": "10000000-0000-0000-0000-000000002024",
+              "codigo": "OMS 2024",
+              "titulo": "Guideline on haemoglobin cutoffs to define anaemia in individuals and populations"
+            },
+            "referencia": null,
+            "motivo_cambio": null,
+            "verificado": false,
+            "vigente_desde": "2026-10-20T15:00:00Z",
+            "modificado_por": "Sistema (carga inicial)",
+            "id_umbral": 2,
+            "categoria": "SIN_ANEMIA",
+            "nivel_riesgo": "BAJO",
+            "hb_min_g_dl": 10.5,
+            "hb_max_g_dl": null
+          },
+          {
+            "documento": {
+              "id_documento": "10000000-0000-0000-0000-000000002024",
+              "codigo": "OMS 2024",
+              "titulo": "Guideline on haemoglobin cutoffs to define anaemia in individuals and populations"
+            },
+            "referencia": null,
+            "motivo_cambio": null,
+            "verificado": false,
+            "vigente_desde": "2026-10-20T15:00:00Z",
+            "modificado_por": "Sistema (carga inicial)",
+            "id_umbral": 4,
+            "categoria": "ANEMIA_LEVE",
+            "nivel_riesgo": "MODERADO",
+            "hb_min_g_dl": 9.5,
+            "hb_max_g_dl": 10.4
+          },
+          {
+            "documento": {
+              "id_documento": "10000000-0000-0000-0000-000000002024",
+              "codigo": "OMS 2024",
+              "titulo": "Guideline on haemoglobin cutoffs to define anaemia in individuals and populations"
+            },
+            "referencia": null,
+            "motivo_cambio": null,
+            "verificado": false,
+            "vigente_desde": "2026-10-20T15:00:00Z",
+            "modificado_por": "Sistema (carga inicial)",
+            "id_umbral": 6,
+            "categoria": "ANEMIA_MODERADA",
+            "nivel_riesgo": "ALTO",
+            "hb_min_g_dl": 7.0,
+            "hb_max_g_dl": 9.4
+          },
+          {
+            "documento": {
+              "id_documento": "10000000-0000-0000-0000-000000002024",
+              "codigo": "OMS 2024",
+              "titulo": "Guideline on haemoglobin cutoffs to define anaemia in individuals and populations"
+            },
+            "referencia": null,
+            "motivo_cambio": null,
+            "verificado": false,
+            "vigente_desde": "2026-10-20T15:00:00Z",
+            "modificado_por": "Sistema (carga inicial)",
+            "id_umbral": 8,
+            "categoria": "ANEMIA_SEVERA",
+            "nivel_riesgo": "MUY_ALTO",
+            "hb_min_g_dl": null,
+            "hb_max_g_dl": 6.9
+          }
+        ]
+      },
+      {
+        "edad_min_meses": 24,
+        "edad_max_meses": 59,
+        "categorias": [
+          {
+            "documento": {
+              "id_documento": "10000000-0000-0000-0000-000000002024",
+              "codigo": "OMS 2024",
+              "titulo": "Guideline on haemoglobin cutoffs to define anaemia in individuals and populations"
+            },
+            "referencia": null,
+            "motivo_cambio": null,
+            "verificado": false,
+            "vigente_desde": "2026-10-20T15:00:00Z",
+            "modificado_por": "Sistema (carga inicial)",
+            "id_umbral": 1,
+            "categoria": "SIN_ANEMIA",
+            "nivel_riesgo": "BAJO",
+            "hb_min_g_dl": 11.0,
+            "hb_max_g_dl": null
+          },
+          {
+            "documento": {
+              "id_documento": "10000000-0000-0000-0000-000000002024",
+              "codigo": "OMS 2024",
+              "titulo": "Guideline on haemoglobin cutoffs to define anaemia in individuals and populations"
+            },
+            "referencia": null,
+            "motivo_cambio": null,
+            "verificado": false,
+            "vigente_desde": "2026-10-20T15:00:00Z",
+            "modificado_por": "Sistema (carga inicial)",
+            "id_umbral": 3,
+            "categoria": "ANEMIA_LEVE",
+            "nivel_riesgo": "MODERADO",
+            "hb_min_g_dl": 10.0,
+            "hb_max_g_dl": 10.9
+          },
+          {
+            "documento": {
+              "id_documento": "10000000-0000-0000-0000-000000002024",
+              "codigo": "OMS 2024",
+              "titulo": "Guideline on haemoglobin cutoffs to define anaemia in individuals and populations"
+            },
+            "referencia": null,
+            "motivo_cambio": null,
+            "verificado": false,
+            "vigente_desde": "2026-10-20T15:00:00Z",
+            "modificado_por": "Sistema (carga inicial)",
+            "id_umbral": 5,
+            "categoria": "ANEMIA_MODERADA",
+            "nivel_riesgo": "ALTO",
+            "hb_min_g_dl": 7.0,
+            "hb_max_g_dl": 9.9
+          },
+          {
+            "documento": {
+              "id_documento": "10000000-0000-0000-0000-000000002024",
+              "codigo": "OMS 2024",
+              "titulo": "Guideline on haemoglobin cutoffs to define anaemia in individuals and populations"
+            },
+            "referencia": null,
+            "motivo_cambio": null,
+            "verificado": false,
+            "vigente_desde": "2026-10-20T15:00:00Z",
+            "modificado_por": "Sistema (carga inicial)",
+            "id_umbral": 7,
+            "categoria": "ANEMIA_SEVERA",
+            "nivel_riesgo": "MUY_ALTO",
+            "hb_min_g_dl": null,
+            "hb_max_g_dl": 6.9
+          }
+        ]
+      }
+    ]
+  },
+  "ajuste_altitud": {
+    "version": "3614c93a90d3b109160f07ee48508d464e244edc1fc8087f856c1214eacede8c",
+    "rangos": [
+      {
+        "documento": {
+          "id_documento": "10000000-0000-0000-0000-000000002024",
+          "codigo": "OMS 2024",
+          "titulo": "Guideline on haemoglobin cutoffs to define anaemia in individuals and populations"
+        },
+        "referencia": null,
+        "motivo_cambio": null,
+        "verificado": false,
+        "vigente_desde": "2026-10-20T15:00:00Z",
+        "modificado_por": "Sistema (carga inicial)",
+        "id_ajuste": 1,
+        "altitud_min_msnm": 0,
+        "altitud_max_msnm": 499,
+        "ajuste_g_dl": 0.0
+      },
+      {
+        "documento": {
+          "id_documento": "10000000-0000-0000-0000-000000002024",
+          "codigo": "OMS 2024",
+          "titulo": "Guideline on haemoglobin cutoffs to define anaemia in individuals and populations"
+        },
+        "referencia": null,
+        "motivo_cambio": null,
+        "verificado": false,
+        "vigente_desde": "2026-10-20T15:00:00Z",
+        "modificado_por": "Sistema (carga inicial)",
+        "id_ajuste": 2,
+        "altitud_min_msnm": 500,
+        "altitud_max_msnm": 999,
+        "ajuste_g_dl": 0.4
+      },
+      {
+        "documento": {
+          "id_documento": "10000000-0000-0000-0000-000000002024",
+          "codigo": "OMS 2024",
+          "titulo": "Guideline on haemoglobin cutoffs to define anaemia in individuals and populations"
+        },
+        "referencia": null,
+        "motivo_cambio": null,
+        "verificado": false,
+        "vigente_desde": "2026-10-20T15:00:00Z",
+        "modificado_por": "Sistema (carga inicial)",
+        "id_ajuste": 3,
+        "altitud_min_msnm": 1000,
+        "altitud_max_msnm": 1499,
+        "ajuste_g_dl": 0.8
+      },
+      {
+        "documento": {
+          "id_documento": "10000000-0000-0000-0000-000000002024",
+          "codigo": "OMS 2024",
+          "titulo": "Guideline on haemoglobin cutoffs to define anaemia in individuals and populations"
+        },
+        "referencia": null,
+        "motivo_cambio": null,
+        "verificado": false,
+        "vigente_desde": "2026-10-20T15:00:00Z",
+        "modificado_por": "Sistema (carga inicial)",
+        "id_ajuste": 4,
+        "altitud_min_msnm": 1500,
+        "altitud_max_msnm": 1999,
+        "ajuste_g_dl": 1.1
+      },
+      {
+        "documento": {
+          "id_documento": "10000000-0000-0000-0000-000000002024",
+          "codigo": "OMS 2024",
+          "titulo": "Guideline on haemoglobin cutoffs to define anaemia in individuals and populations"
+        },
+        "referencia": null,
+        "motivo_cambio": null,
+        "verificado": false,
+        "vigente_desde": "2026-10-20T15:00:00Z",
+        "modificado_por": "Sistema (carga inicial)",
+        "id_ajuste": 5,
+        "altitud_min_msnm": 2000,
+        "altitud_max_msnm": 2499,
+        "ajuste_g_dl": 1.4
+      },
+      {
+        "documento": {
+          "id_documento": "10000000-0000-0000-0000-000000002024",
+          "codigo": "OMS 2024",
+          "titulo": "Guideline on haemoglobin cutoffs to define anaemia in individuals and populations"
+        },
+        "referencia": null,
+        "motivo_cambio": null,
+        "verificado": false,
+        "vigente_desde": "2026-10-20T15:00:00Z",
+        "modificado_por": "Sistema (carga inicial)",
+        "id_ajuste": 6,
+        "altitud_min_msnm": 2500,
+        "altitud_max_msnm": 2999,
+        "ajuste_g_dl": 1.8
+      },
+      {
+        "documento": {
+          "id_documento": "10000000-0000-0000-0000-000000002024",
+          "codigo": "OMS 2024",
+          "titulo": "Guideline on haemoglobin cutoffs to define anaemia in individuals and populations"
+        },
+        "referencia": null,
+        "motivo_cambio": null,
+        "verificado": false,
+        "vigente_desde": "2026-10-20T15:00:00Z",
+        "modificado_por": "Sistema (carga inicial)",
+        "id_ajuste": 7,
+        "altitud_min_msnm": 3000,
+        "altitud_max_msnm": 3499,
+        "ajuste_g_dl": 2.1
+      },
+      {
+        "documento": {
+          "id_documento": "10000000-0000-0000-0000-000000002024",
+          "codigo": "OMS 2024",
+          "titulo": "Guideline on haemoglobin cutoffs to define anaemia in individuals and populations"
+        },
+        "referencia": null,
+        "motivo_cambio": null,
+        "verificado": false,
+        "vigente_desde": "2026-10-20T15:00:00Z",
+        "modificado_por": "Sistema (carga inicial)",
+        "id_ajuste": 8,
+        "altitud_min_msnm": 3500,
+        "altitud_max_msnm": 3999,
+        "ajuste_g_dl": 2.5
+      },
+      {
+        "documento": {
+          "id_documento": "10000000-0000-0000-0000-000000002024",
+          "codigo": "OMS 2024",
+          "titulo": "Guideline on haemoglobin cutoffs to define anaemia in individuals and populations"
+        },
+        "referencia": null,
+        "motivo_cambio": null,
+        "verificado": false,
+        "vigente_desde": "2026-10-20T15:00:00Z",
+        "modificado_por": "Sistema (carga inicial)",
+        "id_ajuste": 9,
+        "altitud_min_msnm": 4000,
+        "altitud_max_msnm": 4499,
+        "ajuste_g_dl": 2.9
+      },
+      {
+        "documento": {
+          "id_documento": "10000000-0000-0000-0000-000000000429",
+          "codigo": "RM 429-2024/MINSA",
+          "titulo": "NTS 213-MINSA/DGIESP-2024 modificada por RM 429-2024/MINSA"
+        },
+        "referencia": null,
+        "motivo_cambio": null,
+        "verificado": false,
+        "vigente_desde": "2026-10-20T15:00:00Z",
+        "modificado_por": "Sistema (carga inicial)",
+        "id_ajuste": 11,
+        "altitud_min_msnm": 4500,
+        "altitud_max_msnm": 4999,
+        "ajuste_g_dl": 3.3
+      },
+      {
+        "documento": {
+          "id_documento": "10000000-0000-0000-0000-000000000429",
+          "codigo": "RM 429-2024/MINSA",
+          "titulo": "NTS 213-MINSA/DGIESP-2024 modificada por RM 429-2024/MINSA"
+        },
+        "referencia": null,
+        "motivo_cambio": null,
+        "verificado": false,
+        "vigente_desde": "2026-10-20T15:00:00Z",
+        "modificado_por": "Sistema (carga inicial)",
+        "id_ajuste": 12,
+        "altitud_min_msnm": 5000,
+        "altitud_max_msnm": 5500,
+        "ajuste_g_dl": 4.0
+      }
+    ]
+  },
+  "vigencia_tamizaje": {
+    "documento": null,
+    "referencia": null,
+    "motivo_cambio": null,
+    "verificado": false,
+    "vigente_desde": "2026-10-20T15:00:00Z",
+    "modificado_por": "Sistema (carga inicial)",
+    "id_parametro": 1,
+    "clave": "DIAS_VIGENCIA_TAMIZAJE",
+    "valor": "30",
+    "tipo_dato": "ENTERO",
+    "valor_minimo": 1.0,
+    "valor_maximo": 365.0,
+    "descripcion": "Días durante los que un tamizaje se considera vigente para evaluar",
+    "version": "9abce523ddc9522b1204181cdda9d5b7c9bf5f01053fbcfb729b030dd94c6b8f"
+  },
+  "riesgo": [
+    {
+      "nombre": "SIN_ANEMIA",
+      "nivel_riesgo": "BAJO",
+      "requiere_derivacion": false,
+      "orden": 1
+    },
+    {
+      "nombre": "ANEMIA_LEVE",
+      "nivel_riesgo": "MODERADO",
+      "requiere_derivacion": false,
+      "orden": 2
+    },
+    {
+      "nombre": "ANEMIA_MODERADA",
+      "nivel_riesgo": "ALTO",
+      "requiere_derivacion": false,
+      "orden": 3
+    },
+    {
+      "nombre": "ANEMIA_SEVERA",
+      "nivel_riesgo": "MUY_ALTO",
+      "requiere_derivacion": true,
+      "orden": 4
+    }
+  ],
+  "recuperacion": [
+    {
+      "documento": null,
+      "referencia": null,
+      "motivo_cambio": null,
+      "verificado": false,
+      "vigente_desde": "2026-10-20T15:00:00Z",
+      "modificado_por": "Sistema (carga inicial)",
+      "id_parametro": 7,
+      "clave": "CANDIDATOS_BUSQUEDA",
+      "valor": "20",
+      "tipo_dato": "ENTERO",
+      "valor_minimo": 5.0,
+      "valor_maximo": 100.0,
+      "descripcion": "Candidatos por método de búsqueda (BM25 y densa)"
+    },
+    {
+      "documento": null,
+      "referencia": null,
+      "motivo_cambio": null,
+      "verificado": false,
+      "vigente_desde": "2026-10-20T15:00:00Z",
+      "modificado_por": "Sistema (carga inicial)",
+      "id_parametro": 8,
+      "clave": "CANDIDATOS_BUSQUEDA_AMPLIADA",
+      "valor": "40",
+      "tipo_dato": "ENTERO",
+      "valor_minimo": 5.0,
+      "valor_maximo": 200.0,
+      "descripcion": "Candidatos por método en la búsqueda ampliada del reintento"
+    },
+    {
+      "documento": null,
+      "referencia": null,
+      "motivo_cambio": null,
+      "verificado": false,
+      "vigente_desde": "2026-10-20T15:00:00Z",
+      "modificado_por": "Sistema (carga inicial)",
+      "id_parametro": 9,
+      "clave": "RRF_K",
+      "valor": "60",
+      "tipo_dato": "ENTERO",
+      "valor_minimo": 1.0,
+      "valor_maximo": 200.0,
+      "descripcion": "Constante k de Reciprocal Rank Fusion"
+    },
+    {
+      "documento": null,
+      "referencia": null,
+      "motivo_cambio": null,
+      "verificado": false,
+      "vigente_desde": "2026-10-20T15:00:00Z",
+      "modificado_por": "Sistema (carga inicial)",
+      "id_parametro": 48,
+      "clave": "CANDIDATOS_RERANKER",
+      "valor": "8",
+      "tipo_dato": "ENTERO",
+      "valor_minimo": 1.0,
+      "valor_maximo": 100.0,
+      "descripcion": "Candidatos de la fusión RRF que evalúa el reranker (bge-reranker-v2-m3 ONNX int8)"
+    },
+    {
+      "documento": null,
+      "referencia": null,
+      "motivo_cambio": null,
+      "verificado": false,
+      "vigente_desde": "2026-10-20T15:00:00Z",
+      "modificado_por": "Sistema (carga inicial)",
+      "id_parametro": 49,
+      "clave": "MAX_LONGITUD_RERANKER",
+      "valor": "256",
+      "tipo_dato": "ENTERO",
+      "valor_minimo": 64.0,
+      "valor_maximo": 1024.0,
+      "descripcion": "Tokens máximos de cada par consulta y fragmento en el reranker"
+    },
+    {
+      "documento": null,
+      "referencia": null,
+      "motivo_cambio": null,
+      "verificado": false,
+      "vigente_desde": "2026-10-20T15:00:00Z",
+      "modificado_por": "Sistema (carga inicial)",
+      "id_parametro": 10,
+      "clave": "FRAGMENTOS_ENVIADOS",
+      "valor": "5",
+      "tipo_dato": "ENTERO",
+      "valor_minimo": 1.0,
+      "valor_maximo": 10.0,
+      "descripcion": "Fragmentos enviados al modelo de lenguaje"
+    },
+    {
+      "documento": null,
+      "referencia": null,
+      "motivo_cambio": null,
+      "verificado": false,
+      "vigente_desde": "2026-10-20T15:00:00Z",
+      "modificado_por": "Sistema (carga inicial)",
+      "id_parametro": 50,
+      "clave": "UMBRAL_RELEVANCIA",
+      "valor": "0.15",
+      "tipo_dato": "DECIMAL",
+      "valor_minimo": 0.0,
+      "valor_maximo": 1.0,
+      "descripcion": "Puntaje mínimo del reranker para considerar suficiente la evidencia (calibrado con el motor ONNX int8)"
+    },
+    {
+      "documento": null,
+      "referencia": null,
+      "motivo_cambio": null,
+      "verificado": false,
+      "vigente_desde": "2026-10-20T15:00:00Z",
+      "modificado_por": "Sistema (carga inicial)",
+      "id_parametro": 51,
+      "clave": "UMBRAL_DOMINIO",
+      "valor": "0.65",
+      "tipo_dato": "DECIMAL",
+      "valor_minimo": 0.0,
+      "valor_maximo": 1.0,
+      "descripcion": "Similitud mínima con las consultas de referencia del dominio (calibrada con las consultas de referencia)"
+    },
+    {
+      "documento": null,
+      "referencia": null,
+      "motivo_cambio": null,
+      "verificado": false,
+      "vigente_desde": "2026-10-20T15:00:00Z",
+      "modificado_por": "Sistema (carga inicial)",
+      "id_parametro": 86,
+      "clave": "BONIFICACION_EDAD",
+      "valor": "0.7",
+      "tipo_dato": "DECIMAL",
+      "valor_minimo": 0.0,
+      "valor_maximo": 1.0,
+      "descripcion": "Peso de la edad del paciente en la fusión RRF: multiplica por (1 + peso) el puntaje de los fragmentos cuyo rango incluye la edad y por (1 - peso) el de los que la excluyen (0.7 calibrado en C2)"
+    }
+  ],
+  "modelo": [
+    {
+      "documento": null,
+      "referencia": null,
+      "motivo_cambio": null,
+      "verificado": false,
+      "vigente_desde": "2026-10-20T15:00:00Z",
+      "modificado_por": "Sistema (carga inicial)",
+      "id_parametro": 27,
+      "clave": "MODELO_LLM",
+      "valor": "claude-sonnet-5-5",
+      "tipo_dato": "TEXTO",
+      "valor_minimo": null,
+      "valor_maximo": null,
+      "descripcion": "Identificador del modelo de lenguaje"
+    },
+    {
+      "documento": null,
+      "referencia": null,
+      "motivo_cambio": null,
+      "verificado": false,
+      "vigente_desde": "2026-10-20T15:00:00Z",
+      "modificado_por": "Sistema (carga inicial)",
+      "id_parametro": 68,
+      "clave": "VERSION_PROMPT",
+      "valor": "v1.1",
+      "tipo_dato": "TEXTO",
+      "valor_minimo": null,
+      "valor_maximo": null,
+      "descripcion": "Versión vigente del prompt clínico (v1.1: respuesta compacta)"
+    },
+    {
+      "documento": null,
+      "referencia": null,
+      "motivo_cambio": null,
+      "verificado": false,
+      "vigente_desde": "2026-10-20T15:00:00Z",
+      "modificado_por": "Sistema (carga inicial)",
+      "id_parametro": 67,
+      "clave": "MAX_TOKENS_SALIDA",
+      "valor": "1500",
+      "tipo_dato": "ENTERO",
+      "valor_minimo": 100.0,
+      "valor_maximo": 4000.0,
+      "descripcion": "Longitud máxima de la respuesta del modelo, incluido el razonamiento"
+    },
+    {
+      "documento": null,
+      "referencia": null,
+      "motivo_cambio": null,
+      "verificado": false,
+      "vigente_desde": "2026-10-20T15:00:00Z",
+      "modificado_por": "Sistema (carga inicial)",
+      "id_parametro": 16,
+      "clave": "TIMEOUT_LLM_S",
+      "valor": "15",
+      "tipo_dato": "ENTERO",
+      "valor_minimo": 3.0,
+      "valor_maximo": 60.0,
+      "descripcion": "Tiempo máximo de espera de la API del modelo en segundos"
+    },
+    {
+      "documento": null,
+      "referencia": null,
+      "motivo_cambio": null,
+      "verificado": false,
+      "vigente_desde": "2026-10-20T15:00:00Z",
+      "modificado_por": "Sistema (carga inicial)",
+      "id_parametro": 59,
+      "clave": "RAZONAMIENTO_LLM",
+      "valor": "between_tools",
+      "tipo_dato": "TEXTO",
+      "valor_minimo": null,
+      "valor_maximo": null,
+      "descripcion": "Configuración de razonamiento del modelo de lenguaje (between_tools o adaptive)"
+    },
+    {
+      "documento": null,
+      "referencia": null,
+      "motivo_cambio": null,
+      "verificado": false,
+      "vigente_desde": "2026-10-20T15:00:00Z",
+      "modificado_por": "Sistema (carga inicial)",
+      "id_parametro": 60,
+      "clave": "ESFUERZO_LLM",
+      "valor": "medium",
+      "tipo_dato": "TEXTO",
+      "valor_minimo": null,
+      "valor_maximo": null,
+      "descripcion": "Esfuerzo del modelo de lenguaje (low, medium o high)"
+    },
+    {
+      "documento": null,
+      "referencia": null,
+      "motivo_cambio": null,
+      "verificado": false,
+      "vigente_desde": "2026-10-20T15:00:00Z",
+      "modificado_por": "Sistema (carga inicial)",
+      "id_parametro": 31,
+      "clave": "IDIOMA_RESPUESTA_DEFECTO",
+      "valor": "es",
+      "tipo_dato": "TEXTO",
+      "valor_minimo": null,
+      "valor_maximo": null,
+      "descripcion": "Idioma de la recomendación cuando la consulta no indica otro (es o en)"
+    },
+    {
+      "documento": null,
+      "referencia": null,
+      "motivo_cambio": null,
+      "verificado": false,
+      "vigente_desde": "2026-10-20T15:00:00Z",
+      "modificado_por": "Sistema (carga inicial)",
+      "id_parametro": 32,
+      "clave": "PRECIO_ENTRADA_USD_MTOK",
+      "valor": "2.00",
+      "tipo_dato": "DECIMAL",
+      "valor_minimo": 0.0,
+      "valor_maximo": 1000.0,
+      "descripcion": "Precio en dólares por millón de tokens de entrada del modelo de lenguaje"
+    },
+    {
+      "documento": null,
+      "referencia": null,
+      "motivo_cambio": null,
+      "verificado": false,
+      "vigente_desde": "2026-10-20T15:00:00Z",
+      "modificado_por": "Sistema (carga inicial)",
+      "id_parametro": 30,
+      "clave": "PRECIO_SALIDA_USD_MTOK",
+      "valor": "10.00",
+      "tipo_dato": "DECIMAL",
+      "valor_minimo": 0.0,
+      "valor_maximo": 1000.0,
+      "descripcion": "Precio en dólares por millón de tokens de salida del modelo de lenguaje"
+    }
+  ],
+  "indexacion": [
+    {
+      "documento": null,
+      "referencia": null,
+      "motivo_cambio": null,
+      "verificado": false,
+      "vigente_desde": "2026-10-20T15:00:00Z",
+      "modificado_por": "Sistema (carga inicial)",
+      "id_parametro": 4,
+      "clave": "TAMANO_FRAGMENTO_TOKENS",
+      "valor": "500",
+      "tipo_dato": "ENTERO",
+      "valor_minimo": 100.0,
+      "valor_maximo": 1000.0,
+      "descripcion": "Tamaño objetivo de cada fragmento en la indexación"
+    },
+    {
+      "documento": null,
+      "referencia": null,
+      "motivo_cambio": null,
+      "verificado": false,
+      "vigente_desde": "2026-10-20T15:00:00Z",
+      "modificado_por": "Sistema (carga inicial)",
+      "id_parametro": 5,
+      "clave": "TAMANO_MAX_FRAGMENTO_TOKENS",
+      "valor": "800",
+      "tipo_dato": "ENTERO",
+      "valor_minimo": 200.0,
+      "valor_maximo": 1500.0,
+      "descripcion": "Tamaño máximo de un fragmento"
+    },
+    {
+      "documento": null,
+      "referencia": null,
+      "motivo_cambio": null,
+      "verificado": false,
+      "vigente_desde": "2026-10-20T15:00:00Z",
+      "modificado_por": "Sistema (carga inicial)",
+      "id_parametro": 6,
+      "clave": "SOLAPAMIENTO_TOKENS",
+      "valor": "80",
+      "tipo_dato": "ENTERO",
+      "valor_minimo": 0.0,
+      "valor_maximo": 200.0,
+      "descripcion": "Tokens compartidos entre fragmentos consecutivos"
+    }
+  ]
+}

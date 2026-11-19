@@ -1,0 +1,39 @@
+{
+  "huella": "2fc08ad9286a81733fd64a27b57cf9ee11a001a7eccd02f3fa4dddc9a28ef73c",
+  "algoritmo": "SHA-256",
+  "calculada_en": "2026-10-20T15:00:00Z",
+  "version_prompt": "v1.1",
+  "componentes": [
+    {
+      "nombre": "puntos_corte",
+      "huella": "28c36bd21419e7398c610b360a4228eacd95ac0bac4ccbb64ccbbba68941acaf",
+      "elementos": 8
+    },
+    {
+      "nombre": "ajuste_altitud",
+      "huella": "d583324e0be8372686c5011d2b6b96683d2f36ae40f4795d9e1f8c66fb8a2c94",
+      "elementos": 11
+    },
+    {
+      "nombre": "categorias",
+      "huella": "02624915bfff4226246a5189df147c0f7606baf0e24e185debd088cff445f762",
+      "elementos": 4
+    },
+    {
+      "nombre": "parametros_sistema",
+      "huella": "1f132b7e60f3e2823170f701f66b7f4d46152e18b329d4ca17883554e83c440b",
+      "elementos": 26
+    },
+    {
+      "nombre": "indexacion",
+      "huella": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "elementos": 0
+    },
+    {
+      "nombre": "version_prompt",
+      "huella": "ca7948f56d353a9eac81c773591c36f6a4eb6532979a117a5e162be730a3ed23",
+      "elementos": 1
+    }
+  ],
+  "indexacion": []
+}

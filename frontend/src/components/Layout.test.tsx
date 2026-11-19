@@ -40,9 +40,9 @@ const ROLES: [string, string[], string[], string[]][] = [
   ["Enfermera CRED", PERMISOS_CLINICOS, ["Pacientes", "Historial de consultas", "Reportes"], []],
   ["Médico", PERMISOS_CLINICOS, ["Pacientes", "Historial de consultas", "Reportes"], []],
   ["Nutricionista", PERMISOS_CLINICOS, ["Pacientes", "Historial de consultas", "Reportes"], []],
-  ["Coordinador CRED", ["REALIZAR_CONSULTA", "EXPORTAR_REPORTE", "CONFIGURAR_PARAMETROS", "VER_AUDITORIA"],
+  ["Coordinador CRED", ["REALIZAR_CONSULTA", "EXPORTAR_REPORTE", "CONFIGURAR_PARAMETROS", "VER_PARAMETROS", "VER_AUDITORIA"],
    ["Pacientes", "Historial de consultas", "Reportes"], ["Parámetros clínicos", "Auditoría"]],
-  ["Administrador", ["ADMINISTRAR_USUARIOS", "ADMINISTRAR_GUIAS", "CONFIGURAR_PARAMETROS", "VER_AUDITORIA"],
+  ["Administrador", ["ADMINISTRAR_USUARIOS", "ADMINISTRAR_GUIAS", "VER_PARAMETROS", "VER_AUDITORIA"],
    [], ["Usuarios", "Base de conocimiento", "Parámetros clínicos", "Auditoría"]],
 ];
 

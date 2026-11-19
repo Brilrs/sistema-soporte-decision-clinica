@@ -183,14 +183,46 @@ empiece.
   - rangos `valor_minimo` y `valor_maximo`;
   - sin traslape (restricciones EXCLUDE);
   - dos ediciones a la vez: la segunda recibe 409, con el id vigente como control optimista;
-  - la clasificación siguiente usa el valor nuevo (no hay caché: `clasificacion.py` y
-    `leer_parametros` leen en cada llamada);
+  - un punto de corte o un ajuste nuevo se aplica a los **tamizajes nuevos** (no hay caché:
+    `clasificacion.py` lee en cada llamada); un tamizaje ya clasificado conserva su clasificación
+    también en sus consultas posteriores (`resultado_clasificacion` es una instantánea). La vigencia
+    del tamizaje sí se aplica en la consulta siguiente;
   - evento PARAMETRO_CAMBIADO;
   - el Administrador recibe 403 al editar.
 - **Riesgos:**
-  - un cambio de punto de corte aplica a la consulta siguiente;
+  - un cambio de punto de corte aplica a los tamizajes nuevos (no a la consulta siguiente de un
+    tamizaje ya clasificado);
   - los valores `[VERIFICAR]`;
   - el mockup muestra `UMBRAL_RELEVANCIA` 0,60 (el vigente es 0,15).
+
+- **Decisiones tomadas en la fase 0 de E1** (diagnóstico del 18/11/2026):
+  - permiso nuevo VER_PARAMETROS (Coordinador CRED y Administrador) y CONFIGURAR_PARAMETROS solo
+    para el Coordinador;
+  - tramos de edad fijos (6 a 23 y 24 a 59 meses);
+  - guardado por grupo con la tabla completa (parte E1b), sin restaurar una versión anterior;
+  - modo de evaluación por la variable de entorno `CDSS_MODO_EVALUACION`, con 423 en M11 y M12;
+  - los tamizajes ya clasificados conservan su clasificación;
+  - los parámetros sin uso (`EDAD_MIN_CLASIFICACION`, `EDAD_MAX_CLASIFICACION`,
+    `REINTENTOS_MAXIMOS` y `MODELO_RESPALDO`) no se muestran;
+  - las altitudes de los distritos y los descriptores MeSH quedan fuera de M12: se verifican antes
+    del OE3 (`docs/cierre_sprint2.md`).
+- **Hecho en la parte E1a** (contrato en `docs/contrato_parametros.md`, filas 122 a 124 de
+  `cambios_respecto_al_OE2.md`):
+  - migración 015: `motivo_cambio`, `referencia` y `verificado` (falso en lo sembrado) en las tres
+    tablas versionadas e `id_documento` en `parametro_sistema`; historial cerrado (trigger
+    `fn_historial_solo_cierre` y `rol_app_admin` solo con `UPDATE (vigente_hasta)`, sin escritura
+    en `categoria_anemia`); `ex_umbral_hb_sin_traslape`; VER_PARAMETROS y CONFIGURAR_PARAMETROS
+    solo del Coordinador;
+  - `GET /api/parametros`, `GET /api/parametros/historial` y `GET /api/parametros/huella`, con el
+    script `app.scripts.huella_configuracion`;
+  - `CDSS_MODO_EVALUACION` con `bloquear_en_evaluacion` (423 y PARAMETRO_CAMBIO_BLOQUEADO) en la
+    carga y el reintento de M11;
+  - un solo lector de `DIAS_VIGENCIA_TAMIZAJE` (`pacientes.dias_vigencia` usa `leer_parametros` y
+    falla igual si falta);
+  - en el frontend, solo el menú y la ruta `/admin/parametros` con VER_PARAMETROS, los tipos y los
+    fixtures;
+  - pendiente para E1b: los PUT por grupo con las validaciones clínicas, el 409 y
+    PARAMETRO_CAMBIADO.
 
 ### HU17 retirar guías: M, riesgo medio (alto en nivel 1)
 
@@ -425,7 +457,7 @@ Las partes G y H quedan fuera por ahora.
 3. Reporte para el cuidador con frases fijas revisadas, sin modelo.
 4. M12: solo el Coordinador edita puntos de corte, altitud y vigencia, con motivo obligatorio;
    riesgo por clasificación y parámetros de recuperación en solo lectura; el Administrador solo
-   lee.
+   lee (permiso VER_PARAMETROS, parte E1a).
 5. M13 muestra las consultas de prueba marcadas y ocultas por defecto.
 6. Retiro de nivel 1 solo sin referencias vigentes y con confirmación escribiendo el código;
    nivel 2 sin restricción.

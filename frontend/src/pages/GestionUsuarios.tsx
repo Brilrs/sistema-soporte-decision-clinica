@@ -15,6 +15,7 @@ const PERMISOS: Record<string, string> = {
   REALIZAR_CONSULTA: "Realizar consultas",
   EXPORTAR_REPORTE: "Exportar reportes",
   CONFIGURAR_PARAMETROS: "Configurar parámetros",
+  VER_PARAMETROS: "Ver parámetros",
   ADMINISTRAR_GUIAS: "Administrar guías",
   ADMINISTRAR_USUARIOS: "Administrar usuarios",
   VER_AUDITORIA: "Ver auditoría",

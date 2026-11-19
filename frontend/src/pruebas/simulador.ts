@@ -248,7 +248,7 @@ export const USUARIO_AUDITOR = {
   nombre_usuario: "coord.prueba",
   nombre_completo: "Lic. Coordinadora Prueba",
   rol: "Coordinador CRED",
-  permisos: ["REALIZAR_CONSULTA", "EXPORTAR_REPORTE", "CONFIGURAR_PARAMETROS", "VER_AUDITORIA"],
+  permisos: ["REALIZAR_CONSULTA", "EXPORTAR_REPORTE", "CONFIGURAR_PARAMETROS", "VER_PARAMETROS", "VER_AUDITORIA"],
 };
 export const GET_AUDITORIA_INDICADORES = "GET /api/auditoria/indicadores";
 export const GET_AUDITORIA_CONSULTAS = "GET /api/auditoria/consultas";

@@ -15,7 +15,7 @@ export const ADMIN = {
   nombre_usuario: "admin.prueba",
   nombre_completo: "Administración de prueba",
   rol: "Administrador",
-  permisos: ["ADMINISTRAR_USUARIOS", "ADMINISTRAR_GUIAS", "CONFIGURAR_PARAMETROS", "VER_AUDITORIA"],
+  permisos: ["ADMINISTRAR_USUARIOS", "ADMINISTRAR_GUIAS", "VER_PARAMETROS", "VER_AUDITORIA"],
 };
 
 export const ID_NUEVA = "20000000-0000-4000-8000-000000000001";
