@@ -33,7 +33,7 @@ asignados al Sprint 3 y la preparación del despliegue en Azure y de la evaluaci
 | 10 | P13, auditoría de desbordes versionada | P13 (fila 84) | Resuelto en la parte A: `frontend/auditoria/` |
 | 11 | Cambio obligatorio de contraseña en el primer inicio de sesión | `mejoras_despliegue.md` | Entra al Sprint 3 (decisión 11). Resuelto en la parte I |
 | 12 | Invalidar las sesiones al restablecer la contraseña | `mejoras_despliegue.md` | Antes de Azure; va con el ítem 11. Resuelto en la parte I (contador de sesión) |
-| 13 | Respaldo de ChromaDB (y de las guías) a Blob Storage | `jobs/README.md`; RNF2 del OE2 | |
+| 13 | Respaldo de ChromaDB (y de las guías) a Blob Storage | `jobs/README.md`; RNF2 del OE2 | Resuelto en la parte K (`docs/respaldo.md`); la prueba real de Blob, en la parte L |
 | 14 | Trabajo de evaluación del OE3 (RAGAS y CUE) | `jobs/README.md`; OE2 3.2 (contenedor Jobs) | No existe en el código. Parte propia (decisión 13) |
 | 15 | HTTPS: Nginx en el puerto 443 con un certificado de Let's Encrypt | OE2 3.2 | Hoy `frontend/nginx.conf` solo escucha en el puerto 80 |
 | 16 | P14, indexación y consultas a la vez | P14; cierre §3 | Antes de Azure |
@@ -354,6 +354,25 @@ Sin migración.
 
 ### Respaldo: S, riesgo bajo
 
+- **Hecho en la parte K** (`docs/respaldo.md`, filas 146 a 149 de `cambios_respecto_al_OE2.md`):
+  - `python -m app.respaldo` (`backend/app/respaldo/`, imagen de jobs, `cdss_indexador`, sin
+    migraciones) con `crear`, `restaurar`, `verificar`, `comparar` y `descartar-coleccion`;
+  - la colección se exporta por la API de ChromaDB (vectores tal como los devuelve, textos,
+    metadatos y la distancia de la colección), no copiando el volumen; manifiesto con SHA-256 de cada archivo y
+    del propio manifiesto; las guías cargadas con su hash;
+  - `restaurar` comprueba todo antes de escribir, nunca sobrescribe una colección con datos ni un
+    PDF distinto y termina comprobando la colección contra PostgreSQL; los vectores restaurados se
+    comparan con tolerancia de 1e-6 (ChromaDB los normaliza en float32 con coseno), y los ids, textos
+    y metadatos, exactos;
+  - `verificar` (solo lectura) compara la colección con los fragmentos de la última versión: usarla
+    antes de congelar el sistema para el OE3;
+  - destino local (`./data/respaldos`, retención `--conservar`) y Azure Blob con un cliente simulado
+    en las pruebas: **la prueba real de Blob queda para la parte L**;
+  - servicios `respaldo` y `respaldo-guias` (perfil `respaldo`) en `docker-compose.yml`;
+  - pruebas en `tests/test_k_respaldo.py` (memoria y, solo local, ChromaDB real con `-m chroma_real`)
+    y mutaciones de la verificación de SHA-256, de los metadatos de la colección, de un metadato
+    exportado, de la restauración sobre datos, de la vigencia y del descarte de la colección real.
+- **Plan original (fase 0):**
 - **Trabajo:** `python -m app.respaldo` copia ChromaDB y las guías cargadas a una carpeta local y,
   en Azure, a Blob (decisión 14).
 - **PostgreSQL:** en Azure tiene respaldo automático y restauración a un punto en el tiempo.

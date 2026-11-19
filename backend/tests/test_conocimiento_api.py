@@ -90,19 +90,21 @@ def _cargar(cliente, cabeceras, creados, **cambios) -> dict:
     return r.json()
 
 
-def _eventos(super_engine, tipo: str, desde) -> list[dict]:
+def _eventos(super_engine, tipo: str, desde: int) -> list[dict]:
+    """Eventos del tipo posteriores al evento desde (id_evento), no a una hora: no depende del reloj."""
     with super_engine.connect() as c:
         return [dict(f._mapping) for f in c.execute(text(
             """SELECT e.entidad, e.id_entidad, e.detalle FROM auditoria.evento_auditoria e
                 JOIN seguridad.usuario u ON u.id_usuario = e.id_usuario
-               WHERE e.tipo_evento = :t AND e.fecha_hora >= :d AND u.nombre_usuario = :a ORDER BY e.id_evento"""),
+               WHERE e.tipo_evento = :t AND e.id_evento > :d AND u.nombre_usuario = :a ORDER BY e.id_evento"""),
             {"t": tipo, "d": desde, "a": ADMIN})]
 
 
 @pytest.fixture
-def ahora(super_engine):
+def ahora(super_engine) -> int:
+    """Último id_evento de la bitácora antes de la prueba (el nombre se conserva por las pruebas que lo usan)."""
     with super_engine.connect() as c:
-        return c.execute(text("SELECT clock_timestamp()")).scalar()
+        return c.execute(text("SELECT coalesce(max(id_evento), 0) FROM auditoria.evento_auditoria")).scalar_one()
 
 
 def _archivos(carpeta) -> list[str]:
@@ -492,7 +494,7 @@ def test_la_auditoria_no_guarda_titulo_ni_nombre_de_archivo(cliente, cabeceras, 
     subir(cliente, cabeceras, nivel="1", titulo=titulo, nombre="nombre-secreto.pdf")
     with super_engine.connect() as c:
         detalles = [r[0] for r in c.execute(text(
-            "SELECT detalle::text FROM auditoria.evento_auditoria WHERE tipo_evento LIKE 'GUIA_%' AND fecha_hora >= :d"),
+            "SELECT detalle::text FROM auditoria.evento_auditoria WHERE tipo_evento LIKE 'GUIA_%' AND id_evento > :d"),
             {"d": ahora})]
     assert len(detalles) == 2
     assert not any(titulo in d or "nombre-secreto" in d or "guias_cargadas" in d or "%PDF" in d for d in detalles)

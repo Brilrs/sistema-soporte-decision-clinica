@@ -1,2 +1,5 @@
 -r requirements.txt
 pdfplumber==0.11.10
+# Destino Azure Blob del respaldo (app.respaldo, parte K); solo en la imagen de jobs
+azure-storage-blob==12.24.0
+azure-identity==1.19.0

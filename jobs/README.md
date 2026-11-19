@@ -6,7 +6,7 @@ tiempo real:
 
 - `indexador` (Sprint 2): código en [`backend/app/indexador`](../backend/app/indexador).
 - `evaluacion`: métricas RAGAS y CUE del OE3 (Sprint 3, parte propia después de congelar el sistema, solo con datos sintéticos; ver `docs/plan_sprint3.md`).
-- `respaldo`: copia del índice de ChromaDB hacia Azure Blob Storage (Sprint 3).
+- `respaldo` (Sprint 3, parte K): respaldo y restauración de la colección de ChromaDB y de las guías cargadas, a una carpeta local o a Azure Blob, y comprobación de la colección contra PostgreSQL. Ver «Respaldo» al final y [`docs/respaldo.md`](../docs/respaldo.md).
 
 ## Indexador de guías
 
@@ -180,3 +180,26 @@ MSYS_NO_PATHCONV=1 docker compose run --rm -T \
 ```
 
 Las mediciones de rendimiento de la recuperación se describen en `docs/mediciones_sprint2.md`.
+
+## Respaldo (parte K)
+
+Servicios `respaldo` y `respaldo-guias` (perfil `respaldo`, imagen de jobs, usuario
+`cdss_indexador`, sin migraciones). Escriben en `./data/respaldos`; `respaldo` lee el volumen
+`datos_guias_cargadas` en solo lectura y `respaldo-guias` lo monta en escritura solo para
+`restaurar --con-guias`. Detalle, formato, orden de restauración y errores en
+[`docs/respaldo.md`](../docs/respaldo.md).
+
+```bash
+docker compose build respaldo respaldo-guias
+docker compose run --rm respaldo python -m app.respaldo verificar
+docker compose run --rm respaldo python -m app.respaldo crear [--conservar 7] [--forzar] [--destino blob]
+docker compose run --rm respaldo python -m app.respaldo restaurar respaldo_AAAAMMDD_HHMMSS --coleccion guias_clinicas_prueba_restauracion
+docker compose run --rm respaldo python -m app.respaldo comparar guias_clinicas guias_clinicas_prueba_restauracion
+docker compose run --rm respaldo python -m app.respaldo descartar-coleccion guias_clinicas_prueba_restauracion
+docker compose run --rm respaldo-guias python -m app.respaldo restaurar respaldo_AAAAMMDD_HHMMSS --con-guias
+```
+
+`crear` se niega con trabajos de indexación activos (salvo `--forzar`, que lo anota) y sale con
+código distinto de cero si algo falla, para poder programarlo. El destino Azure Blob
+(`azure-storage-blob` y `azure-identity`, solo en esta imagen) se prueba con un cliente simulado; la
+prueba real se hace en la parte L.

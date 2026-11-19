@@ -287,7 +287,9 @@ Se ejecutó desde la raíz del repositorio en Git Bash, con el stack levantado.
    - el PDF (`f3_guia_de_prueba_n2.pdf`, con el mismo SHA-256 que la base);
    - sus 2 vectores de ChromaDB, con embeddings y metadatos (`f3_vectores_guia_de_prueba_n2.json`).
 
-   Para restaurar el respaldo: `pg_restore` del archivo `.dump`.
+   Para restaurar el respaldo: `pg_restore` del archivo `.dump`. Desde la parte K del Sprint 3, la
+   colección de ChromaDB y las guías cargadas se respaldan con `python -m app.respaldo` y el
+   `pg_dump` completo de desarrollo está en `docs/respaldo.md`.
 2. **Identificación sin ambigüedad:** una sola fila de `conocimiento.documento_fuente` con:
    - título exacto «Guía de prueba N2»;
    - nivel 2;
