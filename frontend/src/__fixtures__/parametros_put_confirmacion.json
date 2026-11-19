@@ -1,0 +1,10 @@
+{
+  "detail": "El cambio tiene advertencias: revíselas y escriba CONFIRMO para guardarlo",
+  "codigo": "REQUIERE_CONFIRMACION",
+  "advertencias": [
+    {
+      "campo": "valor",
+      "mensaje": "una vigencia de 75 días supera los 60 días: un tamizaje viejo se seguiría usando para evaluar"
+    }
+  ]
+}

@@ -223,6 +223,21 @@ empiece.
     fixtures;
   - pendiente para E1b: los PUT por grupo con las validaciones clínicas, el 409 y
     PARAMETRO_CAMBIADO.
+- **Hecho en la parte E1b** (contrato en `docs/contrato_parametros.md`, filas 125 a 128 de
+  `cambios_respecto_al_OE2.md`):
+  - migración 016: las versiones nuevas entran vigentes y desde hoy en Lima (trigger
+    `fn_version_nueva_vigente`, con la misma exención que la 015);
+  - `PUT /api/parametros/puntos-corte`, `/ajuste-altitud` y `/vigencia-tamizaje` con
+    CONFIGURAR_PARAMETROS, la tabla completa del grupo, control optimista (409), 423 en modo de
+    evaluación, cierre antes de inserción con `now()` de la transacción, filas sin cambio con su id y
+    evento PARAMETRO_CAMBIADO;
+  - validaciones duras, advertencias con `confirmacion_escrita` = CONFIRMO (umbrales en
+    `parametros_reglas.py`, por validar con el asesor) y confirmar contra la norma; la configuración
+    sembrada pasa su propia validación;
+  - pruebas en `backend/tests/test_e1b_parametros.py` (restauran la configuración siempre) y
+    mutaciones del 409, el 423, el permiso, el orden de cierre, la contigüidad y el trigger 016;
+  - tipos, llamadas (`frontend/src/api/parametros.ts`) y fixtures `parametros_put_*.json` para E2;
+  - pendiente para E2: la pantalla M12.
 
 ### HU17 retirar guías: M, riesgo medio (alto en nivel 1)
 
