@@ -140,7 +140,7 @@ docker compose run --rm jobs python -m app.indexador verificar-valores    # list
 
 **M11 (Base de conocimiento, `admin.cdss`):** lista las guías con su nivel, versión, fragmentos vigentes, citas de los últimos 30 días y estado; «Cargar guía» sube un PDF de **nivel 2** (metodológico: no se recupera ni se cita) y crea un trabajo que el servicio `indexador` procesa solo; la tarjeta de avance muestra las cinco etapas y se actualiza cada 3 s. Las guías de nivel 1 se cargan solo por línea de comandos, con transcripciones verificadas. Hay como máximo 2 trabajos activos a la vez.
 
-> **Indexar retrasa las consultas** (pendiente P14): mientras se indexa, la recuperación de una consulta pasa de unos 4 s a unos 24 s. Cargue guías fuera del horario de atención.
+> **Indexar y consultar a la vez** (pendiente P14, resuelto en la parte J del Sprint 3): el indexador envía 1 texto por petición de embeddings (`INDEXADOR_LOTE_EMBEDDINGS`, 1 por omisión), y mientras se indexa la recuperación de una consulta pasa de unos 3,3 s a unos 4,7 s en el perfil normal (8,4 s en B2ms); con el lote 8 anterior llegaba a unos 35 s. El aviso de M11 se mantiene hasta decidir si se ajusta.
 
 Comandos, transcripciones, el mapa de modificaciones de la RM 429-2024/MINSA y la medición del indexador: [`jobs/README.md`](jobs/README.md).
 
@@ -286,7 +286,7 @@ El plan, con sus partes, dependencias y decisiones, está en [`docs/plan_sprint3
 
 - **M09** reporte exportable (HU10, incluido «Exportar reporte» en M05), **M13** auditoría y trazabilidad (HU13) y **M12** parámetros clínicos (HU14).
 - **HU17:** retirar guías desde M11 (hecho en la parte F). La carga de guías de nivel 1 desde la pantalla, con revisión («Aprobar») y recorte de márgenes por documento, queda para después de la evaluación del OE3.
-- Lista de las consultas propias (P10), cambio obligatorio de contraseña e invalidación de sesiones (hecho en la parte I), prioridad de las consultas frente a la indexación (P14), respaldo de la base de conocimiento (hecho en la parte K) y despliegue en Azure.
+- Lista de las consultas propias (P10), cambio obligatorio de contraseña e invalidación de sesiones (hecho en la parte I), prioridad de las consultas frente a la indexación (P14, hecho en la parte J), respaldo de la base de conocimiento (hecho en la parte K) y despliegue en Azure.
 - Trabajo de evaluación del OE3, con el sistema congelado y solo datos sintéticos. P3, P4, P7 y P8 no se tocan antes del OE3.
 
 La auditoría visual de la interfaz (desbordes, elementos que escapan de su contenedor y axe-core) está en [`frontend/auditoria/`](frontend/auditoria/README.md) y se ejecuta con `npm run auditoria`, fuera del CI. Los pendientes del Sprint 2, con su dueño, están en [`docs/cierre_sprint2.md`](docs/cierre_sprint2.md).

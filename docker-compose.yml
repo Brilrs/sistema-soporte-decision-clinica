@@ -177,6 +177,7 @@ services:
       ANONYMIZED_TELEMETRY: "FALSE"
       INDEXADOR_DIR_GUIAS: /datos/guias
       INDEXADOR_DIR_MEDICIONES: /datos/mediciones
+      INDEXADOR_LOTE_EMBEDDINGS: ${INDEXADOR_LOTE_EMBEDDINGS:-1}
     volumes:
       - ./data/guias:/datos/guias:ro
       - datos_guias_cargadas:/datos/guias_cargadas:ro
@@ -208,6 +209,7 @@ services:
       ANONYMIZED_TELEMETRY: "FALSE"
       INDEXADOR_DIR_GUIAS: /datos/guias
       INDEXADOR_DIR_MEDICIONES: /datos/mediciones
+      INDEXADOR_LOTE_EMBEDDINGS: ${INDEXADOR_LOTE_EMBEDDINGS:-1}
     volumes:
       - ./data/guias:/datos/guias:ro
       - ./data/mediciones:/datos/mediciones

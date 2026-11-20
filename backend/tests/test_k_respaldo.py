@@ -186,10 +186,29 @@ def test_la_distancia_se_conserva_y_la_consulta_devuelve_lo_mismo(entorno, fuent
     assert copia.consultar(consulta, 5) == original.consultar(consulta, 5)
     comparacion = comparar(servidor, COLECCION, PREFIJO_PRUEBA + "restauracion")
     assert comparacion.identicas and comparacion.consultas == 5
-    # Con otra distancia (l2, la de ChromaDB por omisión) el orden cambia: la distancia es esencial
+    # Con otra distancia (l2, la de ChromaDB por omisión) el orden cambia: la distancia es esencial.
+    # Vectores e ids fijos (no los de guias_k, que salen de uuid al azar y con 6 vectores a veces dan el
+    # mismo orden con las dos distancias). Con la consulta [1, 0, 0, 0, 0, 0]:
+    #   k-direccion [0.1, 0, ...]: misma dirección y chico: coseno 0;      l2 al cuadrado 0.81
+    #   k-desviado  [1, 0.3, ...]: algo desviado y cerca:   coseno 0.0422; l2 al cuadrado 0.09
+    #   k-lejano    [0, 1, ...]:   perpendicular:           coseno 1;      l2 al cuadrado 2
+    # Coseno ordena direccion, desviado, lejano; l2 ordena desviado, direccion, lejano.
+    fijos = [RegistroVector("k-direccion", [0.1, 0.0, 0.0, 0.0, 0.0, 0.0], "Texto fijo 1", {}),
+             RegistroVector("k-desviado", [1.0, 0.3, 0.0, 0.0, 0.0, 0.0], "Texto fijo 2", {}),
+             RegistroVector("k-lejano", [0.0, 1.0, 0.0, 0.0, 0.0, 0.0], "Texto fijo 3", {})]
+    coseno_fija = servidor.crear(PREFIJO_PRUEBA + "coseno_fija", {ESPACIO: "cosine"})
+    l2_fija = servidor.crear(PREFIJO_PRUEBA + "l2_fija", {})
+    for almacen in (coseno_fija, l2_fija):
+        almacen.agregar(fijos)
+    consulta_fija = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    por_coseno, por_l2 = coseno_fija.consultar(consulta_fija, 3), l2_fija.consultar(consulta_fija, 3)
+    assert [i for i, _ in por_coseno] == ["k-direccion", "k-desviado", "k-lejano"]
+    assert [i for i, _ in por_l2] == ["k-desviado", "k-direccion", "k-lejano"]
+    assert [round(d, 4) for _, d in por_coseno] == [0.0, 0.0422, 1.0]
+    assert [round(d, 4) for _, d in por_l2] == [0.09, 0.81, 2.0]
+    # La copia de la colección con l2 no coincide con la original (distinta distancia)
     l2 = servidor.crear(PREFIJO_PRUEBA + "l2", {})
     l2.agregar(original.obtener(original.ids()))
-    assert [i for i, _ in l2.consultar(consulta, 6)] != [i for i, _ in original.consultar(consulta, 6)]
     assert not comparar(servidor, COLECCION, PREFIJO_PRUEBA + "l2").identicas
 
 

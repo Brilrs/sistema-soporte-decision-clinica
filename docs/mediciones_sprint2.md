@@ -3,6 +3,97 @@
 Resumen de las mediciones de rendimiento. Los datos completos están en `data/mediciones/`,
 que no se versiona.
 
+## Sprint 3, parte J: lote de embeddings del indexador (pendiente P14, 19/11/2026)
+
+### Objetivo (fijado antes de medir, por validar con el asesor)
+
+Con la indexación en curso, en el perfil normal: mediana de la recuperación de 8 s o menos, llamada
+más lenta a `modelos` (embedding o reranker) de 15 s o menos, e indexar unos 100 fragmentos en no
+más de 2 veces lo que tarda con el lote 8.
+
+### Método
+
+`app.scripts.medir_interferencia` (imagen de jobs, usuario `cdss_indexador`, solo lectura). Mide la
+recuperación completa de las 15 primeras consultas de `consultas_latencia.yaml` con los parámetros
+vigentes (8 candidatos, 256 tokens), primero sin carga y después con una carga sintética que imita
+al indexador: un hilo con su propio cliente HTTP envía a `modelos`, uno tras otro y sin pausas,
+lotes de N textos de los fragmentos indexados (204). Además cronometra 100 fragmentos con el lote N
+sin consultas. Calentamiento de 2 consultas antes de cada corrida. Equipo de desarrollo; nadie usó
+la aplicación ni cargó guías durante las corridas, y no había trabajos de indexación pendientes.
+JSON en `data/mediciones/j_interferencia_lote<N>_<etiqueta>.json`.
+
+### Perfil normal (`modelos` con 4 hilos)
+
+| Lote | Corrida | Sin carga (mediana) | Con carga: mediana / p90 / máximo | Embedding más lento | Reranker más lento | 100 fragmentos, solos | Lote de la carga (mediana) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 8 | a | 3,44 s | 35,09 / 45,39 / 62,55 s | 30,27 s | 32,26 s | 175,9 s | 17,42 s |
+| 8 | b | 3,31 s | 34,37 / 43,30 / 60,59 s | 29,18 s | 31,37 s | 164,7 s | 17,17 s |
+| 4 | a | 3,41 s | 14,64 / 20,44 / 21,22 s | 10,90 s | 13,58 s | 125,5 s | 7,24 s |
+| 2 | a | 3,35 s | 6,39 / 7,80 / 9,11 s | 3,48 s | 8,36 s | 92,9 s | 3,55 s |
+| 1 | a | 3,25 s | 4,62 / 5,49 / 6,30 s | 2,22 s | 5,78 s | 75,5 s | 2,46 s |
+| 1 | b | 3,40 s | 4,67 / 5,53 / 6,44 s | 2,24 s | 5,88 s | 76,1 s | 2,46 s |
+
+Solo los lotes 2 y 1 cumplen el objetivo; el lote 1 con margen en las tres medidas.
+
+### Perfil B2ms (`docker-compose.b2ms.yml`, CPU 0 y 1, `modelos` con 2 hilos)
+
+| Lote | Sin carga (mediana) | Con carga: mediana / p90 / máximo | Embedding más lento | Reranker más lento | 100 fragmentos, solos | Lote de la carga (mediana) |
+| --- | --- | --- | --- | --- | --- | --- |
+| 8 | 7,12 s | 63,43 / 87,20 / 111,23 s | 53,85 s | 57,32 s | 323,0 s | 30,52 s |
+| 2 | 6,33 s | 11,85 / 15,39 / 17,70 s | 9,54 s | 11,46 s | 159,0 s | 5,96 s |
+| 1 | 6,25 s | 8,44 / 10,96 / 12,78 s | 4,84 s | 9,23 s | 132,6 s | 3,67 s |
+
+Una corrida por lote (etiqueta `b2ms_a`), en este orden: 8, 1 y 2. En B2ms el lote 1 también es
+el mejor en todas las medidas. El objetivo se fijó para el perfil normal; en B2ms la mediana con
+carga (8,44 s) queda apenas por encima de 8 s y la llamada más lenta (9,23 s) por debajo de 15 s.
+La fase sin carga del lote 8 (7,12 s) fue la primera tras recrear los contenedores y salió más alta
+que en las otras dos corridas (6,25 y 6,33 s). El servicio `indexador` no tiene `cpuset` en
+`docker-compose.b2ms.yml`; estuvo en espera durante las corridas.
+
+### Relleno y vectores
+
+Con `modelos` real (perfil normal) y los mismos 100 fragmentos de la carga:
+
+| Lote | Tokens procesados | Relleno |
+| --- | --- | --- |
+| 8 | 50 420 | 57,3 % |
+| 4 | 38 764 | 44,5 % |
+| 2 | 28 432 | 24,3 % |
+| 1 | 21 532 | 0 % |
+
+Los fragmentos tienen de 8 a 777 tokens (mediana 152) y bge-m3 rellena cada lote hasta el más
+largo, así que con lote 8 procesa 2,34 veces más tokens. Eso explica que indexar con lote 1 sea más
+rápido (76 s contra 165 a 176 s). Con 48 fragmentos, lote 8 contra lote 1: diferencia máxima entre
+vectores de 2,98e-7 y coseno mínimo de 1,000000000 (por debajo de la tolerancia de 1e-6 de la parte
+K); el lote 8 repetido da vectores idénticos.
+
+### Decisión
+
+`INDEXADOR_LOTE_EMBEDDINGS` = 1 por omisión (fila 150 de `cambios_respecto_al_OE2.md`).
+
+### Comparación con la medición del 16/11/2026 (24 s)
+
+Con lote 8 la mediana con carga dio unos 35 s y no los 24 s del 16/11 (`jobs/README.md`). Lo que
+se puede afirmar:
+- **Mismo perfil y misma configuración de `modelos`:** las dos en el perfil normal del equipo de
+  desarrollo; `modelos/` y su servicio en `docker-compose.yml` no cambiaron desde el 16/11 (commit
+  9580cba) y hoy informa 4 hilos y el reranker ONNX int8.
+- **Carga distinta:** el 16/11 fue una indexación real (RM 251, 98 fragmentos), que entre lote y
+  lote extrae el PDF, cuenta tokens y escribe en PostgreSQL y ChromaDB, momentos en que `modelos`
+  queda libre. La carga sintética manda los lotes sin pausas, así que toda llamada de una consulta
+  encuentra un lote en curso. Además los textos son otros (la RM 251 contra los 204 fragmentos
+  indexados) y el relleno depende de las longitudes.
+- **Sonda distinta:** el 16/11 se usó una sonda dentro del backend (1 embedding y el reranker con
+  8 candidatos de 256 tokens), con una frecuencia que no quedó registrada; ahora, la recuperación
+  completa de 15 consultas.
+- **Las llamadas más lentas coinciden:** 27,7 s y 30,2 s el 16/11, 30,3 s y 32,3 s ahora.
+
+No hay datos crudos del 16/11 (ni JSON ni el script de la sonda), así que **no está demostrado**
+cuál de estas diferencias explica los 11 s; las pausas de la indexación real son la explicación más
+probable, sin confirmar. La carga sintética representa el peor caso, y con ella el lote 1 cumple el
+objetivo. Para confirmarlo habría que repetir la indexación real del 16/11 contra la base de pruebas
+con lote 8 y lote 1.
+
 ## Parte G: puntero «según Tabla N° 4» (pendiente P4, 17/11/2026)
 
 ### Conjunto de aceptación (congelado antes de cambiar el código)

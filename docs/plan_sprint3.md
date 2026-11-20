@@ -346,11 +346,31 @@ con desplazamiento, aviso de áreas táctiles y axe-core. Fuera del CI (decisió
 
 ### P14 prioridad de las consultas frente a la indexación: M, riesgo medio
 
+**Objetivo de la parte J, fijado el 19/11/2026 antes de medir (por validar con el asesor):**
+- con la indexación en curso, en el perfil normal, la **mediana de la recuperación ≤ 8 s** y la
+  **llamada más lenta a `modelos` (embedding o reranker) ≤ 15 s**;
+- indexar una guía de unos **100 fragmentos no tarda más de 2 veces** lo que tarda hoy con el lote 8.
+
+Medición con `app.scripts.medir_interferencia`: carga sintética que imita al indexador (lotes de
+embeddings con textos reales de fragmentos, solo lectura) y las consultas de latencia de la
+recuperación, sin carga y con carga, con lotes de 8, 4, 2 y 1.
+
 Medir antes de programar. Opciones:
 - **base:** horario del trabajador del indexador;
 - **ampliación:** lotes de embeddings más chicos o una cola con prioridad en `modelos`.
 
 Sin migración.
+
+- **Hecho en la parte J** (filas 150 y 151 de `cambios_respecto_al_OE2.md`, detalle en
+  `mediciones_sprint2.md`):
+  - `INDEXADOR_LOTE_EMBEDDINGS` (1 a 64, **1 por omisión**) en el indexador y en `jobs`; sin cola
+    con prioridad en `modelos` ni horario del trabajador;
+  - perfil normal, con carga: mediana 4,6 a 4,7 s (34 a 35 s con lote 8), llamada más lenta 5,9 s
+    y 100 fragmentos en 76 s (165 a 176 s con lote 8): cumple el objetivo con margen;
+  - B2ms, con carga: mediana 8,4 s (63,4 s con lote 8; 11,9 s con lote 2), llamada más lenta 9,2 s;
+  - indexar es más rápido porque con lote 8 el 57 % de los tokens es relleno; los vectores
+    difieren en 3e-7 como mucho y no hace falta reindexar;
+  - pendiente: validar el objetivo con el asesor y decidir si se ajusta el aviso de M11.
 
 ### Respaldo: S, riesgo bajo
 
