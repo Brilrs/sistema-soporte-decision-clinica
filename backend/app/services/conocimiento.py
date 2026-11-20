@@ -228,9 +228,16 @@ def recibir_pdf(nombre: str | None, origen: BinaryIO, p: ParametrosSubida) -> Ar
 
 
 def documento_con_hash(sesion: Session, sha256: str) -> dict | None:
-    fila = sesion.execute(text("SELECT id_documento::text, titulo FROM conocimiento.documento_fuente WHERE hash_archivo = :h"),
-                          {"h": sha256}).first()
+    fila = sesion.execute(text("SELECT id_documento::text, titulo, estado FROM conocimiento.documento_fuente "
+                               "WHERE hash_archivo = :h"), {"h": sha256}).first()
     return None if fila is None else dict(fila._mapping)
+
+
+def mensaje_duplicado(existente: dict) -> str:
+    """Texto del 409 de un archivo ya cargado: solo el título de la guía existente y, si está retirada
+    (OBSOLETA), que lo está. M11 lo muestra junto al campo del archivo (contiene «ya está cargado»)."""
+    mensaje = f"Este archivo ya está cargado como «{existente['titulo']}»"
+    return mensaje + " y esa guía está retirada" if existente.get("estado") == "OBSOLETA" else mensaje
 
 
 def insertar_documento(sesion: Session, id_documento: str, datos: dict, archivo: ArchivoRecibido,

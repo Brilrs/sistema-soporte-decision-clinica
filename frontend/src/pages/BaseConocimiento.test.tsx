@@ -205,6 +205,10 @@ describe("M11 · cargar guía", () => {
     renderizar();
     const ventana = await abrirCarga();
     expect(within(ventana).getByText(AVISO_P14)).toBeInTheDocument();
+    // Texto vigente desde la parte J: ya no pide cargar fuera del horario ni anuncia minutos de demora.
+    expect(ventana).toHaveTextContent("Indexar una guía tarda unos minutos. Mientras tanto, las consultas pueden ir algo más lentas.");
+    expect(ventana).not.toHaveTextContent(/varios minutos|horario de atención/);
+    expect(within(ventana).getByRole("button", { name: "Cargar guía" })).toHaveAccessibleDescription(AVISO_P14);
     const n1 = within(ventana).getByRole("radio", { name: "Nivel 1 · citable" });
     expect(n1).toBeDisabled();
     expect(n1).toHaveAccessibleDescription(NOTA_NIVEL_1);
@@ -255,10 +259,12 @@ describe("M11 · cargar guía", () => {
 
   // Mensajes reales del backend (backend/app/services/conocimiento.py y routes/conocimiento.py).
   const DUPLICADO = "Este archivo ya está cargado como «Norma técnica de salud para la prevención y control de la anemia»";
+  const DUPLICADO_RETIRADA = "Este archivo ya está cargado como «Guía de prueba del retiro» y esa guía está retirada";
   const CUPO = "Ya hay 2 indexaciones pendientes o en curso. Espere a que terminen antes de cargar otra guía: indexar varias a la vez satura el servicio de modelos.";
   const NIVEL = "Desde la pantalla solo se cargan guías de nivel 2 (metodológicas). Las guías de nivel 1 (citables) se cargan por línea de comandos, con sus transcripciones verificadas.";
   it.each([
     ["409 duplicado, con el título existente", 409, DUPLICADO, /Archivo PDF/, DUPLICADO],
+    ["409 duplicado de una guía retirada (parte Z)", 409, DUPLICADO_RETIRADA, /Archivo PDF/, DUPLICADO_RETIRADA],
     ["413 tamaño", 413, "El archivo supera el máximo de 20 MB", /Archivo PDF/, "El archivo supera el máximo de 20 MB."],
     ["415 extensión", 415, "El archivo debe tener la extensión .pdf", /Archivo PDF/, "El archivo debe tener la extensión .pdf"],
     ["415 firma", 415, "El archivo no es un PDF válido (no empieza con %PDF-)", /Archivo PDF/, "El archivo no es un PDF válido (no empieza con %PDF-)"],

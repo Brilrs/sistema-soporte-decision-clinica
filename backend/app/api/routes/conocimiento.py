@@ -271,7 +271,7 @@ def _cargar(sesion: Session, actor: UsuarioActual, request: Request, p: srv.Para
     try:
         existente = srv.documento_con_hash(sesion, recibido.sha256)
         if existente:
-            raise srv.ErrorGuia(409, f"Este archivo ya está cargado como «{existente['titulo']}»", "duplicado",
+            raise srv.ErrorGuia(409, srv.mensaje_duplicado(existente), "duplicado",
                                 {"id_documento_existente": existente["id_documento"]})
         try:
             datos = MetadatosGuia.model_validate(campos)
@@ -301,7 +301,9 @@ def _cargar(sesion: Session, actor: UsuarioActual, request: Request, p: srv.Para
         # Otra subida del mismo archivo ganó la carrera entre la comprobación y el INSERT.
         _borrar(recibido.temporal, destino)
         sesion.rollback()
-        raise HTTPException(status.HTTP_409_CONFLICT, "Este archivo ya está cargado")
+        existente = srv.documento_con_hash(sesion, recibido.sha256)
+        raise HTTPException(status.HTTP_409_CONFLICT,
+                            srv.mensaje_duplicado(existente) if existente else "Este archivo ya está cargado")
     except BaseException:
         _borrar(recibido.temporal, destino)
         sesion.rollback()

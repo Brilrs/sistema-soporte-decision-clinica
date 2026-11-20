@@ -286,7 +286,6 @@ const PANTALLAS = {
   m10_marca: { ruta: "/admin/usuarios", admin: true, esperar: "Debe cambiar su contraseña", marcaM10: true },
   m10_aviso_temporal: { ruta: "/admin/usuarios", admin: true, esperar: "Debe cambiar su contraseña", marcaM10: true,
     crearUsuario: true },
-  en_construccion: { ruta: "/admin/parametros", admin: true, esperar: null },
   // Parte C2 del Sprint 3: M09 en ambos destinos, con el reporte generado, y «Reportes» (/reportes).
   m09_expediente_real: m09({ prueba: false, generar: true }),
   m09_expediente_prueba: m09({ prueba: true }),

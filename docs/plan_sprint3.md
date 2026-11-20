@@ -370,7 +370,7 @@ Sin migración.
   - B2ms, con carga: mediana 8,4 s (63,4 s con lote 8; 11,9 s con lote 2), llamada más lenta 9,2 s;
   - indexar es más rápido porque con lote 8 el 57 % de los tokens es relleno; los vectores
     difieren en 3e-7 como mucho y no hace falta reindexar;
-  - pendiente: validar el objetivo con el asesor y decidir si se ajusta el aviso de M11.
+  - pendiente: validar el objetivo con el asesor; el aviso de M11 se ajustó en la parte Z (fila 152).
 
 ### Respaldo: S, riesgo bajo
 
@@ -493,8 +493,9 @@ Las partes G y H quedan fuera por ahora.
   - sin cargar ni retirar guías;
   - el mismo `VERSION_PROMPT`.
 
-  Hoy nada en el código lo impide: se hace por procedimiento, o con un parámetro que bloquee las
-  escrituras de M12 y M11 durante la evaluación.
+  Desde la parte E1a, `CDSS_MODO_EVALUACION=true` bloquea con 423 la carga, el reintento y el retiro
+  de guías en M11 y la edición de M12; el resto (etiqueta, `VERSION_PROMPT`, respaldo y huella) se
+  hace por procedimiento (`docs/cierre_sprint3.md`, «Antes de la evaluación OE3»).
 - **Consultas de prueba:** la regla de P2 ya las excluye de las vistas agregadas. M13 las marca.
 - **Juez de RAGAS:** si usa un modelo de lenguaje, solo con datos sintéticos (decisión 13).
 - **Conjunto de prueba:** ya no es independiente (CLAUDE.md). Además, d1 cambió el puntaje de 12
@@ -580,3 +581,50 @@ Las partes G y H quedan fuera por ahora.
 
 Las decisiones 4, 6, 7, 12 y 14 se apartan del OE2 y tienen su fila en
 `docs/cambios_respecto_al_OE2.md` (filas 104 a 108).
+
+## 9. Estado al cierre (parte Z, 19/11/2026)
+
+El resumen para el asesor está en `docs/cierre_sprint3.md`.
+
+### Partes
+
+| Parte | Estado | Filas de `cambios_respecto_al_OE2.md` |
+| --- | --- | --- |
+| A, auditoría visual (P13) y este plan | Hecha | 104 a 108 (decisiones) |
+| B, consultas del usuario (P10 y P12) | Hecha | 109 a 111 |
+| C1, API del reporte (HU10) | Hecha | 112 y 113 |
+| C2, pantalla M09 (HU10, P11) | Hecha, con el destino «cuidador» (ampliación); frases con `revisado: false` | 114 a 117 |
+| D1, API de auditoría (HU13) | Hecha | 118 a 120 |
+| D2, pantalla M13 (HU13) | Hecha | 121 |
+| E1a, base de M12 (HU14) | Hecha | 122 a 124 |
+| E1b, edición de parámetros | Hecha | 125 a 128 |
+| E2, pantalla M12 | Hecha | 129 a 133 |
+| F, retiro de guías (HU17) | Hecha | 134 a 139 |
+| I, cambio de contraseña y sesiones | Hecha | 140 a 145 |
+| K, respaldo de ChromaDB | Hecha; la prueba real de Blob queda para L | 146 a 149 |
+| J, indexación y consultas (P14) | Hecha con lotes de embeddings de 1 (la ampliación «lotes más chicos», sin horario del trabajador) | 150 y 151 |
+| Z, cierre | Hecha | 152 y 153 |
+| L, despliegue en Azure | Pendiente | |
+| OE3, trabajo de evaluación | Pendiente: después de congelar el sistema | |
+| G y H | Fuera del Sprint 3 (decisiones 7 y 8) | |
+
+### Decisiones
+
+| N.° | Estado |
+| --- | --- |
+| 1 | Aplicada (parte A) |
+| 2 | Aplicada (C1) |
+| 3 | Aplicada (C1 y C2); falta la revisión clínica de las frases (`revisado: false`) |
+| 4 | Aplicada (E1a, E1b y E2) |
+| 5 | Aplicada (D1 y D2) |
+| 6 | Aplicada (F) |
+| 7 | Vigente: la carga de nivel 1 desde M11 sigue fuera (parte G) |
+| 8 | Vigente: P9 fuera (parte H) |
+| 9 | Aplicada (B) |
+| 10 | Aplicada (A) |
+| 11 | Aplicada (I) |
+| 12 | Vigente: se aplica en L y en el OE3 |
+| 13 | Pendiente: parte OE3 |
+| 14 | Aplicada en K (destino local y Blob con un cliente simulado); la prueba real de Blob, en L |
+| 15 | Vigente y respetada: P3, P4, P7 y P8 no se tocaron |
+| 16 | Aplicada (C2) |
