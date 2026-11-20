@@ -114,7 +114,7 @@ Validaciones, en este orden (la primera que falla responde):
 | 415 | La extensión no es `.pdf` | GUIA_CARGA_RECHAZADA, motivo `no_es_pdf` |
 | 415 | El archivo no empieza con `%PDF-` | GUIA_CARGA_RECHAZADA, motivo `no_es_pdf` |
 | 413 | Supera el máximo; se corta mientras se copia | GUIA_CARGA_RECHAZADA, motivo `tamano` y `max_bytes` |
-| 409 | El SHA-256 ya existe; el mensaje trae el título del documento existente | GUIA_CARGA_RECHAZADA, motivo `duplicado` e `id_documento_existente` |
+| 409 | El SHA-256 ya existe; el mensaje trae el título del documento existente («Este archivo ya está cargado como «Título»») y, si esa guía está retirada (OBSOLETA), lo dice («… y esa guía está retirada»), sin otros datos. Si dos subidas del mismo archivo coinciden, la segunda recibe el mismo mensaje | GUIA_CARGA_RECHAZADA, motivo `duplicado` e `id_documento_existente` |
 | 422 | Metadatos no válidos; `detail` empieza con «Metadatos no válidos» y nombra los campos | |
 | 422 | `nivel` es 1 | GUIA_CARGA_RECHAZADA, motivo `nivel` |
 

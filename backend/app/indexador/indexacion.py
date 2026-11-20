@@ -154,7 +154,9 @@ class Indexador:
                                  mensaje="Mismo archivo (SHA-256) ya indexado; no se duplica nada")
             otro = self.repo.documento_con_hash(hash_archivo)
             if otro and otro != documento.id_documento:
-                raise ErrorIndexacion(f"El archivo ya está cargado como el documento {otro}")
+                retirado = self.repo.documento(otro).estado == "OBSOLETA"
+                raise ErrorIndexacion(f"El archivo ya está cargado como el documento {otro}"
+                                      + (", que está retirado" if retirado else ""))
 
             self.repo.registrar_archivo(documento.id_documento, ruta_blob, hash_archivo)
             resultado = self._indexar(fuente, documento, ruta_pdf, opciones, id_trabajo, extraer, hash_archivo)

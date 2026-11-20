@@ -19,9 +19,9 @@ Sistema de soporte a la decisión clínica para la evaluación del riesgo de ane
 | 0 | Repositorio, Docker Compose, base de datos con catálogos, login y control de acceso por rol | Completado |
 | 1 | Gestión de pacientes y tamizajes (HU01, HU02, HU04, HU05, HU11, HU18), pantallas M02, M03, M08, M10 y M14 | Completado |
 | 2 | Base de conocimiento y motor RAG (HU03, HU06 a HU09, HU12, HU15 y HU16), pantallas M04 a M07, M11 y M15 | Completado (cierre del 17/11/2026, con pendientes) |
-| 3 | Reportes, auditoría, parámetros clínicos y retiro de guías (HU10, HU13, HU14 y HU17), con la preparación del despliegue en Azure y de la evaluación del OE3; plan en `docs/plan_sprint3.md` | En curso |
+| 3 | Reportes, auditoría, parámetros clínicos y retiro de guías (HU10, HU13, HU14 y HU17), con la preparación del despliegue en Azure y de la evaluación del OE3; plan en `docs/plan_sprint3.md` | Desarrollo cerrado (parte Z, 19/11/2026; partes A a K, J y Z hechas); quedan el despliegue en Azure (L) y la evaluación del OE3 |
 
-Lo entregado en el Sprint 2, cómo se verificó, las mediciones y los pendientes están en [`docs/cierre_sprint2.md`](docs/cierre_sprint2.md). Las diferencias con el documento de diseño (OE2) se registran en [`docs/cambios_respecto_al_OE2.md`](docs/cambios_respecto_al_OE2.md).
+Lo entregado en cada Sprint, cómo se verificó, las mediciones y los pendientes están en [`docs/cierre_sprint2.md`](docs/cierre_sprint2.md) y [`docs/cierre_sprint3.md`](docs/cierre_sprint3.md). Las diferencias con el documento de diseño (OE2) se registran en [`docs/cambios_respecto_al_OE2.md`](docs/cambios_respecto_al_OE2.md).
 
 ## Arquitectura y servicios
 
@@ -43,6 +43,7 @@ Bajo demanda (perfiles de Docker Compose, no arrancan con el resto):
 | `jobs` | `jobs` | Línea de comandos del indexador y otros procesos: `docker compose run --rm jobs python -m app.<módulo>` (768 MB) |
 | `descargar-modelos` | `descarga` | Descarga única de los pesos de los modelos (1 GB) |
 | `exportar-onnx` | `descarga` | Exportación única del reranker a ONNX int8 (6 GB) |
+| `respaldo` y `respaldo-guias` | `respaldo` | Respaldo, restauración y verificación de la colección de ChromaDB y de las guías cargadas (`docs/respaldo.md`; 768 MB) |
 
 Con el stack levantado, los límites suman 8,31 GB (más 0,75 GB si se usa `jobs` a la vez); Docker necesita al menos 8,5 GB asignados. Son topes, no reservas: el uso medido está en [`docs/mediciones_sprint2.md`](docs/mediciones_sprint2.md) y [`jobs/README.md`](jobs/README.md).
 
@@ -120,7 +121,7 @@ El administrador no tiene acceso a los datos clínicos. El coordinador puede con
 | M12 Parámetros clínicos | `/admin/parametros` | VER_PARAMETROS (editar: CONFIGURAR_PARAMETROS, solo el Coordinador CRED) | Disponible (Sprint 3, partes E1a, E1b y E2; `docs/contrato_parametros.md`) |
 | M13 Auditoría y trazabilidad | `/admin/auditoria` y el detalle `/admin/auditoria/:id` | VER_AUDITORIA | Disponible (Sprint 3, partes D1 y D2; `docs/contrato_auditoria.md`) |
 
-Quien no tiene el permiso de una pantalla vuelve al inicio. Los contratos de la API están en [`docs/contrato_consultas.md`](docs/contrato_consultas.md) (consultas), [`docs/contrato_conocimiento.md`](docs/contrato_conocimiento.md) (M11) y [`docs/contrato_autenticacion.md`](docs/contrato_autenticacion.md) (inicio de sesión y cambio de contraseña).
+Quien no tiene el permiso de una pantalla vuelve al inicio. Los contratos de la API están en [`docs/contrato_consultas.md`](docs/contrato_consultas.md) (consultas), [`docs/contrato_conocimiento.md`](docs/contrato_conocimiento.md) (M11), [`docs/contrato_reportes.md`](docs/contrato_reportes.md) (M09), [`docs/contrato_auditoria.md`](docs/contrato_auditoria.md) (M13), [`docs/contrato_parametros.md`](docs/contrato_parametros.md) (M12) y [`docs/contrato_autenticacion.md`](docs/contrato_autenticacion.md) (inicio de sesión y cambio de contraseña).
 
 ## Indexador de guías y M11
 
@@ -136,11 +137,11 @@ docker compose run --rm jobs python -m app.indexador verificar-valores    # list
 - `--permitir-no-verificadas` es solo para desarrollo: sin esa opción, un documento de nivel 1 con transcripciones sin verificar queda en ERROR.
 - Volver a cargar el mismo archivo no duplica nada; `--reindexar` crea una versión de indexación nueva. `cdss_indexador` no tiene permiso de eliminación.
 - Las transcripciones de las tablas críticas van dentro de la imagen: después de editarlas, `docker compose build jobs` antes de indexar.
-- Estado actual: 4 guías de nivel 1 (NTS 213, RM 429, OMS 2024 y OMS 2016), versión 5, 202 fragmentos de la última versión y 183 vigentes. ChromaDB guarda los 202 vectores con su vigencia; la recuperación usa solo los vigentes.
+- Estado actual: 4 guías de nivel 1 (NTS 213, RM 429, OMS 2024 y OMS 2016), versión 5, 202 fragmentos de la última versión y 183 vigentes, más la «Guía de prueba del retiro» (nivel 2, obsoleta, 2 fragmentos). ChromaDB guarda los 204 vectores con su vigencia; la recuperación usa solo los vigentes de guías vigentes de nivel 1. `docker compose run --rm respaldo python -m app.respaldo verificar` comprueba que coincidan con PostgreSQL.
 
 **M11 (Base de conocimiento, `admin.cdss`):** lista las guías con su nivel, versión, fragmentos vigentes, citas de los últimos 30 días y estado; «Cargar guía» sube un PDF de **nivel 2** (metodológico: no se recupera ni se cita) y crea un trabajo que el servicio `indexador` procesa solo; la tarjeta de avance muestra las cinco etapas y se actualiza cada 3 s. Las guías de nivel 1 se cargan solo por línea de comandos, con transcripciones verificadas. Hay como máximo 2 trabajos activos a la vez.
 
-> **Indexar y consultar a la vez** (pendiente P14, resuelto en la parte J del Sprint 3): el indexador envía 1 texto por petición de embeddings (`INDEXADOR_LOTE_EMBEDDINGS`, 1 por omisión), y mientras se indexa la recuperación de una consulta pasa de unos 3,3 s a unos 4,7 s en el perfil normal (8,4 s en B2ms); con el lote 8 anterior llegaba a unos 35 s. El aviso de M11 se mantiene hasta decidir si se ajusta.
+> **Indexar y consultar a la vez** (pendiente P14, resuelto en la parte J del Sprint 3): el indexador envía 1 texto por petición de embeddings (`INDEXADOR_LOTE_EMBEDDINGS`, 1 por omisión), y mientras se indexa la mediana de la recuperación de una consulta pasa de unos 3,3 s a unos 4,7 s en el perfil normal (de 6,3 s a 8,4 s en B2ms); con el lote 8 anterior llegaba a unos 35 s. El aviso de la ventana «Cargar guía» de M11 dice que indexar tarda unos minutos y que mientras tanto las consultas pueden ir algo más lentas (parte Z). Medición: `docker compose run --rm jobs python -m app.scripts.medir_interferencia --lote 1 --consultas 15` (solo lectura; no use la aplicación ni cargue guías mientras mide; detalle en `jobs/README.md`).
 
 Comandos, transcripciones, el mapa de modificaciones de la RM 429-2024/MINSA y la medición del indexador: [`jobs/README.md`](jobs/README.md).
 
@@ -150,7 +151,7 @@ El grafo de LangGraph (`backend/app/rag/grafo.py`) recorre 8 nodos y transmite s
 
 1. **Validar** (con `cdss_clinica`): filtro de dominio, datos mínimos del tamizaje y vigencia de 30 días.
 2. **Clasificar:** clasificación de la hemoglobina ajustada por altitud y nivel de riesgo.
-3. **Normalizar:** abreviaturas, sinónimos y descriptores MeSH y DeCS, desde un diccionario local.
+3. **Normalizar:** abreviaturas, sinónimos y equivalentes en inglés, desde un diccionario local (`diccionario_normalizacion.yaml`). El diccionario guarda también descriptores MeSH y DeCS, pero la búsqueda no los usa.
 4. **Recuperar** (con `cdss_generacion`): BM25 y ChromaDB, fusión RRF, bonificación por edad, reranker y umbral de relevancia; búsqueda ampliada si nada lo alcanza.
 5. **Proteger:** solicitud mínima con lista blanca, marcas en lugar de identificadores y control previo que bloquea el envío si aparece un dato del paciente.
 6. **Generar:** llamada al modelo con salida estructurada y el prompt versionado (`VERSION_PROMPT` v1.1).
@@ -185,7 +186,7 @@ npm run dev
 cd backend
 cp .env.test.example .env.test   # conexiones a la base de pruebas (incluidas TEST_DATABASE_URL_SUPER, DATABASE_URL_INDEXADOR y DATABASE_URL_AUDITOR)
 python -m app.scripts.seed_demo
-pytest -q                        # excluye las marcas lenta, api_real y chroma_real
+pytest -q                        # 1129 pruebas; excluye las marcas lenta, api_real y chroma_real
 pytest -q -m lenta               # PDF reales de data/guias y fragmentos indexados (no corren en CI)
 ```
 
@@ -202,7 +203,7 @@ cd modelos && pip install -r requirements-dev.txt && python -m pytest -q
 ```bash
 cd frontend
 npm ci
-npm test                 # 252 pruebas (vitest run)
+npm test                 # 393 pruebas en 20 archivos (vitest run)
 npm run build            # también comprueba los tipos de las pruebas
 ```
 
@@ -217,24 +218,30 @@ GitHub Actions (`.github/workflows/ci.yml`) ejecuta el backend, el servicio de m
 ```
 backend/        API FastAPI
   app/core/       configuración, conexiones por rol, seguridad, auditoría, cliente de modelos y almacén vectorial
-  app/api/        rutas (auth, salud, catálogos, pacientes, usuarios, consultas, conocimiento) y permisos
-  app/services/   reglas del negocio (pacientes, clasificación, usuarios, consultas, decisiones, conocimiento)
+  app/api/        rutas (auth, salud, catálogos, pacientes, usuarios, consultas, conocimiento, reportes,
+                  auditoría y parámetros) y permisos
+  app/services/   reglas del negocio (pacientes, clasificación, usuarios, consultas, decisiones, conocimiento,
+                  reportes, auditoría y parámetros)
+  app/reportes/   PDF del reporte (ReportLab) y frases del cuidador
+  app/respaldo/   respaldo, restauración y verificación de ChromaDB y de las guías cargadas
   app/rag/        filtro de dominio, validación, normalización, recuperación híbrida, protección de datos,
                   generación, verificación y grafo de la consulta
   app/indexador/  indexador de guías: extracción, transcripciones, mapa de modificaciones, fragmentación,
                   grupos etarios, indexación y trabajador
-  app/scripts/    seed_demo, mediciones, confirmación de la API y prueba de punta a punta
+  app/scripts/    seed_demo, mediciones (incluida medir_interferencia), huella de la configuración,
+                  confirmación de la API y prueba de punta a punta
   tests/          pruebas automáticas
 frontend/       React + Vite; Dockerfile con Nginx (único punto de entrada)
 db/
   init/           01 esquema (27 tablas), 02 catálogos, 03 usuarios de conexión, 04 migraciones
-  migraciones/    cambios idempotentes para bases existentes (001 a 012: Sprint 2)
+  migraciones/    cambios idempotentes para bases existentes (001 a 018: 001 a 012 del Sprint 2, 013 a 018 del Sprint 3)
   sql/            usuarios de conexión con mínimo privilegio
   aplicar_bd.sh   aplica todo sobre una base nueva, o solo las migraciones (--solo-migraciones)
 modelos/        servicio interno de modelos locales; experimentos/ mide rerankers alternativos
 jobs/           documentación de los procesos fuera de línea
 data/           guías en PDF, pesos de los modelos, mediciones y respaldos (no se versiona, ver data/README.md)
-docs/           documentación del desarrollo (contratos, mediciones, cambios respecto al OE2, cierre del Sprint 2)
+docs/           documentación del desarrollo (contratos, mediciones, respaldo, cambios respecto al OE2, plan del
+                Sprint 3 y cierres de los Sprints 2 y 3)
 ```
 
 ## Base de datos
@@ -286,10 +293,10 @@ El plan, con sus partes, dependencias y decisiones, está en [`docs/plan_sprint3
 
 - **M09** reporte exportable (HU10, incluido «Exportar reporte» en M05), **M13** auditoría y trazabilidad (HU13) y **M12** parámetros clínicos (HU14).
 - **HU17:** retirar guías desde M11 (hecho en la parte F). La carga de guías de nivel 1 desde la pantalla, con revisión («Aprobar») y recorte de márgenes por documento, queda para después de la evaluación del OE3.
-- Lista de las consultas propias (P10), cambio obligatorio de contraseña e invalidación de sesiones (hecho en la parte I), prioridad de las consultas frente a la indexación (P14, hecho en la parte J), respaldo de la base de conocimiento (hecho en la parte K) y despliegue en Azure.
-- Trabajo de evaluación del OE3, con el sistema congelado y solo datos sintéticos. P3, P4, P7 y P8 no se tocan antes del OE3.
+- Lista de las consultas propias (P10, parte B), cambio obligatorio de contraseña e invalidación de sesiones (parte I), prioridad de las consultas frente a la indexación (P14, parte J) y respaldo de la base de conocimiento (parte K): hechos. Queda el despliegue en Azure (parte L).
+- Trabajo de evaluación del OE3, con el sistema congelado y solo datos sintéticos. P3, P4, P7 y P8 no se tocan antes del OE3. El procedimiento para congelar el sistema está en [`docs/cierre_sprint3.md`](docs/cierre_sprint3.md).
 
-La auditoría visual de la interfaz (desbordes, elementos que escapan de su contenedor y axe-core) está en [`frontend/auditoria/`](frontend/auditoria/README.md) y se ejecuta con `npm run auditoria`, fuera del CI. Los pendientes del Sprint 2, con su dueño, están en [`docs/cierre_sprint2.md`](docs/cierre_sprint2.md).
+La auditoría visual de la interfaz (desbordes, elementos que escapan de su contenedor y axe-core) está en [`frontend/auditoria/`](frontend/auditoria/README.md) y se ejecuta con `npm run auditoria`, fuera del CI. Los pendientes, con su dueño, están en [`docs/cierre_sprint2.md`](docs/cierre_sprint2.md) y [`docs/cierre_sprint3.md`](docs/cierre_sprint3.md).
 
 ## Seguridad en desarrollo
 

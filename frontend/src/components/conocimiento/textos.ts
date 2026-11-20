@@ -4,7 +4,10 @@
 import { ErrorApi } from "../../api/cliente";
 import { ANIO_MINIMO, MAX_BYTES_GUIA, type EstadoIndexacion, type EtapaTrabajo, type MetadatosGuia } from "../../api/conocimiento";
 
-export const AVISO_P14 = "Indexar una guía puede demorar las consultas varios minutos. Cargue guías fuera del horario de atención.";
+// Desde la parte J del Sprint 3 (lote de embeddings de 1): con una indexación en curso, la mediana de la
+// recuperación pasa de unos 3,3 s a unos 4,7 s en el perfil normal y de 6,3 s a 8,4 s en B2ms, y 100
+// fragmentos se indexan en 76 s (133 s en B2ms). El aviso no da cifras: dice lo medido sin prometer de más.
+export const AVISO_P14 = "Indexar una guía tarda unos minutos. Mientras tanto, las consultas pueden ir algo más lentas.";
 export const NOTA_NIVEL_1 = "Las guías de nivel 1 se cargan por línea de comandos con transcripciones verificadas por el equipo.";
 export const NOTA_RETIRAR =
   "«Retirar» solo se aplica a guías vigentes. Una guía retirada queda como obsoleta y no se puede reactivar desde la pantalla.";

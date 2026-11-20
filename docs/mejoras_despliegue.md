@@ -3,6 +3,14 @@
 Mejoras identificadas durante el desarrollo que no se aplican en el entorno local,
 pero que conviene revisar antes del despliegue en Azure.
 
+**Estado al cierre del Sprint 3 (parte Z, 19/11/2026):**
+
+| Ítem | Estado |
+| --- | --- |
+| Contraseñas de los usuarios de conexión en la línea de comandos | Pendiente: asignado a la parte L (despliegue en Azure) |
+| Cambio obligatorio de contraseña en el primer inicio de sesión | Resuelto en la parte I |
+| Sesiones abiertas después de restablecer la contraseña | Resuelto en la parte I |
+
 ## Contraseñas de los usuarios de conexión en la línea de comandos
 
 **Situación actual.** `db/aplicar_bd.sh` pasa las contraseñas de `cdss_clinica`,
@@ -24,6 +32,9 @@ de psql con `\getenv` (psql 15 o superior), en lugar de pasarlas con `-v`:
 
 Las variables de entorno se cargan desde Azure Key Vault en el agente de despliegue,
 sin escribirlas en el código ni en el historial de la terminal.
+
+**Asignado a la parte L** (despliegue en Azure, `docs/plan_sprint3.md`): `aplicar_bd.sh` con
+`\getenv`, ejecutado desde un agente de despliegue no compartido.
 
 ## Cambio obligatorio de contraseña en el primer inicio de sesión (resuelto en el Sprint 3, parte I)
 

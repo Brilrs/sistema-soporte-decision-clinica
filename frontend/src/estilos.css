@@ -76,7 +76,6 @@ input:focus { outline: 2px solid var(--azul-600); outline-offset: 0; border-colo
 
 /* Tarjetas y tablas */
 .tarjeta { background: var(--blanco); border: 1px solid var(--gris-300); border-radius: var(--radio); padding: 1.25rem; margin-top: 1.25rem; max-width: 760px; }
-.tarjeta--vacia { color: var(--gris-700); }
 .tabla { width: 100%; border-collapse: collapse; }
 .tabla td { padding: .55rem .4rem; border-bottom: 1px solid var(--gris-100); }
 .estado { border-radius: 999px; padding: .15rem .6rem; font-size: .8rem; font-weight: 600; }
