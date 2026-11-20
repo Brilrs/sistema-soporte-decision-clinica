@@ -134,8 +134,41 @@ pregunta y el reranker con 8 candidatos de 256 tokens, como una recuperación.
 
 Mientras se indexa, `modelos` (una petición a la vez) atiende los lotes de 8 fragmentos del
 indexador y las consultas esperan su turno: la recuperación de una consulta pasa de unos 4 s a
-unos 24 s y puede superar los 30 s. Indexar una guía nueva fuera del horario de atención hasta
-decidir cómo limitarlo (pendiente P14 de `docs/cambios_respecto_al_OE2.md`).
+unos 24 s y puede superar los 30 s (pendiente P14 de `docs/cambios_respecto_al_OE2.md`). La parte J
+del Sprint 3 lo resuelve con lotes de 1 texto (sección siguiente).
+
+#### Lote de embeddings (Sprint 3, parte J, 19/11/2026)
+
+`INDEXADOR_LOTE_EMBEDDINGS` fija cuántos textos manda el indexador en cada petición de embeddings a
+`modelos`: un entero de 1 a 64, **1 por omisión** (antes, 8 fijo). Lo leen el servicio `indexador` y
+`jobs` (`docker-compose.yml`); vacío usa el valor por omisión y un valor no válido detiene el
+trabajador con un mensaje claro (código 2). `modelos` no interrumpe un lote, así que cada paso de
+una consulta que llega durante una indexación espera como mucho a que termine el lote en curso:
+con 1 texto, unos 2,5 s en el perfil normal; con 8, unos 17 s.
+
+Medición con `app.scripts.medir_interferencia` (solo lectura: carga sintética de lotes de embeddings
+con textos reales de fragmentos, enviados uno tras otro, y las 15 primeras consultas de latencia de
+la recuperación, sin carga y con carga). Detalle en `docs/mediciones_sprint2.md` (Sprint 3, parte J).
+
+| Perfil | Lote | Recuperación con carga (mediana / máximo) | Llamada más lenta | 100 fragmentos, solos |
+| --- | --- | --- | --- | --- |
+| Normal | 8 | 34,4 a 35,1 s / 60,6 a 62,6 s | 32,3 s | 165 a 176 s |
+| Normal | 1 | 4,6 a 4,7 s / 6,3 a 6,4 s | 5,9 s | 76 s |
+| B2ms | 8 | 63,4 s / 111,2 s | 57,3 s | 323 s |
+| B2ms | 1 | 8,4 s / 12,8 s | 9,2 s | 133 s |
+
+Sin carga, la mediana es de unos 3,3 s (normal) y 6,3 s (B2ms). Indexar es además más rápido con
+lote 1: con lote 8 cada lote se rellena hasta el texto más largo y, con los fragmentos actuales,
+el 57 % de los tokens procesados es relleno. Los vectores no cambian en la práctica: entre lote 8
+y lote 1, diferencia máxima de 3e-7 y coseno 1,000000000 (48 fragmentos reales).
+
+```bash
+docker compose build jobs
+docker compose run --rm jobs python -m app.scripts.medir_interferencia --lote 1 --consultas 15 --etiqueta normal_a
+# Perfil B2ms: el mismo comando con -f docker-compose.yml -f docker-compose.b2ms.yml después de `docker compose`
+```
+
+No usar la aplicación ni cargar guías durante la medición.
 
 ### Verificar las transcripciones
 

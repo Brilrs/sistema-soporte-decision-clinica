@@ -50,8 +50,16 @@ class EmbedderHttp:
     nombre = "bge-m3"
 
     def __init__(self, cliente: ClienteModelos, lote: int = 8):
+        """lote: textos por petición (1 a 64, el máximo del servicio). La recuperación usa un texto por
+        consulta; el indexador lo toma de INDEXADOR_LOTE_EMBEDDINGS (app.indexador.config)."""
+        if not 1 <= lote <= 64:
+            raise ValueError(f"El lote de embeddings debe ser de 1 a 64 textos; se recibió {lote}")
         self._cliente = cliente
         self._lote = lote
+
+    @property
+    def lote(self) -> int:
+        return self._lote
 
     def embeber(self, textos: list[str]) -> list[list[float]]:
         vectores: list[list[float]] = []

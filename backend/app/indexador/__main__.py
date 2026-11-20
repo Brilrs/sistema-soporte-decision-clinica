@@ -32,7 +32,7 @@ def _servicios(config: ConfigIndexador, falsos: bool):
     if falsos:
         return EmbedderFalso(), TokenizadorFalso()
     cliente = ClienteModelos(config.modelos_url)
-    return EmbedderHttp(cliente), TokenizadorHttp(cliente)
+    return EmbedderHttp(cliente, lote=config.lote_embeddings), TokenizadorHttp(cliente)
 
 
 def _indexador(config: ConfigIndexador, falsos: bool) -> Indexador:
@@ -320,7 +320,12 @@ def main(argv: list[str] | None = None) -> int:
     p.set_defaults(func=cmd_trabajador)
 
     args = parser.parse_args(argv)
-    return args.func(args, cargar_config())
+    try:
+        config = cargar_config()
+    except ValueError as e:  # INDEXADOR_LOTE_EMBEDDINGS no válido: mensaje claro, sin traza
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 2
+    return args.func(args, config)
 
 
 if __name__ == "__main__":
