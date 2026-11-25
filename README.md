@@ -6,7 +6,7 @@ Sistema de soporte a la decisión clínica para la evaluación del riesgo de ane
 | --- | --- |
 | Interfaz | React + Vite (TypeScript) servida por Nginx |
 | API y orquestación | FastAPI + LangGraph (Python 3.12) |
-| Datos | PostgreSQL 16 (Azure Database for PostgreSQL en producción) |
+| Datos | PostgreSQL 16 (en Azure, en un contenedor de la VM: `docs/despliegue_azure.md`) |
 | Base vectorial | ChromaDB 0.6.3 |
 | Modelos locales | bge-m3 (embeddings) y bge-reranker-v2-m3 (ONNX int8), solo CPU, en el contenedor interno `modelos` |
 | Modelo de lenguaje | Claude Sonnet 5.5 (`claude-sonnet-5-5`) vía API de Anthropic; el ID está en el parámetro `MODELO_LLM` |
@@ -239,6 +239,7 @@ db/
   aplicar_bd.sh   aplica todo sobre una base nueva, o solo las migraciones (--solo-migraciones)
 modelos/        servicio interno de modelos locales; experimentos/ mide rerankers alternativos
 jobs/           documentación de los procesos fuera de línea
+deploy/         despliegue en Azure: secretos de Key Vault, respaldos a Blob, certificado y systemd
 data/           guías en PDF, pesos de los modelos, mediciones y respaldos (no se versiona, ver data/README.md)
 docs/           documentación del desarrollo (contratos, mediciones, respaldo, cambios respecto al OE2, plan del
                 Sprint 3 y cierres de los Sprints 2 y 3)
@@ -262,20 +263,41 @@ docker compose exec db bash /docker-entrypoint-initdb.d/03_usuarios_bd.sh     # 
 
 > Los valores clínicos marcados con `[VERIFICAR]` en `db/init/02_catalogos.sql` (puntos de corte, ajuste por altitud, descriptores MeSH y altitud de distritos) deben contrastarse con el texto oficial de la NTS N.° 213-MINSA/DGIESP-2024 y la guía OMS 2024 antes de la validación con usuarios.
 
-### En Azure Database for PostgreSQL - Servidor flexible
+### `db/aplicar_bd.sh` sobre otra base
 
-1. En el servidor, parámetro `azure.extensions`: agregue `PGCRYPTO` y `BTREE_GIST`.
-2. Cree la base `cdss` y ejecute:
+Aplica el esquema, los catálogos, los usuarios de conexión y las migraciones sobre una base PostgreSQL 16
+cualquiera (la base de pruebas, el CI). Necesita psql 15 o superior: las contraseñas se leen de las
+variables de entorno con `\getenv`, nunca en la línea de comandos.
 
 ```bash
-export PGHOST=<servidor>.postgres.database.azure.com PGUSER=<admin> PGPASSWORD=<...> PGDATABASE=cdss PGSSLMODE=require
+export PGHOST=<servidor> PGUSER=<admin> PGPASSWORD=<...> PGDATABASE=cdss
 export CDSS_DB_PWD_CLINICA=<...> CDSS_DB_PWD_GENERACION=<...> CDSS_DB_PWD_ADMIN=<...> CDSS_DB_PWD_AUDITOR=<...>
 export CDSS_DB_PWD_INDEXADOR=<...>
 ./db/aplicar_bd.sh                       # base nueva
 ./db/aplicar_bd.sh --solo-migraciones    # base existente: aplica las migraciones y crea los usuarios nuevos
 ```
 
-Las mejoras pendientes para el despliegue en Azure están en [`docs/mejoras_despliegue.md`](docs/mejoras_despliegue.md).
+En la VM de Azure se usa `bash deploy/aplicar_bd_vm.sh --solo-migraciones`, sin instalar psql en el
+host (`docs/despliegue_azure.md`).
+
+## Despliegue en Azure
+
+Una VM Ubuntu 24.04 Standard_B2ms en chilecentral con Docker Compose, PostgreSQL 16 en contenedor,
+HTTPS con Let's Encrypt para el nombre de Azure de la IP pública, secretos en Key Vault y respaldos
+diarios a Blob; solo con datos sintéticos (Sprint 3, parte L). La guía completa, con cada comando, el
+presupuesto de memoria, los nombres de los secretos y cómo apagar y encender la VM, está en
+[`docs/despliegue_azure.md`](docs/despliegue_azure.md).
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml config --quiet   # valida la configuración de producción
+bash deploy/cargar_secretos.sh          # en la VM: .env (permisos 600) desde Key Vault
+bash deploy/renovar_certificado.sh emitir
+docker compose up -d                    # en la VM, .env fija COMPOSE_FILE con el archivo de producción
+bash deploy/respaldo_pg.sh              # también cada día con systemd (deploy/systemd/)
+bash deploy/restaurar_pg.sh             # restauración probada en una base aparte
+```
+
+Las mejoras para el despliegue y su estado están en [`docs/mejoras_despliegue.md`](docs/mejoras_despliegue.md).
 
 ### Respaldo de la base de conocimiento
 
@@ -293,7 +315,7 @@ El plan, con sus partes, dependencias y decisiones, está en [`docs/plan_sprint3
 
 - **M09** reporte exportable (HU10, incluido «Exportar reporte» en M05), **M13** auditoría y trazabilidad (HU13) y **M12** parámetros clínicos (HU14).
 - **HU17:** retirar guías desde M11 (hecho en la parte F). La carga de guías de nivel 1 desde la pantalla, con revisión («Aprobar») y recorte de márgenes por documento, queda para después de la evaluación del OE3.
-- Lista de las consultas propias (P10, parte B), cambio obligatorio de contraseña e invalidación de sesiones (parte I), prioridad de las consultas frente a la indexación (P14, parte J) y respaldo de la base de conocimiento (parte K): hechos. Queda el despliegue en Azure (parte L).
+- Lista de las consultas propias (P10, parte B), cambio obligatorio de contraseña e invalidación de sesiones (parte I), prioridad de las consultas frente a la indexación (P14, parte J) y respaldo de la base de conocimiento (parte K): hechos. Despliegue en Azure (parte L): código, scripts y guía hechos; queda desplegar en Azure.
 - Trabajo de evaluación del OE3, con el sistema congelado y solo datos sintéticos. P3, P4, P7 y P8 no se tocan antes del OE3. El procedimiento para congelar el sistema está en [`docs/cierre_sprint3.md`](docs/cierre_sprint3.md).
 
 La auditoría visual de la interfaz (desbordes, elementos que escapan de su contenedor y axe-core) está en [`frontend/auditoria/`](frontend/auditoria/README.md) y se ejecuta con `npm run auditoria`, fuera del CI. Los pendientes, con su dueño, están en [`docs/cierre_sprint2.md`](docs/cierre_sprint2.md) y [`docs/cierre_sprint3.md`](docs/cierre_sprint3.md).

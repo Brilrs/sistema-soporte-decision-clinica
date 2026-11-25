@@ -17,3 +17,5 @@ dist/
 # Datos locales (guías, modelos y mediciones): solo se versiona data/README.md
 data/*
 !data/README.md
+# Configuración del despliegue de cada VM (sin secretos, pero propia de cada instalación)
+deploy/despliegue.conf

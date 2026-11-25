@@ -5,3 +5,9 @@ backend/app/rag/*.yaml text eol=lf
 # Fuentes empaquetadas (reportes PDF, parte C1 del Sprint 3): binarias, sin conversión de fin de línea
 *.ttf binary
 backend/app/reportes/*.yaml text eol=lf
+# Despliegue en Azure (Sprint 3, parte L): se leen dentro de Linux (VM, contenedores y systemd)
+*.conf text eol=lf
+*.template text eol=lf
+deploy/*.ejemplo text eol=lf
+deploy/systemd/* text eol=lf
+docker-compose*.yml text eol=lf

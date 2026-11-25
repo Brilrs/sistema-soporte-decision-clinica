@@ -25,7 +25,8 @@ from app.services import decisiones as dec
 from tests.test_d1_grafo import _RerankerLento, _caso, _ids, entorno  # noqa: F401 (fixtures)
 from tests.test_generacion_bd import engine_clinica, engine_generacion, guia  # noqa: F401 (fixtures)
 
-NGINX = Path(__file__).resolve().parents[2] / "frontend" / "nginx.conf"
+# Reglas de la aplicación, comunes a desarrollo (nginx.conf) y producción (nginx.prod.conf.template, parte L)
+NGINX = Path(__file__).resolve().parents[2] / "frontend" / "nginx" / "cdss_rutas.conf"
 EVENTO = TypeAdapter(rutas.EventoConsulta)
 IDENTIDAD_MATEO = ("Mateo", "Quispe", "Huamán", "81234567", "00452", "987654321")
 

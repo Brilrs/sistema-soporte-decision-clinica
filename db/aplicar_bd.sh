@@ -11,7 +11,8 @@
 #
 # En Azure, antes de ejecutarlo, agregue PGCRYPTO y BTREE_GIST al parámetro
 # del servidor "azure.extensions".
-# Funciona en Linux, macOS y Windows (Git Bash con el psql nativo de PostgreSQL).
+# Funciona en Linux, macOS y Windows (Git Bash con el psql nativo de PostgreSQL), con psql 15 o
+# superior (\getenv). En la VM de Azure se usa deploy/aplicar_bd_vm.sh, sin instalar psql en el host.
 set -euo pipefail
 DIR="$(cd "$(dirname "$0")" && pwd)"
 USUARIOS_SQL="$DIR/sql/usuarios_bd.sql"
@@ -29,15 +30,28 @@ case "${1:-}" in
 esac
 
 aplicar_usuarios() {
-  # Las contraseñas se cargan en la sesión con set_config. \gset guarda el resultado de la
-  # consulta en variables de psql en lugar de imprimirlo, así que no aparecen en pantalla
-  # (antes se usaba \o /dev/null, que no existe en Windows). VERBOSITY terse evita que un
-  # error muestre el contexto con la sentencia ejecutada.
-  psql -q -v ON_ERROR_STOP=1 \
-    -v pwd_clinica="$CDSS_DB_PWD_CLINICA" -v pwd_generacion="$CDSS_DB_PWD_GENERACION" \
-    -v pwd_admin="$CDSS_DB_PWD_ADMIN" -v pwd_auditor="$CDSS_DB_PWD_AUDITOR" \
-    -v pwd_indexador="$CDSS_DB_PWD_INDEXADOR" <<SQL
+  # Las contraseñas no van en la línea de comandos de psql: con -v se verían en la lista de procesos
+  # mientras el script corre (docs/mejoras_despliegue.md). psql las lee de las variables de entorno
+  # con \getenv (psql 15 o superior; en la VM, el cliente de postgres:16 en un contenedor:
+  # deploy/aplicar_bd_vm.sh). Se cargan en la sesión con set_config. \gset guarda el resultado de la
+  # consulta en variables de psql en lugar de imprimirlo, así que no aparecen en pantalla (antes se
+  # usaba \o /dev/null, que no existe en Windows). VERBOSITY terse evita que un error muestre el
+  # contexto con la sentencia ejecutada.
+  local variable
+  for variable in CDSS_DB_PWD_CLINICA CDSS_DB_PWD_GENERACION CDSS_DB_PWD_ADMIN CDSS_DB_PWD_AUDITOR \
+                  CDSS_DB_PWD_INDEXADOR; do
+    if [ -z "${!variable:-}" ]; then
+      echo "Falta la variable de entorno $variable" >&2
+      exit 1
+    fi
+  done
+  psql -q -v ON_ERROR_STOP=1 <<SQL
 \set VERBOSITY terse
+\getenv pwd_clinica CDSS_DB_PWD_CLINICA
+\getenv pwd_generacion CDSS_DB_PWD_GENERACION
+\getenv pwd_admin CDSS_DB_PWD_ADMIN
+\getenv pwd_auditor CDSS_DB_PWD_AUDITOR
+\getenv pwd_indexador CDSS_DB_PWD_INDEXADOR
 SELECT set_config('cdss.pwd_clinica', :'pwd_clinica', false) AS clinica,
        set_config('cdss.pwd_generacion', :'pwd_generacion', false) AS generacion,
        set_config('cdss.pwd_admin', :'pwd_admin', false) AS admin,

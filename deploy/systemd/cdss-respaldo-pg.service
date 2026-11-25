@@ -1,0 +1,13 @@
+# Sprint 3, parte L. Se instala con: sudo cp deploy/systemd/cdss-respaldo-pg.* /etc/systemd/system/
+# (docs/despliegue_azure.md). Supone el repositorio en /opt/cdss-anemia.
+[Unit]
+Description=Respaldo de PostgreSQL del CDSS hacia Azure Blob (deploy/respaldo_pg.sh)
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/cdss-anemia
+ExecStart=/bin/bash /opt/cdss-anemia/deploy/respaldo_pg.sh
+TimeoutStartSec=1h

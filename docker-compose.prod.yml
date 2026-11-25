@@ -1,0 +1,95 @@
+# Despliegue en Azure (Sprint 3, parte L): se superpone a docker-compose.yml en una sola VM Ubuntu
+# 24.04 Standard_B2ms (2 vCPU, 8 GiB) en chilecentral, con datos sintéticos (docs/despliegue_azure.md).
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# En la VM, deploy/cargar_secretos.sh escribe COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml
+# en .env, así que basta con «docker compose up -d».
+#
+# Qué cambia respecto del desarrollo:
+# - Solo Nginx publica puertos: 80 (desafío de Let's Encrypt y redirección) y 443 (HTTPS). La base de
+#   datos, ChromaDB y modelos quedan en la red interna de Docker (!reset quita los puertos de
+#   desarrollo de docker-compose.yml).
+# - PostgreSQL 16 va en el contenedor db con su volumen datos_pg, no en el servicio administrado del
+#   OE2 (fila 155 de docs/cambios_respecto_al_OE2.md). Su respaldo es deploy/respaldo_pg.sh.
+# - Todos los servicios permanentes se reinician solos (también al encender la VM).
+# - CDSS_ENTORNO=produccion y CDSS_LLM=real fijos: el modelo falso no se puede activar desde .env.
+#
+# Presupuesto de memoria en 8 GiB (detalle en docs/despliegue_azure.md):
+#   permanentes  modelos 3072 + db 512 + chromadb 512 + backend 512 + indexador 512 + nginx 64 = 5184 MiB
+#   bajo demanda (uno a la vez): jobs, respaldo o respaldo-guias 768 MiB; certbot 128 MiB
+#   total con un trabajo bajo demanda: 5952 MiB; quedan unos 2 GiB (Ubuntu ve algo menos de 8 GiB) para
+#   el sistema operativo y Docker, más 2 GB de swap. exportar-onnx (6 GiB) solo se ejecuta con el resto del stack detenido.
+
+services:
+  db:
+    ports: !reset []
+    restart: unless-stopped
+    mem_limit: 512m
+
+  chromadb:
+    ports: !reset []
+    restart: unless-stopped
+    mem_limit: 512m
+
+  backend:
+    restart: unless-stopped
+    environment:
+      CDSS_ENTORNO: produccion
+      CDSS_LLM: real
+      CDSS_LLM_FALSO_MODO: normal
+      CORS_ORIGENES: '["https://${CDSS_DOMINIO:?Falta CDSS_DOMINIO en .env (deploy/cargar_secretos.sh)}"]'
+    mem_limit: 512m
+
+  nginx:
+    restart: unless-stopped
+    ports: !override
+      - "80:80"
+      - "443:443"
+    environment:
+      CDSS_DOMINIO: ${CDSS_DOMINIO:?Falta CDSS_DOMINIO en .env (deploy/cargar_secretos.sh)}
+      # La imagen oficial genera /etc/nginx/conf.d/default.conf desde frontend/nginx.prod.conf.template
+      NGINX_ENVSUBST_TEMPLATE_DIR: /etc/nginx/cdss/plantillas
+      NGINX_ENVSUBST_FILTER: CDSS_
+    volumes:
+      - certbot_certificados:/etc/letsencrypt:ro
+      - certbot_webroot:/var/www/certbot:ro
+    mem_limit: 64m
+
+  modelos:
+    restart: unless-stopped
+    mem_limit: 3072m
+
+  indexador:
+    environment:
+      CDSS_ENTORNO: produccion
+    mem_limit: 512m
+
+  jobs:
+    environment:
+      CDSS_ENTORNO: produccion
+    mem_limit: 768m
+
+  respaldo:
+    environment:
+      CDSS_ENTORNO: produccion
+    mem_limit: 768m
+
+  respaldo-guias:
+    environment:
+      CDSS_ENTORNO: produccion
+    mem_limit: 768m
+
+  # Let's Encrypt. Bajo demanda: la primera emisión (standalone, con Nginx detenido) y la renovación
+  # (webroot, con Nginx sirviendo el desafío) los ejecuta deploy/renovar_certificado.sh.
+  certbot:
+    image: certbot/certbot:v2.11.0
+    profiles: ["certbot"]
+    volumes:
+      - certbot_certificados:/etc/letsencrypt
+      - certbot_webroot:/var/www/certbot
+    mem_limit: 128m
+
+volumes:
+  certbot_certificados:
+  certbot_webroot:

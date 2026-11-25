@@ -1,0 +1,25 @@
+# Configuración del despliegue en Azure (Sprint 3, parte L). Sin secretos: los secretos viven en
+# Key Vault y deploy/cargar_secretos.sh los escribe en .env.
+#
+# En la VM: cp deploy/despliegue.conf.ejemplo deploy/despliegue.conf y reemplace los valores
+# «cambiar». deploy/despliegue.conf no se sube al repositorio (.gitignore).
+
+# Nombre del Key Vault (sin .vault.azure.net)
+KEY_VAULT=kv-cdss-cambiar
+
+# Nombre que da Azure a la IP pública (etiqueta DNS): <etiqueta>.chilecentral.cloudapp.azure.com
+CDSS_DOMINIO=cdss-anemia-cambiar.chilecentral.cloudapp.azure.com
+
+# Cuenta de almacenamiento y contenedor de los respaldos (Blob)
+CUENTA_ALMACENAMIENTO=stcdssanemia2611
+CONTENEDOR_RESPALDOS=respaldos
+
+# Respaldos que se conservan en Blob (los más antiguos se borran)
+CONSERVAR_RESPALDOS_CHROMA=14
+CONSERVAR_RESPALDOS_PG=14
+
+# Correo para los avisos de Let's Encrypt (opcional; vacío = sin correo)
+CERTBOT_CORREO=
+
+# Solo si la VM tiene más de una identidad administrada (vacío con la identidad del sistema)
+AZURE_CLIENT_ID=
