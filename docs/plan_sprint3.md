@@ -406,7 +406,7 @@ Sin migración.
 - `aplicar_bd.sh` con `\getenv`;
 - medición en B2ms;
 - solo datos sintéticos (decisión 12).
-- **Primera mitad hecha** (código, scripts y guía; filas 154 a 159 de `cambios_respecto_al_OE2.md`,
+- **Primera mitad hecha** (código, scripts y guía; filas 154 a 160 de `cambios_respecto_al_OE2.md`,
   guía en `docs/despliegue_azure.md`):
   - una VM Ubuntu 24.04 Standard_B2ms en chilecentral (la política de Azure for Students no permite
     Brazil South) con PostgreSQL 16 en contenedor (el servicio administrado no cabe en el crédito);
@@ -622,7 +622,7 @@ El resumen para el asesor está en `docs/cierre_sprint3.md`.
 | K, respaldo de ChromaDB | Hecha; la prueba real de Blob queda para L | 146 a 149 |
 | J, indexación y consultas (P14) | Hecha con lotes de embeddings de 1 (la ampliación «lotes más chicos», sin horario del trabajador) | 150 y 151 |
 | Z, cierre | Hecha | 152 y 153 |
-| L, despliegue en Azure | Primera mitad hecha (código, scripts y guía); queda el despliegue en Azure | 154 a 159 |
+| L, despliegue en Azure | Primera mitad hecha (código, scripts y guía); queda el despliegue en Azure | 154 a 160 |
 | OE3, trabajo de evaluación | Pendiente: después de congelar el sistema | |
 | G y H | Fuera del Sprint 3 (decisiones 7 y 8) | |
 
