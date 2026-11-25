@@ -11,7 +11,7 @@ al terminar.
 | PostgreSQL | PostgreSQL 16 en el contenedor `db` de la VM, con su volumen, y su respaldo diario a Blob | El servicio administrado del OE2 no cabe en el crédito de US$ 100 (fila 155) |
 | Acceso web | HTTPS con el nombre que da Azure a la IP pública: `<etiqueta>.chilecentral.cloudapp.azure.com` (`CDSS_DOMINIO`) | Sin dominio propio |
 | Secretos | Azure Key Vault, leído por la VM con su identidad administrada (`deploy/cargar_secretos.sh`) | Sin secretos en el repositorio ni en la línea de comandos |
-| Encendido | La VM se enciende solo para desplegar, medir y probar, y se apaga (desasignada) después | Cuidar el crédito |
+| Encendido | La VM se enciende solo para desplegar, medir y probar, y se desasigna a mano (`az vm deallocate`) al terminar cada sesión. No hay apagado automático: no está disponible en Chile Central (paso 6, fila 160) | Cuidar el crédito |
 
 Recursos que ya existen: el grupo de recursos `rg-cdss-anemia` (creado en brazilsouth; el grupo solo
 guarda metadatos, los recursos nuevos van en chilecentral) y la cuenta de almacenamiento
@@ -157,13 +157,24 @@ $ID_VM
 La clave SSH queda en `C:\Users\<usted>\.ssh\id_rsa` (si ya existía, se reutiliza). El disco de 64 GB
 alcanza para los modelos (unos 4,6 GB), las imágenes de Docker y los datos.
 
-### 6. Apagado automático de respaldo (opcional, recomendado)
+`az vm create` muestra además avisos informativos (sobre Trusted Launch y sobre la identidad asignada
+sin `--scope`) que no hay que atender: la identidad recibe sus permisos en los pasos 7 y 9.
 
-Si olvida apagar la VM, Azure la apaga cada día a las 05:00 UTC (00:00 en Lima):
+### 6. Sin apagado automático: apagar a mano
+
+`az vm auto-shutdown` no funciona en Chile Central: el recurso que crea
+(`Microsoft.DevTestLab/schedules`) no existe en esa región (`LocationNotAvailableForResourceType`),
+debe estar en la región de la VM (`InvalidScheduleLocation` si se pide eastus2) y la región del grupo
+de recursos, brazilsouth, no la permite la política de la suscripción (`RequestDisallowedByAzure`).
+No hay apagado automático: **al terminar cada sesión**, apague la VM desde PowerShell:
 
 ```powershell
-az vm auto-shutdown --resource-group $RG --name $VM --time 0500 --output none
+az vm deallocate --resource-group $RG --name $VM
 ```
+
+Solo `deallocate` detiene el cobro del cómputo. Apagar desde Ubuntu (`sudo shutdown`) o con
+`az vm stop` deja la VM detenida pero asignada, y se sigue cobrando. Detalle en «Apagar y encender la
+VM».
 
 ### 7. Key Vault con permisos por rol
 
@@ -189,21 +200,36 @@ temporal que se borra enseguida (no quedan en la pantalla ni en el historial). U
 ```powershell
 function New-SecretoHex { $b = New-Object byte[] 32; [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); -join ($b | ForEach-Object { $_.ToString("x2") }) }
 function Set-SecretoNuevo([string]$nombre, [string]$valor) {
-  $existe = az keyvault secret list --vault-name $KV --query "length([?name=='$nombre'])" -o tsv
-  if ($existe -ne "0") { Write-Host "$nombre ya existe: no se cambia"; return }
+  $existentes = @(az keyvault secret list --vault-name $KV --query "[].name" -o tsv)
+  if ($existentes -contains $nombre) { Write-Host "$nombre ya existe: no se cambia"; return }
   $archivo = New-TemporaryFile
-  try { Set-Content -Path $archivo -Value $valor -NoNewline -Encoding ascii; az keyvault secret set --vault-name $KV --name $nombre --file $archivo --output none; Write-Host "$nombre creado" }
+  try {
+    Set-Content -Path $archivo -Value $valor -NoNewline -Encoding ascii
+    az keyvault secret set --vault-name $KV --name $nombre --file $archivo --output none
+    if ($LASTEXITCODE -eq 0) { Write-Host "$nombre creado" } else { Write-Host "ERROR al crear $nombre" }
+  }
   finally { Remove-Item $archivo -Force }
 }
 foreach ($n in "postgres-password","db-pwd-clinica","db-pwd-generacion","db-pwd-admin","db-pwd-auditor","db-pwd-indexador","jwt-secreto","clave-pii","clave-hmac") { Set-SecretoNuevo $n (New-SecretoHex) }
-Set-SecretoNuevo "seed-contrasena" ("Cdss-" + (New-SecretoHex).Substring(0, 16))
+$sufijo = (New-SecretoHex).Substring(0, 16)
+Set-SecretoNuevo "seed-contrasena" "Cdss-$sufijo"
+Remove-Variable sufijo
 $clave = Read-Host "Pegue la clave de la API de Anthropic" -AsSecureString
 Set-SecretoNuevo "anthropic-api-key" ([Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($clave)))
 Remove-Variable clave
 az keyvault secret list --vault-name $KV --query "[].name" -o tsv
 ```
 
-**Debe aparecer:** «… creado» por cada secreto y, al final, los 11 nombres. La contraseña inicial de
+La lista de secretos se pide con `--query "[].name"` y se compara en PowerShell: un filtro JMESPath
+con paréntesis (`length([?name=='...'])`) pasa por cmd.exe en Windows y falla («No se esperaba -o en
+este momento»), y la función creería que todos los secretos ya existen.
+
+En la clave de Anthropic, el texto entre comillas de `Read-Host` es solo la etiqueta que se muestra:
+pegue la clave después de los dos puntos que aparecen en pantalla, nunca dentro de las comillas.
+
+**Debe aparecer:** «… creado» por cada secreto y, al final, los 11 nombres. Si aparece «ERROR al
+crear ...», lea el mensaje de `az` que va antes (por ejemplo «Forbidden», paso 7) y vuelva a ejecutar
+el bloque: los secretos ya creados no se cambian. La contraseña inicial de
 las cuentas sintéticas se consulta solo cuando haga falta ingresar por primera vez:
 `az keyvault secret show --vault-name $KV --name seed-contrasena --query value -o tsv`.
 
@@ -434,7 +460,8 @@ variables de entorno por nombre y psql las lee con `\getenv`: nunca aparecen en 
 
 ## Apagar y encender la VM (cuidar el crédito)
 
-Desde PowerShell en su equipo (con las variables del paso 1):
+No hay apagado automático (paso 6): apague la VM a mano al terminar cada sesión. Desde PowerShell en
+su equipo (con las variables del paso 1):
 
 ```powershell
 az vm deallocate --resource-group $RG --name $VM
@@ -442,8 +469,8 @@ az vm get-instance-view --resource-group $RG --name $VM --query "instanceView.st
 ```
 
 **Debe aparecer:** `VM deallocated`. Desasignada no se cobra el cómputo (US$ 0,116 por hora); sí se
-siguen cobrando el disco y la IP pública estática. `az vm stop` (sin desasignar) **sigue cobrando** el
-cómputo: use siempre `deallocate`. No detenga los contenedores antes de apagar: con `restart:
+siguen cobrando el disco y la IP pública estática. `az vm stop` (sin desasignar) y el apagado desde
+Ubuntu (`sudo shutdown`) **siguen cobrando** el cómputo: use siempre `deallocate`. No detenga los contenedores antes de apagar: con `restart:
 unless-stopped`, los que quedaron en marcha vuelven solos al encender.
 
 ```powershell
