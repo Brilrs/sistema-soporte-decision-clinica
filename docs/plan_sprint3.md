@@ -406,12 +406,13 @@ Sin migración.
 - `aplicar_bd.sh` con `\getenv`;
 - medición en B2ms;
 - solo datos sintéticos (decisión 12).
-- **Primera mitad hecha** (código, scripts y guía; filas 154 a 162 de `cambios_respecto_al_OE2.md`,
+- **Primera mitad hecha** (código, scripts y guía; filas 154 a 163 de `cambios_respecto_al_OE2.md`,
   guía en `docs/despliegue_azure.md`):
   - una VM Ubuntu 24.04 Standard_B2ms en chilecentral (la política de Azure for Students no permite
     Brazil South) con PostgreSQL 16 en contenedor (el servicio administrado no cabe en el crédito);
   - `docker-compose.prod.yml`: solo Nginx publica puertos (80 y 443), reinicio automático, entorno de
-    producción fijo y límites de memoria para 8 GiB (5184 MiB permanentes), con 2 GB de swap;
+    producción fijo y límites de memoria para 8 GiB (5696 MiB permanentes y 6464 MiB con un trabajo en ejecución, fila
+    162), con 2 GB de swap;
   - Nginx con HTTPS (TLS 1.2 y 1.3) y Let's Encrypt para el nombre de Azure de la IP pública
     (`CDSS_DOMINIO`); el 80 solo sirve el desafío y redirige; las reglas de la aplicación son las mismas
     de desarrollo (`frontend/nginx/cdss_rutas.conf`);
@@ -622,7 +623,7 @@ El resumen para el asesor está en `docs/cierre_sprint3.md`.
 | K, respaldo de ChromaDB | Hecha; la prueba real de Blob queda para L | 146 a 149 |
 | J, indexación y consultas (P14) | Hecha con lotes de embeddings de 1 (la ampliación «lotes más chicos», sin horario del trabajador) | 150 y 151 |
 | Z, cierre | Hecha | 152 y 153 |
-| L, despliegue en Azure | Primera mitad hecha (código, scripts y guía); queda el despliegue en Azure | 154 a 162 |
+| L, despliegue en Azure | Primera mitad hecha (código, scripts y guía); queda el despliegue en Azure | 154 a 163 |
 | OE3, trabajo de evaluación | Pendiente: después de congelar el sistema | |
 | G y H | Fuera del Sprint 3 (decisiones 7 y 8) | |
 
