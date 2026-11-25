@@ -16,10 +16,13 @@
 # - CDSS_ENTORNO=produccion y CDSS_LLM=real fijos: el modelo falso no se puede activar desde .env.
 #
 # Presupuesto de memoria en 8 GiB (detalle en docs/despliegue_azure.md):
-#   permanentes  modelos 3072 + db 512 + chromadb 512 + backend 512 + indexador 512 + nginx 64 = 5184 MiB
+#   permanentes  modelos 3584 + db 512 + chromadb 512 + backend 512 + indexador 512 + nginx 64 = 5696 MiB
 #   bajo demanda (uno a la vez): jobs, respaldo o respaldo-guias 768 MiB; certbot 128 MiB
-#   total con un trabajo bajo demanda: 5952 MiB; quedan unos 2 GiB (Ubuntu ve algo menos de 8 GiB) para
+#   total con un trabajo bajo demanda: 6464 MiB; quedan unos 1,7 GiB (Ubuntu ve algo menos de 8 GiB) para
 #   el sistema operativo y Docker, más 2 GB de swap. exportar-onnx (6 GiB) solo se ejecuta con el resto del stack detenido.
+#   modelos tenía 3072 MiB: en la VM (25/11/2026) su cgroup quedó en el tope con 0,80 GiB anónima y
+#   2,14 GiB de archivos de los modelos en caché (1,41 GiB mapeados), sin OOM pero expulsando y releyendo
+#   páginas de los modelos (memory.events max=2419). 3584 MiB los deja residentes (fila 162).
 
 services:
   db:
@@ -58,7 +61,7 @@ services:
 
   modelos:
     restart: unless-stopped
-    mem_limit: 3072m
+    mem_limit: 3584m
 
   indexador:
     environment:

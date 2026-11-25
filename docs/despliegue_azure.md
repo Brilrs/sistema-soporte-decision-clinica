@@ -40,19 +40,20 @@ Límites de `docker-compose.prod.yml` (`mem_limit`). Son topes, no reservas. El 
 
 | Servicio | Desarrollo | Perfil B2ms (`docker-compose.b2ms.yml`) | Azure | Uso medido |
 | --- | --- | --- | --- | --- |
-| `modelos` | 5632 MiB | 4608 MiB | **3072 MiB** | de 1,76 a 2,05 GiB en consultas; hasta 2,3 GiB indexando con lote 8 |
+| `modelos` | 5632 MiB | 4608 MiB | **3584 MiB** (antes 3072 MiB, fila 162) | de 1,76 a 2,05 GiB en consultas; hasta 2,3 GiB indexando con lote 8 (equipo de desarrollo). En la VM con 3072 MiB (25/11/2026): 2,985 GiB de 3 GiB en reposo; en el cgroup, `anon` 0,80 GiB y `file` 2,14 GiB (de ellos `file_mapped` 1,41 GiB: los modelos bge-m3 y el reranker ONNX mapeados), `memory.events` `max` 2419 y `oom_kill` 0, sin reinicios. No fue falta de memoria: el tope obligaba a expulsar y releer páginas de los modelos |
 | `db` | 768 MiB | 768 MiB | **512 MiB** | unos 33 MiB |
 | `chromadb` | 768 MiB | 512 MiB | **512 MiB** | de 66 a 103 MiB |
 | `backend` | 512 MiB | 512 MiB | **512 MiB** | de 180 a 197 MiB |
 | `indexador` | 768 MiB | sin límite propio | **512 MiB** | 86 MiB en espera; pico de 311 MiB |
 | `nginx` | 64 MiB | 64 MiB | **64 MiB** | unos 6 MiB |
-| **Permanentes** | 8512 MiB | | **5184 MiB** | |
+| **Permanentes** | 8512 MiB | | **5696 MiB** | |
 | `jobs`, `respaldo` o `respaldo-guias` (uno a la vez, bajo demanda) | 768 MiB | 768 MiB | 768 MiB | |
 | `certbot` (bajo demanda) | | | 128 MiB | |
-| **Total con un trabajo bajo demanda** | | | **5952 MiB** | |
+| **Total con un trabajo bajo demanda** | | | **6464 MiB** | |
 
-- Con un trabajo bajo demanda quedan unos **2 GiB** para Ubuntu, Docker y la caché de disco (8 GiB
-  menos 5952 MiB son 2240 MiB, y Ubuntu ve algo menos de 8 GiB). Además se agrega un **archivo de swap de 2 GB** (paso 12), para que un pico no termine en un
+- Con un trabajo bajo demanda quedan unos **1,7 GiB** para Ubuntu, Docker y la caché de disco (8 GiB
+  menos 6464 MiB son 1728 MiB, y Ubuntu ve algo menos de 8 GiB). Son topes: en la VM, los demás
+  servicios usan mucho menos que su límite (columna «Uso medido»). Además se agrega un **archivo de swap de 2 GB** (paso 12), para que un pico no termine en un
   contenedor detenido por falta de memoria.
 - `exportar-onnx` (6 GiB) y `descargar-modelos` (1 GiB) se ejecutan una sola vez, **con el resto del
   stack detenido** (paso 15).
@@ -429,6 +430,200 @@ bash deploy/probar_restauracion_chroma.sh
 - `probar_restauracion_chroma.sh`: la restauración en `guias_clinicas_prueba_restauracion`, «Las
   colecciones coinciden» y `Restauración probada: ...`; la colección de prueba se descarta.
 
+### 21. Medir en la VM real
+
+Mide los 12 casos de `backend/app/scripts/casos_e2e.yaml` por el grafo con la API real, una consulta
+a la vez y con el calentamiento previo, igual que la corrida de referencia del 13/11/2026
+(`docs/mediciones_sprint2.md`, «Corrida con el modelo real»). Requisitos: el stack levantado (paso
+17), los datos sintéticos de `seed_demo` y las 4 guías indexadas (paso 18). Solo usa pacientes
+ficticios de `seed_demo` (el script rechaza otro DNI). Cuesta unos US$ 0,25 (12 casos, 11 llamadas
+al modelo) más unos US$ 0,025 de la consulta de calentamiento. Las consultas quedan registradas en la
+base como consultas reales, igual que en las corridas anteriores. Mientras mide, nadie debe usar la
+aplicación ni cargar guías.
+
+Detalles del comando, comprobados en el código:
+- El contenedor `backend` **no monta `data/mediciones`** (solo el volumen de las guías cargadas), y su
+  usuario `cdss` no puede escribir en `/app`: sin un montaje, el script fallaría al guardar el
+  informe, después de pagar las llamadas. Por eso la corrida usa `docker compose run` con
+  `-v "$PWD/data/mediciones:/app/data/mediciones"` y `--user "$(id -u):$(id -g)"` (su usuario de la
+  VM, dueño de la carpeta). No hace falta `docker cp`.
+- Se usa la imagen `backend` y no `jobs`: la de `jobs` no tiene LangGraph.
+- `ANTHROPIC_API_KEY` llega al contenedor desde `.env` (paso 14) por la variable del servicio
+  `backend` de `docker-compose.yml`, sin escribirla en el comando. El script exige que exista y nunca
+  la imprime. No ejecute `docker compose config` ni `env` dentro del contenedor: esos sí mostrarían los
+  secretos.
+- `docker-compose.prod.yml` fija `CDSS_LLM_FALSO_MODO=normal`, que es lo que exige `--llm real`.
+- `--concurrentes 1` (una consulta a la vez) es el valor por omisión, pero se escribe explícito. El
+  calentamiento de los modelos va incluido en el script (no se usa `--sin-calentar`).
+
+**1. Antes de medir: estado del stack y consulta de calentamiento.** Después de encender la VM o de
+levantar el sistema, la primera consulta tardó 38,5 s y las siguientes de 10,8 a 14,1 s (25/11/2026).
+Por eso, antes de medir, se hace una consulta de calentamiento (caso `a`) que no se reporta. Su
+informe va a `/tmp` dentro del contenedor y se pierde al terminar, como debe ser.
+
+```bash
+cd /opt/cdss-anemia
+docker compose ps
+free -h
+docker compose run --rm --no-deps -T backend python -m app.scripts.medir_consulta --llm real --confirmo-datos-sinteticos --casos a --entorno vm_b2ms_real --etiqueta calentamiento --salida /tmp/calentamiento
+```
+
+**Debe aparecer:** en `docker compose ps`, `db`, `backend`, `modelos` e `indexador` como `healthy`
+(si `modelos` dice `starting`, espere unos 3 minutos y repita). En `free -h`, la memoria usada y la
+swap de 2,0 Gi. La consulta de calentamiento imprime una línea JSON que empieza por
+`{"consultas": 1, "coinciden": 1, ...` y `Informe: /tmp/calentamiento/d_consulta_real_calentamiento.md`.
+Si dice `--llm real exige ANTHROPIC_API_KEY`, el secreto no llegó a `.env`: repita el paso 14.
+
+**2. Muestreo de memoria en segundo plano.** `backend/app/scripts/muestrear_memoria.py` (solo usa
+Python y `docker stats`) guarda el pico de memoria y de CPU de cada contenedor hasta que aparece el
+archivo `l_fin_medicion`:
+
+```bash
+rm -f data/mediciones/l_fin_medicion
+python3 backend/app/scripts/muestrear_memoria.py --salida data/mediciones/l_memoria_azure_chilecentral.json --detener-si-existe data/mediciones/l_fin_medicion &
+```
+
+**Debe aparecer:** `[1]` y un número de proceso. No imprime nada más hasta que termina.
+
+**3. La medición (unos 3 minutos).** Anote la hora de inicio y de fin (las pide el punto 6):
+
+```bash
+date
+docker compose run --rm --no-deps -T --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD/data/mediciones:/app/data/mediciones" backend python -m app.scripts.medir_consulta --llm real --confirmo-datos-sinteticos --repeticiones 1 --concurrentes 1 --entorno vm_b2ms_real --etiqueta azure_chilecentral
+date
+touch data/mediciones/l_fin_medicion; wait; rm -f data/mediciones/l_fin_medicion
+ls -l data/mediciones/
+grep -c 'sk-ant' data/mediciones/d_consulta_real_azure_chilecentral.* data/mediciones/l_memoria_azure_chilecentral.json
+```
+
+**Debe aparecer:**
+- Al terminar la medición, una línea JSON con el resumen (`"consultas": 12, "coinciden": 12, ...`) y
+  `Informe: data/mediciones/d_consulta_real_azure_chilecentral.md`. El código de salida es 1 si algún
+  caso no tuvo el estado esperado; el informe se guarda igual.
+- Después de `wait`, `N muestras en S s: data/mediciones/l_memoria_azure_chilecentral.json`.
+- En `ls`, los tres archivos: `d_consulta_real_azure_chilecentral.md`, `.json` y
+  `l_memoria_azure_chilecentral.json`, con su usuario como dueño.
+- En `grep`, un `:0` por archivo: ningún archivo contiene la clave de la API (la comprobación no
+  imprime la clave).
+
+**4. Las cifras para reportar:**
+
+```bash
+python3 - <<'PY'
+import json
+d = json.load(open("data/mediciones/d_consulta_real_azure_chilecentral.json", encoding="utf-8"))
+r = d["resumen"]
+con_modelo = sum(1 for c in d["consultas"] if any(i.get("modelo_llm") for i in c["intentos"]))
+print("Total p50 / p90 / máx. (ms):", r["total_ms"]["p50"], r["total_ms"]["p90"], r["total_ms"]["max"])
+print("Verificadas p50 / p90 (ms):", r["total_verificadas_ms"]["p50"], r["total_verificadas_ms"]["p90"])
+print("Primer evento p50 / p90 (ms):", r["primer_evento_ms"]["p50"], r["primer_evento_ms"]["p90"])
+print("Coinciden:", r["coinciden"], "de", r["consultas"])
+for c in d["consultas"]:
+    print(f'  caso {c["caso"]}: esperado {c["esperado"]}, obtenido {c["estado"]}, {c["total_cliente_ms"]} ms')
+print("Intentos enviados:", r["intentos_enviados"], "| tokens de entrada / salida:", r["tokens_entrada"], r["tokens_salida"])
+print("Costo total (USD):", r["costo_usd"], "| por consulta con llamada al modelo:", round(r["costo_usd"] / max(con_modelo, 1), 4), f"({con_modelo} consultas)")
+print("Mediana por nodo (ms):", r["por_nodo_p50_ms"])
+m = json.load(open("data/mediciones/l_memoria_azure_chilecentral.json", encoding="utf-8"))
+for nombre, p in sorted(m["picos"].items()):
+    print(f'  {nombre}: pico {p["mem_pico_mib"]} MiB de {p["limite_mib"]} MiB, CPU pico {p["cpu_pico_pct"]} %')
+PY
+free -h
+```
+
+**Debe aparecer:** las cifras y una línea por caso y por contenedor. Reporte:
+- **Total** p50 y p90 (todas las consultas y las verificadas) y el máximo.
+- **Primer evento** p50 y p90.
+- **Estados de los 12 casos:** lo esperado es 9 VERIFICADA, 1 EVIDENCIA_INSUFICIENTE (caso j, con
+  reintento), 1 DATOS_FALTANTES (g) y 1 FUERA_DE_DOMINIO (h), «Coinciden: 12 de 12».
+- **Tokens** de entrada y de salida, y los intentos enviados (11 en la referencia).
+- **Costo por consulta** con llamada al modelo (0,024 USD en la referencia; g y h no llaman al modelo).
+- **Memoria máxima de `modelos`** (`cdss-anemia-modelos-1`; tope de 3584 MiB) y de los demás
+  contenedores, más lo que muestra `free -h` (si se usó la swap).
+
+**5. Comparar con el RNF3.** Según la propuesta de la fila 61 de `cambios_respecto_al_OE2.md`
+(pendiente con el asesor): el primer evento con un p90 menor a 1 s, la respuesta completa con un p90
+de **15 s o menos** en el flujo normal (las consultas VERIFICADA) y el caso j (con reintento) en 25 s
+como máximo. Anote si se cumple cada uno. Compare además con la referencia del perfil normal (p90 de
+las verificadas 12,54 s) y con el perfil B2ms simulado (18,92 s), ambos del 13/11/2026.
+
+**6. Créditos de CPU de la VM.** La B2ms es de la familia B (burstable): acumula créditos mientras usa
+poca CPU y los gasta cuando la usa por encima de su línea base. Si se queda sin créditos, Azure la
+limita a esa línea base y las consultas se vuelven más lentas sin que nada lo indique dentro de la
+VM. Para revisarlo, en el portal de Azure abra la VM `vm-cdss-anemia`, menú **Supervisión >
+Métricas**, elija la métrica **CPU Credits Remaining** (agregación «Mínimo» o «Promedio») y ajuste
+el intervalo de tiempo a la hora de la medición (anotada en el punto 3). También desde PowerShell en
+su equipo (con las variables del paso 1; el intervalo en UTC, Lima más 5 horas):
+
+```powershell
+$ID_VM_RECURSO = az vm show --resource-group $RG --name $VM --query id -o tsv
+az monitor metrics list --resource $ID_VM_RECURSO --metric "CPU Credits Remaining" --interval PT5M --aggregation Minimum --start-time 2026-11-25T20:00:00Z --end-time 2026-11-25T21:00:00Z -o table
+```
+
+Cambie las dos horas por las de su medición. **Debe aparecer:** una fila cada 5 minutos con los
+créditos restantes. Si en algún momento de la medición llegan a **0**, anótelo en el informe junto a
+las cifras (hora en que llegaron a 0 y cuántos quedaban al empezar): la medición se hizo con la CPU
+limitada y no representa el funcionamiento normal. En ese caso, deje la VM encendida sin carga hasta
+que recupere créditos y repita la medición. Si nunca llegan a 0, anote el mínimo.
+
+**7. Copiar los resultados a su equipo** (PowerShell, desde la carpeta del proyecto):
+
+```powershell
+cd C:\Users\Rbrill\ProyectosC\cdss-anemia
+scp "${USUARIO_VM}@${DOMINIO}:/opt/cdss-anemia/data/mediciones/d_consulta_real_azure_chilecentral.*" .\data\mediciones\
+scp "${USUARIO_VM}@${DOMINIO}:/opt/cdss-anemia/data/mediciones/l_memoria_azure_chilecentral.json" .\data\mediciones\
+```
+
+**Debe aparecer:** los tres archivos copiados con su tamaño. Quedan en `data/mediciones/` de su
+equipo (la carpeta no se sube a git). Al terminar, apague la VM (paso 6).
+
+**8. Repetir con `modelos` en 3584 MiB (fila 162).** La primera medición en la VM se hizo con el
+límite anterior de `modelos` (3072 MiB), que lo dejaba en el tope y releyendo páginas de los
+modelos. Después de aplicar el cambio, repita los puntos 1 a 7 con otros nombres y compare los
+contadores del cgroup de `modelos` con los de 3072 MiB (`anon` 861155328, `file` 2301599744,
+`file_mapped` 1518669824, `max` 2419 y `oom_kill` 0):
+
+```bash
+cd /opt/cdss-anemia
+git pull
+docker compose up -d modelos
+docker compose ps modelos
+docker inspect --format '{{.HostConfig.Memory}}' cdss-anemia-modelos-1
+```
+
+**Debe aparecer:** `modelos` como `healthy` (repita `docker compose ps modelos` hasta que lo diga,
+unos 3 minutos) y `3758096384` (3584 MiB en bytes). Después, la consulta de calentamiento del punto
+1 y, con los nombres nuevos, el muestreo y la medición de los puntos 2 y 3:
+
+```bash
+rm -f data/mediciones/l_fin_medicion
+python3 backend/app/scripts/muestrear_memoria.py --salida data/mediciones/l_memoria_azure_chilecentral_3584.json --detener-si-existe data/mediciones/l_fin_medicion &
+docker compose run --rm --no-deps -T --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD/data/mediciones:/app/data/mediciones" backend python -m app.scripts.medir_consulta --llm real --confirmo-datos-sinteticos --repeticiones 1 --concurrentes 1 --entorno vm_b2ms_real --etiqueta azure_chilecentral_3584
+touch data/mediciones/l_fin_medicion; wait; rm -f data/mediciones/l_fin_medicion
+grep -c 'sk-ant' data/mediciones/d_consulta_real_azure_chilecentral_3584.* data/mediciones/l_memoria_azure_chilecentral_3584.json
+```
+
+En el bloque de cifras del punto 4, cambie los dos nombres de archivo por
+`d_consulta_real_azure_chilecentral_3584.json` y `l_memoria_azure_chilecentral_3584.json`. Al
+terminar, los contadores del cgroup de `modelos` (Ubuntu 24.04 usa cgroup v2; dentro del contenedor,
+`/sys/fs/cgroup` es el cgroup del propio contenedor):
+
+```bash
+docker compose exec -T modelos sh -c 'grep -E "^(anon|file|file_mapped) " /sys/fs/cgroup/memory.stat; cat /sys/fs/cgroup/memory.events; cat /sys/fs/cgroup/memory.max'
+docker inspect --format 'OOMKilled={{.State.OOMKilled}} reinicios={{.RestartCount}}' cdss-anemia-modelos-1
+```
+
+Si el primer comando no encuentra los archivos, léalos desde la VM:
+`sudo cat /sys/fs/cgroup/system.slice/docker-$(docker inspect --format '{{.Id}}' cdss-anemia-modelos-1).scope/memory.events`
+(y lo mismo con `memory.stat`).
+
+**Debe aparecer:** las líneas `anon`, `file` y `file_mapped` en bytes; en `memory.events`, las
+líneas `low`, `high`, `max`, `oom`, `oom_kill` (y `oom_group_kill`); `3758096384` en `memory.max`; y
+`OOMKilled=false reinicios=0`. Compare con 3072 MiB: con el límite nuevo, `max` no debería seguir
+subiendo durante la medición (`memory.events` cuenta desde que se creó el contenedor, así que anote
+el valor antes y después de medir) y `oom_kill` debe seguir en 0. Copie los dos archivos nuevos con
+el `scp` del punto 7, cambiando los nombres. Reporte las cifras de las dos mediciones, una al lado
+de la otra.
+
 ## Restauración real
 
 Solo ante una pérdida de datos. PostgreSQL primero, después ChromaDB del mismo día (el orden de
@@ -487,6 +682,12 @@ ssh "$USUARIO_VM@$DOMINIO" "cd /opt/cdss-anemia && docker compose ps && systemct
 ```
 
 **Debe aparecer:** `VM running` y, en la VM, los servicios en marcha y los temporizadores.
+
+**Consulta de calentamiento antes de medir o de abrir sesiones a usuarios.** Después de encender, la
+primera consulta tardó 38,5 s y las siguientes de 10,8 a 14,1 s (25/11/2026). Cuando `modelos`
+esté `healthy`, haga una consulta con un paciente ficticio de `seed_demo` (desde la aplicación, con
+una cuenta de prueba) o con el comando de calentamiento del paso 21 (punto 1), y solo después mida o
+avise a los usuarios.
 
 **Qué se levanta solo al encender:**
 - Docker (servicio habilitado en el paso 11).

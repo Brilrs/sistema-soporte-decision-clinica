@@ -416,11 +416,14 @@ def test_presupuesto_de_memoria_en_8_gib():
     servicios = _fusion()
     permanentes = sum(_memoria(servicios[n]["mem_limit"]) for n in PERMANENTES)
     mayor_bajo_demanda = max(_memoria(servicios[n]["mem_limit"]) for n in BAJO_DEMANDA)
-    assert permanentes == 5184 * MIB
-    # Con un trabajo bajo demanda quedan al menos 1,75 GiB de los 8 GiB para el sistema y Docker.
-    assert permanentes + mayor_bajo_demanda <= 8 * GIB - int(1.75 * GIB)
-    # modelos: pico medido de unos 2,3 GiB al indexar (docs/mediciones_sprint2.md)
-    assert _memoria(servicios["modelos"]["mem_limit"]) >= 3 * GIB
+    assert permanentes == 5696 * MIB
+    # Con un trabajo bajo demanda caben en los 8 GiB y quedan al menos 1,5 GiB para el sistema y Docker.
+    assert permanentes + mayor_bajo_demanda <= 8 * GIB - int(1.5 * GIB)
+    # modelos: en la VM con 3072 MiB (25/11/2026) su cgroup tenía anon 861155328 y file 2301599744 bytes
+    # (los modelos en caché) y llegó al tope 2419 veces. El límite debe dejar residentes las dos cosas
+    # con 512 MiB de margen (3072 no alcanza; 3584 sí).
+    anon, archivos = 861155328, 2301599744
+    assert _memoria(servicios["modelos"]["mem_limit"]) >= anon + archivos + 512 * MIB
 
 
 def _referencias_obligatorias() -> set[str]:
