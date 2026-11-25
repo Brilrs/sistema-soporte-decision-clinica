@@ -276,6 +276,93 @@ def test_la_plantilla_solo_usa_variables_cdss():
     assert "certbot_webroot:/var/www/certbot:ro" in servicio["volumes"]
 
 
+# Dominio real de la VM (48 caracteres). Con el server_names_hash_bucket_size por omisión (64) Nginx no
+# arrancó en Azure: «could not build server_names_hash».
+DOMINIO_REAL = "cdss-anemia-2611.chilecentral.cloudapp.azure.com"
+
+
+def _bytes_en_el_cubo(nombre: str, puntero: int = 8) -> int:
+    """Lo que ocupa un nombre en un cubo del hash de server_name (ngx_hash_init, 64 bits): el elemento
+    (puntero al valor más la longitud y el nombre, alineados a 8) y el puntero nulo que cierra el cubo."""
+    alineado = -(-(len(nombre) + 2) // puntero) * puntero
+    return puntero + alineado + puntero
+
+
+def _cubo_de_la_plantilla() -> tuple[int, int]:
+    prod = _sin_comentarios(NGINX_PROD.read_text(encoding="utf-8"))
+    m = re.search(r"^server_names_hash_bucket_size\s+(\d+);", prod, re.M)
+    assert m, "falta server_names_hash_bucket_size en la plantilla"
+    return int(m.group(1)), m.start()
+
+
+def test_la_plantilla_admite_el_dominio_largo_de_azure():
+    tamano, posicion = _cubo_de_la_plantilla()
+    prod = _sin_comentarios(NGINX_PROD.read_text(encoding="utf-8"))
+    assert tamano >= 128
+    assert posicion < prod.index("server {")  # nivel http, antes del primer server
+    assert _bytes_en_el_cubo(DOMINIO_REAL) > 64  # el valor por omisión no alcanza (lo que pasó)
+    # Cabe el dominio real con margen: una etiqueta DNS de hasta 63 caracteres en chilecentral.
+    margen = "x" * 63 + ".chilecentral.cloudapp.azure.com"
+    assert _bytes_en_el_cubo(DOMINIO_REAL) <= tamano and _bytes_en_el_cubo(margen) <= tamano
+
+
+def _imagen_base_nginx() -> str:
+    dockerfile = (RAIZ / "frontend" / "Dockerfile").read_text(encoding="utf-8")
+    return re.search(r"^FROM\s+(nginx:\S+)", dockerfile, re.M).group(1)
+
+
+def _nginx_t(tmp_path: Path, plantilla: str, imagen: str) -> subprocess.CompletedProcess:
+    """nginx -t con la plantilla renderizada como la imagen (solo ${CDSS_DOMINIO}), las reglas comunes y
+    un certificado autofirmado para el dominio. Sin levantar servicios: «backend» apunta a 127.0.0.1."""
+    x509 = pytest.importorskip("cryptography.x509")
+    from datetime import datetime, timedelta, timezone
+
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.x509.oid import NameOID
+
+    conf = tmp_path / "conf.d"
+    cdss = tmp_path / "cdss"
+    certificados = tmp_path / "certificados"
+    for carpeta in (conf, cdss, certificados):
+        carpeta.mkdir(parents=True)
+    (conf / "default.conf").write_text(plantilla.replace("${CDSS_DOMINIO}", DOMINIO_REAL),
+                                       encoding="utf-8", newline="\n")
+    (cdss / "rutas.conf").write_bytes(RUTAS.read_bytes())
+    clave = ec.generate_private_key(ec.SECP256R1())
+    nombre = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, DOMINIO_REAL)])
+    ahora = datetime.now(timezone.utc)
+    certificado = (x509.CertificateBuilder().subject_name(nombre).issuer_name(nombre)
+                   .public_key(clave.public_key()).serial_number(x509.random_serial_number())
+                   .not_valid_before(ahora - timedelta(days=1)).not_valid_after(ahora + timedelta(days=1))
+                   .sign(clave, hashes.SHA256()))
+    (certificados / "fullchain.pem").write_bytes(certificado.public_bytes(serialization.Encoding.PEM))
+    (certificados / "privkey.pem").write_bytes(clave.private_bytes(
+        serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
+    # docker recibe rutas de Windows (C:\...) o de Linux tal cual: no pasa por bash.
+    return subprocess.run(
+        ["docker", "run", "--rm", "--add-host", "backend:127.0.0.1",
+         "-v", f"{conf}:/etc/nginx/conf.d:ro", "-v", f"{cdss}:/etc/nginx/cdss:ro",
+         "-v", f"{certificados}:/etc/letsencrypt/live/{DOMINIO_REAL}:ro",
+         "--entrypoint", "nginx", imagen, "-t"],
+        capture_output=True, text=True, encoding="utf-8", timeout=180)
+
+
+@pytest.mark.skipif(shutil.which("docker") is None, reason="necesita docker")
+def test_nginx_acepta_la_configuracion_con_el_dominio_real(tmp_path):
+    imagen = _imagen_base_nginx()
+    if subprocess.run(["docker", "image", "inspect", imagen], capture_output=True).returncode != 0:
+        if subprocess.run(["docker", "pull", imagen], capture_output=True, timeout=600).returncode != 0:
+            pytest.skip(f"no se pudo obtener la imagen {imagen}")
+    plantilla = NGINX_PROD.read_text(encoding="utf-8")
+    r = _nginx_t(tmp_path / "con", plantilla, imagen)
+    assert r.returncode == 0 and "test is successful" in r.stderr, r.stderr
+    # Sin la directiva se reproduce el error de Azure: la prueba de verdad ejercita el nombre largo.
+    sin_directiva = re.sub(r"^server_names_hash_bucket_size[^\n]*\n", "", plantilla, flags=re.M)
+    r = _nginx_t(tmp_path / "sin", sin_directiva, imagen)
+    assert r.returncode != 0 and "server_names_hash" in r.stderr, r.stderr
+
+
 # ---------------------------------------------------------------------------
 # docker-compose.prod.yml
 # ---------------------------------------------------------------------------
