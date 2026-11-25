@@ -361,6 +361,13 @@ catálogos, los usuarios de conexión y las migraciones (`db/init`), con las con
 **Debe aparecer:** `Successfully received certificate.` y `Certificado emitido para ... y Nginx
 levantado.`
 
+Nota: el nombre que da Azure (`cdss-anemia-2611.chilecentral.cloudapp.azure.com`, 48 caracteres) no
+cabe en el `server_names_hash_bucket_size` por omisión de Nginx (64), y Nginx no arrancaba («could
+not build server_names_hash, you should increase server_names_hash_bucket_size: 64»). La plantilla
+`frontend/nginx.prod.conf.template` lo sube a 128 (fila 161). Si ve ese error, la imagen de Nginx
+está construida con una plantilla anterior: actualice el código (`git pull`) y repita
+`docker compose build nginx`.
+
 ### 17. Levantar todo y comprobar
 
 ```bash

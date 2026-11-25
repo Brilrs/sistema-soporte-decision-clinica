@@ -6,6 +6,11 @@
 # El certificado de Let's Encrypt vive en el volumen certbot_certificados y el desafío HTTP-01 en
 # certbot_webroot (deploy/renovar_certificado.sh y docs/despliegue_azure.md).
 
+# Nivel http (la imagen incluye conf.d/default.conf dentro de http). El nombre que da Azure
+# (<etiqueta>.chilecentral.cloudapp.azure.com, 48 caracteres) no cabe en el cubo por omisión de 64
+# bytes: Nginx no arranca («could not build server_names_hash»).
+server_names_hash_bucket_size 128;
+
 # HTTP (80): solo el desafío de Let's Encrypt y la redirección a HTTPS.
 server {
     listen 80;
