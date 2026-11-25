@@ -40,7 +40,7 @@ Límites de `docker-compose.prod.yml` (`mem_limit`). Son topes, no reservas. El 
 
 | Servicio | Desarrollo | Perfil B2ms (`docker-compose.b2ms.yml`) | Azure | Uso medido |
 | --- | --- | --- | --- | --- |
-| `modelos` | 5632 MiB | 4608 MiB | **3584 MiB** (antes 3072 MiB, fila 162) | de 1,76 a 2,05 GiB en consultas; hasta 2,3 GiB indexando con lote 8 (equipo de desarrollo). En la VM con 3072 MiB (25/11/2026): 2,985 GiB de 3 GiB en reposo; en el cgroup, `anon` 0,80 GiB y `file` 2,14 GiB (de ellos `file_mapped` 1,41 GiB: los modelos bge-m3 y el reranker ONNX mapeados), `memory.events` `max` 2419 y `oom_kill` 0, sin reinicios. No fue falta de memoria: el tope obligaba a expulsar y releer páginas de los modelos |
+| `modelos` | 5632 MiB | 4608 MiB | **3584 MiB** (antes 3072 MiB, fila 162) | de 1,76 a 2,05 GiB en consultas; hasta 2,3 GiB indexando con lote 8 (equipo de desarrollo). En la VM con 3072 MiB (25/11/2026): 2,985 GiB de 3 GiB en reposo; en el cgroup, `anon` 0,80 GiB y `file` 2,14 GiB (de ellos `file_mapped` 1,41 GiB: los modelos bge-m3 y el reranker ONNX mapeados), `memory.events` `max` 2419 y `oom_kill` 0, sin reinicios. No fue falta de memoria: el tope obligaba a expulsar y releer páginas de los modelos. Con 3584 MiB, al final de una corrida: `anon` 1,51 GiB, `file` 1,15 GiB y `max` 0; pico de 2264 MiB (`docs/mediciones_sprint3.md`) |
 | `db` | 768 MiB | 768 MiB | **512 MiB** | unos 33 MiB |
 | `chromadb` | 768 MiB | 512 MiB | **512 MiB** | de 66 a 103 MiB |
 | `backend` | 512 MiB | 512 MiB | **512 MiB** | de 180 a 197 MiB |
