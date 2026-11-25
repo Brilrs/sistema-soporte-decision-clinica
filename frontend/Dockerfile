@@ -10,4 +10,8 @@ RUN npm run build
 FROM nginx:1.27-alpine
 COPY --from=compilacion /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
+# Reglas comunes a desarrollo y producción, y la plantilla HTTPS que usa docker-compose.prod.yml
+# (NGINX_ENVSUBST_TEMPLATE_DIR=/etc/nginx/cdss/plantillas). En desarrollo la plantilla no se usa.
+COPY nginx/cdss_rutas.conf /etc/nginx/cdss/rutas.conf
+COPY nginx.prod.conf.template /etc/nginx/cdss/plantillas/default.conf.template
+EXPOSE 80 443

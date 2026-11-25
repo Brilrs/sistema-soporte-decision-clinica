@@ -1,0 +1,12 @@
+# Sprint 3, parte L: cada día a las 03:00 (Lima). Persistent=true: si la VM estaba apagada (desasignada) a esa hora,
+# se ejecuta al encenderla; el script espera a que el stack esté listo.
+[Unit]
+Description=Temporizador de cdss-respaldo-pg.service
+
+[Timer]
+OnCalendar=*-*-* 03:00:00 America/Lima
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

@@ -12,7 +12,7 @@ ninguna migración: `cdss_indexador` ya tiene SELECT en `conocimiento` e INSERT 
 | Colección `guias_clinicas` de ChromaDB | Sí | Por la API de ChromaDB: ids, vectores, textos y metadatos de cada vector, y los metadatos de la colección (la distancia coseno, `hnsw:space`). No se copian los archivos del volumen `datos_chroma` |
 | Guías cargadas desde M11 (volumen `datos_guias_cargadas`) | Sí | Copia de cada PDF con su SHA-256 |
 | Guías de nivel 1 de `./data/guias` | No | Son archivos del equipo, fuera de Docker; se respaldan con la carpeta del proyecto |
-| PostgreSQL | No | En Azure tiene respaldo automático y restauración a un punto en el tiempo. En desarrollo, `pg_dump` (abajo) |
+| PostgreSQL | No | En Azure va en el contenedor `db` de la VM (fila 155 de `cambios_respecto_al_OE2.md`): `deploy/respaldo_pg.sh` sube cada día un `pg_dump` a Blob (`docs/despliegue_azure.md`). En desarrollo, `pg_dump` (abajo) |
 | Pesos de los modelos (`./data/modelos`) | No | Se vuelven a descargar con `descargar-modelos` |
 
 Exportar por la API, y no copiar el volumen, da un respaldo independiente de la versión interna de
@@ -113,8 +113,8 @@ carpetas, archivos ni otros destinos. Un respaldo que falla a mitad se borra y n
 
 PostgreSQL primero, después ChromaDB y al final verificar:
 
-1. **PostgreSQL.** En Azure, restauración a un punto en el tiempo (parte L). En desarrollo, con el
-   respaldo de `pg_dump` (abajo).
+1. **PostgreSQL.** En Azure, `bash deploy/restaurar_pg.sh pg/cdss_AAAAMMDD_HHMMSS.dump --sobre-cdss --confirmo`
+   (`docs/despliegue_azure.md`, «Restauración real»). En desarrollo, con el respaldo de `pg_dump` (abajo).
 2. **ChromaDB vacía.** En desarrollo: `docker compose stop chromadb backend indexador`,
    `docker volume rm cdss-anemia_datos_chroma` y `docker compose up -d chromadb`. Al arrancar, el
    backend o el indexador pueden crear `guias_clinicas` vacía y con distancia coseno: `restaurar` la
@@ -150,11 +150,13 @@ de `crear` nunca lo borra.
 
 ## Programarlo en Azure (parte L)
 
-En la máquina B2ms, un temporizador de systemd (o cron) que ejecute cada noche
-`docker compose run --rm respaldo python -m app.respaldo crear --destino blob --conservar 14`, con
-las variables de Blob desde Key Vault, y que avise si el código de salida no es 0. Si coincide con
-una indexación, el comando se niega (código 1) y el siguiente intento lo hace. Una vez por semana,
-`verificar`.
+En la VM, el temporizador `cdss-respaldo-chroma.timer` ejecuta cada día a las 03:30 (Lima)
+`deploy/respaldo_chroma.sh`: `crear --destino blob --conservar N` (N de `deploy/despliegue.conf`,
+14 por omisión) y después `verificar`, con Blob por la identidad administrada de la VM. Si coincide con
+una indexación, `crear` se niega (código 1), systemd registra la falla (`journalctl -u
+cdss-respaldo-chroma`) y lo intenta el día siguiente. Con la VM apagada a esa hora, corre al encenderla
+(`Persistent=true`). La restauración probada es `deploy/probar_restauracion_chroma.sh`, en una colección
+aparte. Detalle en `docs/despliegue_azure.md`.
 
 ## Qué hacer ante cada error
 

@@ -3,23 +3,23 @@
 Mejoras identificadas durante el desarrollo que no se aplican en el entorno local,
 pero que conviene revisar antes del despliegue en Azure.
 
-**Estado al cierre del Sprint 3 (parte Z, 19/11/2026):**
+**Estado (Sprint 3, parte L, primera mitad, 25/11/2026):**
 
 | Ítem | Estado |
 | --- | --- |
-| Contraseñas de los usuarios de conexión en la línea de comandos | Pendiente: asignado a la parte L (despliegue en Azure) |
+| Contraseñas de los usuarios de conexión en la línea de comandos | Resuelto en la parte L: `\getenv` en `db/aplicar_bd.sh` y `db/init/03_usuarios_bd.sh`, y `deploy/aplicar_bd_vm.sh` en la VM |
 | Cambio obligatorio de contraseña en el primer inicio de sesión | Resuelto en la parte I |
 | Sesiones abiertas después de restablecer la contraseña | Resuelto en la parte I |
 
-## Contraseñas de los usuarios de conexión en la línea de comandos
+## Contraseñas de los usuarios de conexión en la línea de comandos (resuelto en el Sprint 3, parte L)
 
-**Situación actual.** `db/aplicar_bd.sh` pasa las contraseñas de `cdss_clinica`,
+**Situación anterior.** `db/aplicar_bd.sh` pasaba las contraseñas de `cdss_clinica`,
 `cdss_generacion`, `cdss_admin` y `cdss_auditor` a `psql` como argumentos
 (`-v pwd_clinica=...`). No se imprimen en pantalla (se cargan con `\gset`), pero
 mientras el script se ejecuta cualquier usuario de la misma máquina puede verlas en
 la lista de procesos (por ejemplo, con `ps`).
 
-**Por qué se mantiene así.** En desarrollo el equipo no es compartido, y la
+**Por qué se mantenía así.** En desarrollo el equipo no es compartido, y la
 alternativa exige psql 15 o superior, lo que complicaría el uso del script.
 
 **Mejora propuesta para Azure.** Ejecutar el script desde un equipo o agente de
@@ -33,8 +33,15 @@ de psql con `\getenv` (psql 15 o superior), en lugar de pasarlas con `-v`:
 Las variables de entorno se cargan desde Azure Key Vault en el agente de despliegue,
 sin escribirlas en el código ni en el historial de la terminal.
 
-**Asignado a la parte L** (despliegue en Azure, `docs/plan_sprint3.md`): `aplicar_bd.sh` con
-`\getenv`, ejecutado desde un agente de despliegue no compartido.
+**Resuelto en la parte L.** `db/aplicar_bd.sh` y `db/init/03_usuarios_bd.sh` ya no usan `-v`: psql
+lee las cinco contraseñas con `\getenv` (y el script se detiene con un mensaje si falta alguna). psql 15
+o superior: el equipo de desarrollo tiene psql 17, el CI psql 16 y el contenedor `db` psql 16. En la VM
+no hace falta instalar psql: `deploy/aplicar_bd_vm.sh` ejecuta `aplicar_bd.sh` con el cliente de
+`postgres:16-alpine` en un contenedor conectado a la red del stack, y le pasa las contraseñas como
+variables de entorno por nombre (`-e NOMBRE`, sin el valor en la línea de comandos). Los secretos no
+llegan desde un agente de despliegue sino desde Key Vault a la VM, con su identidad administrada
+(`deploy/cargar_secretos.sh`, `docs/despliegue_azure.md`). Una prueba
+(`backend/tests/test_l_despliegue.py`) comprueba que ningún valor llega a los argumentos de psql.
 
 ## Cambio obligatorio de contraseña en el primer inicio de sesión (resuelto en el Sprint 3, parte I)
 

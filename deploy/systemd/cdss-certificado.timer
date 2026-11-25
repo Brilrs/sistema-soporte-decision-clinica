@@ -1,0 +1,12 @@
+# Sprint 3, parte L: dos veces al día. Persistent=true: si la VM estaba apagada (desasignada) a esa hora,
+# se ejecuta al encenderla; el script espera a que el stack esté listo.
+[Unit]
+Description=Temporizador de cdss-certificado.service
+
+[Timer]
+OnCalendar=*-*-* 04,16:00:00 America/Lima
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target
