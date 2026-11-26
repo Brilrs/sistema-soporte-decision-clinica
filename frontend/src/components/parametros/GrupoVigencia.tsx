@@ -87,7 +87,7 @@ export default function GrupoVigencia({ datos, puedeEditar, bloqueado, alActuali
               <label className="casilla parametros__casilla">
                 <input type="checkbox" checked={verificado} disabled={bloqueado}
                        onChange={(e) => setVerificado(e.target.checked)} />
-                Verificado contra la norma
+                Validado por el CRED (criterio operativo, no normativo)
               </label>
             ) : <EstadoVerificacion verificado={datos.verificado} />}
           </dd>

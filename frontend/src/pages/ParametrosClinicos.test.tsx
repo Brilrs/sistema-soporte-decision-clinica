@@ -211,11 +211,11 @@ describe("M12 · vigencia del tamizaje", () => {
     expect(b.f.mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === "PUT")).toBe(false);
   });
 
-  it("confirmar contra la norma sin cambiar el valor exige la referencia", async () => {
+  it("validar la vigencia por el CRED sin cambiar el valor exige la referencia", async () => {
     const b = backend({ put: { "/api/parametros/vigencia-tamizaje": () => respuestaJson(200, respuestaVigencia) } });
     renderizar();
     const s = await abrirEdicion("Vigencia del tamizaje");
-    fireEvent.click(within(s).getByRole("checkbox", { name: "Verificado contra la norma" }));
+    fireEvent.click(within(s).getByRole("checkbox", { name: "Validado por el CRED (criterio operativo, no normativo)" }));
     fireEvent.click(within(s).getByRole("button", { name: "Guardar cambios" }));
     const ventana = await screen.findByRole("dialog");
     const fila = within(ventana).getByRole("row", { name: /Días de vigencia/ });
