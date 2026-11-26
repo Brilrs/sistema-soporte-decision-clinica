@@ -1,0 +1,68 @@
+id: OE3-P11
+version_caso: 1
+conjunto: piloto
+origen: nuevo
+origen_detalle: Suplementación preventiva de 36 a 59 meses con la Tabla N° 8 modificada por la RM 429
+tipos: [sin_anemia, suplementacion_preventiva]
+paciente:
+  fuente: seed_demo
+  dni_ficticio: "82012345"
+  fecha_tamizaje: 2026-10-14
+fecha_referencia: 2026-10-20
+consulta: ¿Qué suplementación preventiva con hierro le corresponde y por cuánto tiempo?
+estado_esperado: VERIFICADA
+clasificacion_esperada: SIN_ANEMIA
+requiere_derivacion: false
+evidencia_suficiente_esperada: true
+criterios:
+  - id: C1
+    descripcion: Dosis, producto y duración de 36 a 59 meses (Tabla N° 8 vigente)
+    obligatorio: true
+    alternativas:
+      - documento: RM 429-2024/MINSA
+        paginas: [7, 7]
+        numeral: 6.1.1 B, Tabla N° 8 (modificación N.° 7)
+        texto_anclaje: "| 36 a 59 meses | 30 mg Hierro elemental* | Sulfato Ferroso o Complejo Polimaltosado Férrico* | jarabe | Diaria | 3 meses continuos en el año |"
+  - id: C2
+    descripcion: Duración de 3 meses de 36 a 59 meses
+    obligatorio: true
+    alternativas:
+      - documento: RM 429-2024/MINSA
+        paginas: [7, 7]
+        numeral: 6.1.1 B, Tabla N° 8 (modificación N.° 7)
+        texto_anclaje: "| 36 a 59 meses | 30 mg Hierro elemental* | Sulfato Ferroso o Complejo Polimaltosado Férrico* | jarabe | Diaria | 3 meses continuos en el año |"
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [13, 13]
+        numeral: 6.1.1 B.4
+        texto_anclaje: "el niño y la niña de 36 a 59 meses, durante 3 meses; en ambos es de forma diaria y continua."
+  - id: C3
+    descripcion: Condición de hemoglobina para iniciar
+    obligatorio: false
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [13, 13]
+        numeral: 6.1.1 B.4
+        texto_anclaje: "Se inicia la suplementación cuando la Hb es ≥ 11 g/dL"
+  - id: C4
+    descripcion: Alternativa de micronutrientes de 36 a 59 meses
+    obligatorio: false
+    alternativas:
+      - documento: RM 429-2024/MINSA
+        paginas: [7, 7]
+        numeral: 6.1.1 B, Tabla N° 8 (modificación N.° 7)
+        texto_anclaje: "| 36 a 59 meses | 2 sobres | Micronutrientes en polvo de 1 g | polvo | Diaria | 3 meses continuos en el año |"
+respuesta_referencia: >-
+  Con hemoglobina de 11 g/dL o más, le corresponde suplementación preventiva con 30 mg de hierro
+  elemental al día (sulfato ferroso o complejo polimaltosado férrico en jarabe), o 2 sobres diarios de
+  micronutrientes en polvo, durante 3 meses continuos en el año.
+afirmaciones_clave:
+  - Le corresponden 30 mg de hierro elemental al día en jarabe.
+  - La suplementación dura 3 meses continuos en el año.
+revisado: false
+revisado_por: null
+fecha_revision: null
+observaciones_revision: null
+notas: >-
+  La Tabla N° 8 original de la NTS (página 13) fue reemplazada por la RM 429 y no está vigente: no
+  cuenta para C1. La Table B de la OMS 2016 coincide en dosis y duración, pero no se acepta como
+  alternativa de una norma nacional sin decisión de la ficha.

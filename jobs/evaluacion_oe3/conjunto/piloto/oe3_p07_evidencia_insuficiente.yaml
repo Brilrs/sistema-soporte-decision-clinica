@@ -1,0 +1,30 @@
+id: OE3-P07
+version_caso: 1
+conjunto: piloto
+origen: desarrollo_reutilizado
+origen_detalle: backend/app/scripts/casos_e2e.yaml, caso j
+tipos: [anemia_moderada, evidencia_insuficiente]
+paciente:
+  fuente: seed_demo
+  dni_ficticio: "81456789"
+  fecha_tamizaje: 2026-10-18
+fecha_referencia: 2026-10-20
+consulta: ¿Cuántas horas hay que esperar entre el antiparasitario y el sulfato ferroso si se dan el mismo día?
+estado_esperado: EVIDENCIA_INSUFICIENTE
+clasificacion_esperada: ANEMIA_MODERADA
+requiere_derivacion: false
+evidencia_suficiente_esperada: false
+criterios: []
+respuesta_referencia: >-
+  Las guías indexadas no indican un intervalo en horas entre el antiparasitario y el sulfato
+  ferroso. El sistema debe declarar evidencia insuficiente y no proponer un intervalo.
+afirmaciones_clave:
+  - Las guías disponibles no establecen un intervalo entre el antiparasitario y el sulfato ferroso.
+revisado: false
+revisado_por: null
+fecha_revision: null
+observaciones_revision: null
+notas: >-
+  Sin criterios: no hay evidencia que recuperar. El numeral 5.6.1 de la NTS (página 9) trata la
+  suspensión de la suplementación ante enfermedades parasitarias, pero no responde la pregunta; si el
+  sistema lo usa para proponer un intervalo, la respuesta es incorrecta.

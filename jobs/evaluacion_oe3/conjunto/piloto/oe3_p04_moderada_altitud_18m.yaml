@@ -1,0 +1,71 @@
+id: OE3-P04
+version_caso: 1
+conjunto: piloto
+origen: desarrollo_reutilizado
+origen_detalle: backend/app/scripts/casos_e2e.yaml, caso e
+tipos: [anemia_moderada, altitud, tratamiento, fragmento_en_ingles]
+paciente:
+  fuente: seed_demo
+  dni_ficticio: "81789012"
+  fecha_tamizaje: 2026-10-10
+fecha_referencia: 2026-10-20
+consulta: ¿Cómo se ajusta la hemoglobina por la altitud de residencia y qué tratamiento le corresponde?
+estado_esperado: VERIFICADA
+clasificacion_esperada: ANEMIA_MODERADA
+requiere_derivacion: false
+evidencia_suficiente_esperada: true
+criterios:
+  - id: C1
+    descripcion: Valor del ajuste para 3500 a 3999 msnm (Puno, 3827 msnm)
+    obligatorio: true
+    alternativas:
+      - documento: RM 429-2024/MINSA
+        paginas: [4, 5]
+        numeral: 5.3.2, Tabla N° 1 (modificación N.° 2)
+        texto_anclaje: "| 3500 - 3999 | 2.5 |"
+      - documento: OMS 2024
+        paginas: [34, 34]
+        numeral: Table 4
+        texto_anclaje: "3500-3999 25"
+  - id: C2
+    descripcion: El ajuste se resta de la hemoglobina observada
+    obligatorio: false
+    alternativas:
+      - documento: RM 429-2024/MINSA
+        paginas: [4, 5]
+        numeral: 5.3.2, Tabla N° 1 (modificación N.° 2)
+        texto_anclaje: "Los ajustes son la cantidad restada del nivel de hemoglobina observado o agregada al límite de hemoglobina que define la anemia"
+      - documento: OMS 2024
+        paginas: [34, 34]
+        numeral: Table 4
+        texto_anclaje: "Adjustments are the amount subtracted from an individual's observed haemoglobin level or added to the haemoglobin cutoff defining anaemia"
+  - id: C3
+    descripcion: Dosis y duración del tratamiento de 6 meses a 11 años
+    obligatorio: true
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [19, 19]
+        numeral: 6.1.2 B.3
+        texto_anclaje: "Se indica suplemento de hierro a una dosis de 3mg/kg/día, durante 6 meses continuos (Tabla N°17)."
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [19, 19]
+        numeral: 6.1.2 B.3, Tabla N° 17
+        texto_anclaje: "| 6 a 35 meses | 3 mg/Kg/día (Máximo dosis 70 mg/día) |"
+respuesta_referencia: >-
+  Para una residencia entre 3500 y 3999 msnm el ajuste es de 2,5 g/dL, que se resta de la
+  hemoglobina observada: 11,9 menos 2,5 da 9,4 g/dL, que corresponde a anemia moderada. El
+  tratamiento es con suplemento de hierro a 3 mg/kg/día (máximo 70 mg/día de 6 a 35 meses), diario
+  durante 6 meses continuos.
+afirmaciones_clave:
+  - El ajuste por altitud para 3500 a 3999 msnm es 2,5 g/dL y se resta de la hemoglobina observada.
+  - La hemoglobina ajustada es 9,4 g/dL.
+  - El tratamiento es con suplemento de hierro a 3 mg/kg/día durante 6 meses continuos.
+revisado: false
+revisado_por: null
+fecha_revision: null
+observaciones_revision: null
+notas: >-
+  La Tabla N° 1 original de la NTS (página 7) no está vigente: no cuenta para C1. La OMS 2024
+  expresa el ajuste en g/L (25 g/L equivale a 2,5 g/dL); la equivalencia la confirma la ficha. Los
+  textos de la OMS están en inglés y usan una semirraya (U+2013) entre los dos números del rango: se comparan
+  normalizados (sección 4 del diseño).

@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cdss-anemia/evaluacion_oe3/esquema_caso.json",
+  "title": "Caso del conjunto de evaluación del OE3",
+  "description": "Un archivo YAML por caso. Diseño en docs/diseno_evaluacion_oe3.md, sección 5. Todo esperado queda con revisado: false hasta la ficha de la coordinación CRED.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id", "version_caso", "conjunto", "origen", "origen_detalle", "tipos", "paciente",
+    "fecha_referencia", "consulta", "estado_esperado", "clasificacion_esperada",
+    "requiere_derivacion", "evidencia_suficiente_esperada", "criterios",
+    "respuesta_referencia", "afirmaciones_clave", "revisado", "revisado_por",
+    "fecha_revision", "observaciones_revision", "notas"
+  ],
+  "properties": {
+    "id": {"type": "string", "pattern": "^OE3-[PE][0-9]{2,3}$", "description": "P: piloto; E: conjunto de evaluación."},
+    "version_caso": {"type": "integer", "minimum": 1, "description": "Sube con cada cambio del caso; el cambio queda en git."},
+    "conjunto": {"enum": ["piloto", "evaluacion"]},
+    "origen": {"enum": ["desarrollo_reutilizado", "nuevo"], "description": "desarrollo_reutilizado: la consulta o el caso ya se usó durante el desarrollo (no es independiente)."},
+    "origen_detalle": {"type": ["string", "null"], "description": "Archivo y id de origen, o motivo del caso nuevo."},
+    "tipos": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"enum": [
+        "sin_anemia", "anemia_leve", "anemia_moderada", "anemia_severa", "derivacion",
+        "suplementacion_preventiva", "tratamiento", "calendario_hb", "control_tratamiento",
+        "altitud", "fragmento_en_ingles", "evidencia_insuficiente", "fuera_de_dominio",
+        "menor_de_6_meses"
+      ]},
+      "description": "Etiquetas para el desglose del informe; un caso puede tener varias."
+    },
+    "paciente": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fuente", "dni_ficticio", "fecha_tamizaje"],
+      "properties": {
+        "fuente": {"enum": ["seed_demo", "ficticio"], "description": "seed_demo: paciente de app/scripts/seed_demo.py. ficticio: lo crea el job en una base limpia con los datos de abajo."},
+        "dni_ficticio": {"type": "string", "pattern": "^8[0-9]{7}$", "description": "DNI ficticio. Los de seed_demo empiezan con 81 o 82; los ficticios del conjunto, con 89."},
+        "fecha_tamizaje": {"type": "string", "format": "date"},
+        "confirma_tamizaje_no_vigente": {"type": "boolean"},
+        "datos_ficticios": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Solo con fuente ficticio. Sin nombres: el job pone un nombre genérico («Paciente de evaluación» más el id).",
+          "required": ["sexo", "fecha_nacimiento", "ubigeo", "edad_gestacional", "bajo_peso_al_nacer", "tamizaje"],
+          "properties": {
+            "sexo": {"enum": ["M", "F"]},
+            "fecha_nacimiento": {"type": "string", "format": "date"},
+            "ubigeo": {"type": "string", "pattern": "^[0-9]{6}$", "description": "Distrito de clinico.distrito (02_catalogos.sql)."},
+            "edad_gestacional": {"enum": ["A_TERMINO", "PRETERMINO", "NO_REGISTRADO"]},
+            "bajo_peso_al_nacer": {"type": ["boolean", "null"]},
+            "tamizaje": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["hemoglobina_g_dl", "peso_kg", "talla_cm", "recibe_suplementacion_hierro", "lactancia_materna_actual", "parasitosis", "sintomas"],
+              "properties": {
+                "hemoglobina_g_dl": {"type": ["number", "null"]},
+                "peso_kg": {"type": "number"},
+                "talla_cm": {"type": "number"},
+                "recibe_suplementacion_hierro": {"type": "boolean"},
+                "lactancia_materna_actual": {"type": "boolean"},
+                "parasitosis": {"type": "boolean"},
+                "sintomas": {"type": "array", "items": {"type": "string"}}
+              }
+            }
+          }
+        }
+      }
+    },
+    "fecha_referencia": {"type": "string", "format": "date", "description": "Fecha contra la que se evalúa la vigencia del tamizaje."},
+    "consulta": {"type": "string", "minLength": 5, "description": "Texto sintético de la consulta, sin datos personales."},
+    "estado_esperado": {"enum": ["VERIFICADA", "DATOS_FALTANTES", "FUERA_DE_DOMINIO", "EVIDENCIA_INSUFICIENTE", "TAMIZAJE_NO_VIGENTE", "SOLICITUD_BLOQUEADA"]},
+    "clasificacion_esperada": {"enum": ["SIN_ANEMIA", "ANEMIA_LEVE", "ANEMIA_MODERADA", "ANEMIA_SEVERA", null], "description": "null: no se evalúa (sin clasificación o la consulta no llega a clasificarse)."},
+    "requiere_derivacion": {"type": ["boolean", "null"]},
+    "evidencia_suficiente_esperada": {"type": ["boolean", "null"], "description": "Valor esperado de evidencia_suficiente en respuesta_borrador; null si no hay generación."},
+    "criterios": {
+      "type": "array",
+      "description": "Criterios atómicos de evidencia. Recuperación exitosa: se cumplen todos los obligatorios entre los fragmentos enviados (y entre criterios, o entre alternativas). Vacío: no hay evidencia que recuperar.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "descripcion", "obligatorio", "alternativas"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^C[0-9]+$"},
+          "descripcion": {"type": "string"},
+          "obligatorio": {"type": "boolean"},
+          "alternativas": {
+            "type": "array", "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["documento", "paginas", "numeral", "texto_anclaje"],
+              "properties": {
+                "documento": {"type": "string", "description": "codigo_documento de conocimiento.documento_fuente."},
+                "paginas": {"type": "array", "items": {"type": "integer", "minimum": 1}, "minItems": 2, "maxItems": 2, "description": "[inicio, fin] en la numeración del índice (pagina_inicio y pagina_fin)."},
+                "numeral": {"type": "string", "description": "Numeral o tabla de la guía. Informativo: no hay columna de numeral en la base."},
+                "texto_anclaje": {"type": "string", "minLength": 12, "description": "Texto copiado del fragmento indexado; se compara normalizado (sección 4 del diseño)."}
+              }
+            }
+          }
+        }
+      }
+    },
+    "respuesta_referencia": {"type": ["string", "null"], "description": "Respuesta de referencia redactada solo con lo que dicen las guías indexadas."},
+    "afirmaciones_clave": {"type": "array", "items": {"type": "string"}},
+    "revisado": {"type": "boolean", "description": "Queda en false hasta la ficha de la coordinación CRED."},
+    "revisado_por": {"type": ["string", "null"], "description": "Cargo de quien revisó (no el nombre)."},
+    "fecha_revision": {"type": ["string", "null"], "format": "date"},
+    "observaciones_revision": {"type": ["string", "null"]},
+    "notas": {"type": ["string", "null"]}
+  }
+}

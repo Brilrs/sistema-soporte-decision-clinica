@@ -1,0 +1,60 @@
+id: OE3-P09
+version_caso: 1
+conjunto: piloto
+origen: desarrollo_reutilizado
+origen_detalle: backend/app/scripts/casos_e2e.yaml, caso l
+tipos: [sin_anemia, suplementacion_preventiva, fragmento_en_ingles]
+paciente:
+  fuente: seed_demo
+  dni_ficticio: "82012345"
+  fecha_tamizaje: 2026-10-14
+fecha_referencia: 2026-10-20
+consulta: ¿Qué recomienda la OMS sobre la suplementación con hierro en niños de 24 a 59 meses?
+estado_esperado: VERIFICADA
+clasificacion_esperada: SIN_ANEMIA
+requiere_derivacion: false
+evidencia_suficiente_esperada: true
+criterios:
+  - id: C1
+    descripcion: Recomendación de la OMS para 24 a 59 meses
+    obligatorio: true
+    alternativas:
+      - documento: OMS 2016
+        paginas: [17, 18]
+        numeral: Recommendation (24-59 months)
+        texto_anclaje: "Daily iron supplementation is recommended as a public health intervention in preschool-age children aged 24-59 months, living in settings where anaemia is highly prevalent"
+  - id: C2
+    descripcion: Dosis del esquema sugerido (Table B)
+    obligatorio: true
+    alternativas:
+      - documento: OMS 2016
+        paginas: [17, 18]
+        numeral: Table B
+        texto_anclaje: "SUPPLEMENT COMPOSITION 30 mg elemental iron"
+  - id: C3
+    descripcion: Duración del esquema sugerido (Table B)
+    obligatorio: false
+    alternativas:
+      - documento: OMS 2016
+        paginas: [17, 18]
+        numeral: Table B
+        texto_anclaje: "Drops/syrups/tablets FREQUENCY Daily DURATION Three consecutive months in a year"
+respuesta_referencia: >-
+  La OMS recomienda la suplementación diaria con hierro como intervención de salud pública en niños
+  de 24 a 59 meses que viven en entornos donde la anemia es muy prevalente. El esquema sugerido es de
+  30 mg de hierro elemental al día, en gotas, jarabe o tabletas, durante tres meses consecutivos al
+  año.
+afirmaciones_clave:
+  - La OMS recomienda la suplementación diaria con hierro en niños de 24 a 59 meses en entornos donde la anemia es muy prevalente.
+  - El esquema sugerido es de 30 mg de hierro elemental al día.
+  - El esquema dura tres meses consecutivos al año.
+revisado: false
+revisado_por: null
+fecha_revision: null
+observaciones_revision: null
+notas: >-
+  Fragmentos en inglés: el juez recibe el texto original enviado al modelo, no la traducción de la
+  cita (sección 3 del diseño). La Tabla N° 8 de la RM 429 dice lo mismo para 36 a 59 meses, pero la
+  pregunta es qué recomienda la OMS: no se acepta como alternativa (decisión para la ficha). El anclaje de C3 empieza en la presentación
+  («Drops/syrups/tablets»), porque la duración sola también puede aparecer en las tablas de otros
+  grupos de edad de páginas vecinas y daría un acierto falso.
