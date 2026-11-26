@@ -393,6 +393,70 @@ def test_cuidador_con_la_linea_de_revision_mientras_no_este_revisado(cliente_htt
     assert _vista(cliente_http, cabeceras, verificada, "CUIDADOR").json()["revision_pendiente"] is False
 
 
+# Fila 166: derivación una sola vez, frase final para la familia y fecha sin hora (unidad, sin base).
+def _datos_cuidador(tipos=("TRATAMIENTO", "DERIVACION", "SEGUIMIENTO"), decision="ACEPTA_RECOMENDACION",
+                    requiere_derivacion=True, categoria="ANEMIA_SEVERA", inicio=None) -> cont.DatosReporte:
+    from datetime import date, datetime, timezone
+    clinico = {"clasificacion": {"categoria": categoria, "nivel_riesgo": "MUY_ALTO", "requiere_derivacion": requiere_derivacion,
+                                 "hb_ajustada_g_dl": 6.8, "altitud_msnm": None},
+               "decision": None if decision is None else {"tipo_decision": decision},
+               "fecha_hora_inicio": inicio or datetime(2026, 11, 26, 15, 30, tzinfo=timezone.utc), "estado": "VERIFICADA"}
+    generacion = {"modo_prueba": False, "recomendacion": {"recomendacion": [{"tipo": t, "texto": "x"} for t in tipos]}}
+    return cont.DatosReporte(clinico, generacion, "Paciente Ficticio", "HC-PRUEBA", "M", date(2026, 11, 26), 26, 6.8)
+
+
+def _armar(d, destino="CUIDADOR", secciones=("PACIENTE", "CLASIFICACION", "RECOMENDACION", "FIRMA")) -> dict:
+    return cont.armar(d, destino, list(secciones), "Profesional ficticio", "Establecimiento de prueba", "id")
+
+
+def _textos_cuidador(vista: dict) -> list[str]:
+    return [t for b in vista["bloques"] for t in b["parrafos"] + [i["texto"] for i in b["items"]]]
+
+
+def test_cuidador_dice_la_derivacion_una_sola_vez():
+    f = cont.frases()
+    derivacion = (f["derivacion"], f["pasos"]["DERIVACION"])
+    # Con el paso DERIVACION en las indicaciones, el párrafo de la clasificación no se agrega.
+    textos = _textos_cuidador(_armar(_datos_cuidador()))
+    assert sum(t in derivacion for t in textos) == 1 and f["pasos"]["DERIVACION"] in textos
+    # Sin el bloque de indicaciones, sin el paso DERIVACION o sin la decisión aceptada, la dice el párrafo.
+    for vista in (_armar(_datos_cuidador(), secciones=("PACIENTE", "CLASIFICACION")),
+                  _armar(_datos_cuidador(tipos=("TRATAMIENTO",))),
+                  _armar(_datos_cuidador(decision="MODIFICA_RECOMENDACION")),
+                  _armar(_datos_cuidador(decision=None))):
+        textos = _textos_cuidador(vista)
+        assert sum(t in derivacion for t in textos) == 1 and f["derivacion"] in textos
+    # Sin derivación requerida no hay párrafo; el paso aceptado se reformula igual.
+    textos = _textos_cuidador(_armar(_datos_cuidador(requiere_derivacion=False, categoria="ANEMIA_MODERADA")))
+    assert f["derivacion"] not in textos and f["pasos"]["DERIVACION"] in textos
+    # Ninguna frase agrega plazos.
+    assert not any("inmediat" in t.lower() for t in textos)
+
+
+def test_frase_final_y_fecha_segun_el_destino():
+    from datetime import datetime, timezone
+    # 03:10 UTC del 27/11 es el 26/11 en Lima: la fecha del cuidador es la de Perú.
+    d = _datos_cuidador(inicio=datetime(2026, 11, 27, 3, 10, tzinfo=timezone.utc))
+    cuidador = _armar(d)
+    assert cuidador["frase_final"] == cont.FRASE_FINAL_CUIDADOR != cont.FRASE_FINAL
+    assert not re.search(r"\d", cont.FRASE_FINAL_CUIDADOR)
+    campos = {c["etiqueta"]: c["valor"] for c in cuidador["bloques"][0]["campos"]}
+    assert campos["Fecha de la evaluación"] == "26/11/2026"
+    expediente = _armar(d, "EXPEDIENTE", ("PACIENTE", "CLASIFICACION"))
+    assert expediente["frase_final"] == cont.FRASE_FINAL
+    campos = {c["etiqueta"]: c["valor"] for c in expediente["bloques"][0]["campos"]}
+    assert campos["Fecha de la consulta"] == "26/11/2026 22:10"
+    # El aviso de revisión sigue mientras revisado sea false.
+    assert cont.frases()["revisado"] is False and cuidador["avisos"] == [cont.AVISO_REVISION]
+    assert cuidador["revision_pendiente"] is True
+
+
+def test_pdf_del_cuidador_con_la_frase_para_la_familia(cliente_http, cabeceras, verificada):
+    texto = " ".join(_texto(_exportar(cliente_http, cabeceras, verificada, "CUIDADOR", ["RECOMENDACION"]).content).split())
+    assert cont.FRASE_FINAL_CUIDADOR in texto and cont.FRASE_FINAL not in texto
+    assert cont.FRASE_FINAL in _texto(_exportar(cliente_http, cabeceras, verificada).content)
+
+
 def test_el_archivo_de_frases_esta_completo():
     f = cont.frases()
     assert set(f["clasificacion"]) == {*cont.CATEGORIAS, "SIN_CLASIFICACION"}
@@ -428,6 +492,8 @@ def _normalizar_fixture(datos, nombre: str, hc: str, usuario: str, numeros: list
 
     def fechas(v, clave=""):
         if isinstance(v, dict):
+            if v.get("etiqueta") == "Fecha de la evaluación":  # cuidador: fecha de la consulta sin la hora
+                return {**v, "valor": "20/10/2026"}
             return {k: fechas(x, k) for k, x in v.items()}
         if isinstance(v, list):
             return [fechas(x, clave) for x in v]

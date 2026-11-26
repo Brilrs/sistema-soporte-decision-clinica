@@ -48,6 +48,8 @@ SECCIONES_POR_DESTINO = {
 OBLIGATORIAS = ("PACIENTE", "CLASIFICACION")
 
 FRASE_FINAL = "La decisión final corresponde al profesional tratante."
+# Frase final del reporte para el cuidador (fila 166): para la familia, sin dosis, plazos ni cifras.
+FRASE_FINAL_CUIDADOR = "Estas indicaciones las revisa y confirma el personal de salud que atiende a su niña o niño."
 AVISO_PRUEBA = "MODO DE PRUEBA, no es un documento clínico"
 AVISO_REVISION = "Texto en revisión clínica: no entregar a pacientes"
 TITULO_EXPEDIENTE = "Reporte de evaluación de anemia infantil"
@@ -126,6 +128,11 @@ def fecha_hora(valor: datetime) -> str:
 
 def fecha(valor: date) -> str:
     return valor.strftime("%d/%m/%Y")
+
+
+def fecha_local(valor: datetime) -> str:
+    """Fecha sin la hora, en la zona de Perú (reporte para el cuidador)."""
+    return valor.astimezone(ZONA_PERU).strftime("%d/%m/%Y")
 
 
 def _hb(valor: float | None) -> str:
@@ -266,16 +273,19 @@ _EXPEDIENTE = {"PACIENTE": _paciente, "CLASIFICACION": _clasificacion, "RECOMEND
 def _cuidador_paciente(d: DatosReporte) -> dict:
     return _bloque("PACIENTE", "Datos de su niña o niño", campos=[
         _campo("Nombre", d.nombres_apellidos), _campo("Historia clínica", d.numero_hc),
-        _campo("Edad", _edad(d.edad_meses)), _campo("Fecha de la evaluación", fecha_hora(d.clinico["fecha_hora_inicio"]))])
+        _campo("Edad", _edad(d.edad_meses)), _campo("Fecha de la evaluación", fecha_local(d.clinico["fecha_hora_inicio"]))])
 
 
-def _cuidador_clasificacion(d: DatosReporte, fr: dict) -> dict:
+def _cuidador_clasificacion(d: DatosReporte, fr: dict, con_indicaciones: bool) -> dict:
+    """Frase de la clasificación, qué es la anemia y la derivación. La derivación se dice una sola vez
+    (fila 166): si el bloque de indicaciones va en el reporte y ya trae el paso DERIVACION, no se
+    agrega el párrafo."""
     c = d.clinico["clasificacion"]
     clave = c["categoria"] if c and c["categoria"] in fr["clasificacion"] else "SIN_CLASIFICACION"
     parrafos = [fr["clasificacion"][clave]]
     if clave.startswith("ANEMIA_"):
         parrafos.append(fr["que_es_anemia"])
-    if c and c["requiere_derivacion"]:
+    if c and c["requiere_derivacion"] and not (con_indicaciones and "DERIVACION" in tipos_de_paso_aceptados(d)):
         parrafos.append(fr["derivacion"])
     return _bloque("CLASIFICACION", fr["titulos"]["resultado"], parrafos=parrafos)
 
@@ -315,15 +325,15 @@ def armar(d: DatosReporte, destino: str, secciones: list[str], generado_por: str
     avisos = ([AVISO_PRUEBA] if d.modo_prueba else []) + ([AVISO_REVISION] if revision_pendiente else [])
     if destino == EXPEDIENTE:
         bloques = [_EXPEDIENTE[s](d) for s in secciones if s in _EXPEDIENTE]
-        titulo, introduccion = TITULO_EXPEDIENTE, None
+        titulo, introduccion, frase_final = TITULO_EXPEDIENTE, None, FRASE_FINAL
     else:
-        constructores = {"PACIENTE": lambda: _cuidador_paciente(d), "CLASIFICACION": lambda: _cuidador_clasificacion(d, fr),
+        constructores = {"PACIENTE": lambda: _cuidador_paciente(d), "CLASIFICACION": lambda: _cuidador_clasificacion(d, fr, "RECOMENDACION" in secciones),
                          "RECOMENDACION": lambda: _cuidador_indicaciones(d, fr)}
         bloques = [constructores[s]() for s in secciones if s in constructores] + [_cuidador_recuerde(fr)]
-        titulo, introduccion = fr["titulo"], fr["introduccion"]
+        titulo, introduccion, frase_final = fr["titulo"], fr["introduccion"], FRASE_FINAL_CUIDADOR
     return {
         "id_consulta": id_consulta, "destino": destino, "secciones": secciones, "modo_prueba": d.modo_prueba,
         "revision_pendiente": revision_pendiente, "titulo": titulo, "introduccion": introduccion,
         "establecimiento": establecimiento, "fecha_consulta": d.clinico["fecha_hora_inicio"], "avisos": avisos,
-        "bloques": bloques, "frase_final": FRASE_FINAL, "firma": "FIRMA" in secciones, "generado_por": generado_por,
+        "bloques": bloques, "frase_final": frase_final, "firma": "FIRMA" in secciones, "generado_por": generado_por,
     }

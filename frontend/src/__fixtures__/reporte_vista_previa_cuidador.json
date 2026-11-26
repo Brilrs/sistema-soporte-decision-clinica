@@ -36,7 +36,7 @@
         },
         {
           "etiqueta": "Fecha de la evaluación",
-          "valor": "20/10/2026 10:00"
+          "valor": "20/10/2026"
         }
       ],
       "parrafos": [],
@@ -80,7 +80,7 @@
       ]
     }
   ],
-  "frase_final": "La decisión final corresponde al profesional tratante.",
+  "frase_final": "Estas indicaciones las revisa y confirma el personal de salud que atiende a su niña o niño.",
   "firma": true,
   "generado_por": "Lic. Usuaria Prueba"
 }

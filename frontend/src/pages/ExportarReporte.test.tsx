@@ -155,6 +155,9 @@ describe("M09 · opciones y vista previa", () => {
     const secciones = screen.getByRole("group", { name: "Incluir en el reporte" });
     expect(within(secciones).queryByRole("checkbox", { name: "Evidencias citadas" })).not.toBeInTheDocument();
     expect(within(secciones).getByRole("checkbox", { name: "Indicaciones del personal de salud" })).toBeChecked();
+    // La frase final del cuidador es la de la familia (fila 166).
+    expect(within(secciones).getByRole("checkbox", { name: /Estas indicaciones las revisa y confirma.*(obligatoria)/ })).toBeDisabled();
+    expect(within(secciones).queryByRole("checkbox", { name: /La decisión final corresponde/ })).not.toBeInTheDocument();
     await waitFor(() => expect(parametros()).toHaveLength(2));
     expect(new URLSearchParams(parametros()[1]).get("destino")).toBe("CUIDADOR");
     expect(new URLSearchParams(parametros()[1]).get("secciones")).toBe("PACIENTE,CLASIFICACION,RECOMENDACION,FIRMA");

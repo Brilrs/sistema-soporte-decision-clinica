@@ -48,11 +48,27 @@ LARGO_MINIMO_PARTE = 3
 PARTICULAS = frozenset({"de", "del", "la", "las", "los", "y", "e", "san", "santa", "da", "do", "dos", "van", "von"})
 
 _MESES = "enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre"
+# Abreviaturas («20 dic 2026», «20-dic-2026»); van después de los nombres completos en la alternativa.
+_MESES_ABREVIADOS = "ene|feb|mar|abr|may|jun|jul|ago|sept|sep|set|oct|nov|dic"
+# Fechas completas (fila 167). Cada número de una fecha numérica no puede ir pegado a otro número
+# ni a una parte decimal (antes: (?<![\d.,]); después: (?![.,]?\d)), y los dos separadores deben ser
+# el mismo: así «Hb entre 9.5-10.4», «Peso 12.5-13 kg» y «Rango 10.5-11.0» no son fechas. El año
+# numérico tiene 2 o 4 cifras («1-2-3 gotas» y «1/2/3 meses» no son fechas). Día de 1 a 31 y mes de
+# 1 a 12 se comprueban en _es_fecha. La fecha con el mes escrito exige día y año de 4 cifras: «20 de
+# diciembre» y «diciembre de 2026» no son fechas completas.
 _FECHA = re.compile(
-    rf"\b\d{{1,2}}\s*[/.-]\s*\d{{1,2}}\s*[/.-]\s*\d{{2,4}}\b"
-    rf"|\b\d{{4}}-\d{{1,2}}-\d{{1,2}}\b"
-    rf"|\b\d{{1,2}}\s+de\s+(?:{_MESES})\s+(?:de\s+|del\s+)?\d{{4}}\b",
+    r"(?<![\d.,])(?P<d1>\d{1,2})\s*(?P<s1>[/.-])\s*(?P<m1>\d{1,2})\s*(?P=s1)\s*(?:\d{4}|\d{2})(?![.,]?\d)"
+    r"|(?<![\d.,])\d{4}(?P<s2>[/.-])(?P<m2>\d{1,2})(?P=s2)(?P<d2>\d{1,2})(?![.,]?\d)"
+    rf"|(?<![\d.,])(?P<d3>\d{{1,2}})(?:\s+de\s+|\s*[/.-]\s*|\s+)(?:{_MESES}|(?:{_MESES_ABREVIADOS})\.?)"
+    r"(?:\s+del?\s+|\s*,\s*|\s*[/.-]\s*|\s+)\d{4}(?![.,]?\d)",
     re.IGNORECASE)
+
+
+def _es_fecha(m: re.Match) -> bool:
+    """Día de 1 a 31 y, en las fechas numéricas, mes de 1 a 12."""
+    dia = int(m.group("d1") or m.group("d2") or m.group("d3"))
+    mes = m.group("m1") or m.group("m2")
+    return 1 <= dia <= 31 and (mes is None or 1 <= int(mes) <= 12)
 _TELEFONO = re.compile(
     r"(?:\b(?:tel[eé]fono|telf?|tlf|cel(?:ular)?|whatsapp|wsp)\b\.?\s*(?:n[°º.o]*\s*)?:?\s*(?:\+?51[\s-]?)?[\d(][\d\s()-]{5,}\d)"
     r"|(?:(?<!\d)(?:\+?51[\s-]?)?9\d{2}[\s-]?\d{3}[\s-]?\d{3}(?!\d))",
@@ -173,6 +189,15 @@ def _sustituir(patron: re.Pattern, marca: str, texto: str, cuenta: dict[str, int
     return texto
 
 
+def _sustituir_fechas(texto: str, cuenta: dict[str, int]) -> str:
+    def _cambiar(m: re.Match) -> str:
+        if not _es_fecha(m):
+            return m.group()
+        cuenta[FECHA] = cuenta.get(FECHA, 0) + 1
+        return FECHA
+    return _FECHA.sub(_cambiar, texto)
+
+
 def _numeros_del_paciente(texto: str, formas: set[str], marca: str, cuenta: dict[str, int]) -> str:
     """Reemplaza un número del paciente aunque esté escrito con espacios, puntos o guiones."""
     def _cambiar(m: re.Match) -> str:
@@ -194,7 +219,7 @@ def filtrar_texto(texto: str, identidad: IdentidadPaciente | None,
     """Reemplaza los identificadores del texto libre por marcas neutras."""
     frecuentes = cargar_nombres_frecuentes() if nombres_frecuentes is None else nombres_frecuentes
     cuenta: dict[str, int] = {}
-    resultado = _sustituir(_FECHA, FECHA, texto, cuenta)
+    resultado = _sustituir_fechas(texto, cuenta)
     if identidad is not None:
         resultado = _numeros_del_paciente(resultado, formas_numericas(identidad.dni), DNI, cuenta)
         resultado = _numeros_del_paciente(resultado, formas_numericas(identidad.numero_hc), HC, cuenta)
