@@ -157,13 +157,17 @@ def desactivar(sesion: Session, id_actor: str, actual: dict) -> None:
                             WHERE id_usuario = CAST(:id AS uuid)"""), {"id": actual["id_usuario"]})
 
 
-def reactivar(sesion: Session, actual: dict) -> None:
-    """Sube la versión de sesión: los tokens emitidos antes de desactivar la cuenta no vuelven a valer."""
+def reactivar(sesion: Session, actual: dict) -> dict:
+    """Sube la versión de sesión: los tokens emitidos antes de desactivar la cuenta no vuelven a valer.
+    Reinicia los intentos fallidos (fila 168): la cuenta no vuelve bloqueada por los intentos que hubo
+    antes o mientras estaba desactivada. Devuelve el detalle para la auditoría (sin contraseñas)."""
     if actual["activo"]:
         raise ErrorConflicto("La cuenta ya está activa")
     sesion.execute(text("""UPDATE seguridad.usuario
-                               SET activo = true, fecha_desactivacion = NULL, version_sesion = version_sesion + 1
+                               SET activo = true, fecha_desactivacion = NULL, version_sesion = version_sesion + 1,
+                                   intentos_fallidos = 0
                             WHERE id_usuario = CAST(:id AS uuid)"""), {"id": actual["id_usuario"]})
+    return {"desbloqueada": actual["bloqueado"]}
 
 
 def desbloquear(sesion: Session, actual: dict) -> None:

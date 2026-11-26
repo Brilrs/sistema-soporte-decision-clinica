@@ -74,8 +74,8 @@ Cuerpo: `{"usuario": "enf.rojas", "contrasena": "..."}` (1 a 50 y 1 a 200 caract
 | Estado | Cuándo |
 | --- | --- |
 | 200 | Credenciales correctas, también con la marca activa |
-| 401 | Usuario inexistente o contraseña incorrecta: `{"detail": "Usuario o contraseña incorrectos"}` (cuenta el intento) |
-| 403 | Cuenta desactivada |
+| 401 | Usuario inexistente o contraseña incorrecta, también de una cuenta desactivada: `{"detail": "Usuario o contraseña incorrectos"}` (cuenta el intento si la cuenta existe; un usuario inexistente pasa por una verificación con un hash ficticio para tardar lo mismo). También una cuenta desactivada que ya llegó al máximo de intentos, aunque la contraseña sea correcta |
+| 403 | Cuenta desactivada con la contraseña correcta: `{"detail": "La cuenta está desactivada. Comuníquese con el administrador."}` (fila 168) |
 | 423 | Cuenta bloqueada (`intentos_fallidos` llegó a `MAX_INTENTOS_FALLIDOS`, 5 por omisión) |
 
 Respuesta 200:

@@ -4,6 +4,7 @@ import hmac
 import secrets
 import string
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 
 import jwt
 from argon2 import PasswordHasher
@@ -23,6 +24,19 @@ def verificar_contrasena(hash_guardado: str, contrasena: str) -> bool:
         return _hasher.verify(hash_guardado, contrasena)
     except (VerifyMismatchError, InvalidHashError):
         return False
+
+
+@lru_cache(maxsize=1)
+def _hash_ficticio() -> str:
+    """Hash Argon2id de una clave aleatoria que nadie conoce (se crea una vez por proceso)."""
+    return _hasher.hash(secrets.token_urlsafe(32))
+
+
+def verificar_contrasena_ficticia(contrasena: str) -> bool:
+    """Comprueba la contraseña contra el hash ficticio, siempre False. El inicio de sesión de un usuario
+    que no existe tarda así lo mismo que el de una cuenta con la clave equivocada (fila 168)."""
+    verificar_contrasena(_hash_ficticio(), contrasena)
+    return False
 
 
 def texto_politica() -> str:

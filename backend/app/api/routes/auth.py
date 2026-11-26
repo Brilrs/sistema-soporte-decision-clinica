@@ -12,11 +12,13 @@ from app.core.auditoria import registrar_evento
 from app.core.config import get_settings
 from app.core.db import sesion_clinica
 from app.core.errores import ErrorConCodigo
-from app.core.seguridad import crear_token, cumple_politica, hash_contrasena, texto_politica, verificar_contrasena
+from app.core.seguridad import crear_token, cumple_politica, hash_contrasena, texto_politica, verificar_contrasena, \
+    verificar_contrasena_ficticia
 
 router = APIRouter(prefix="/api/auth", tags=["Autenticación"])
 
 MENSAJE_GENERICO = "Usuario o contraseña incorrectos"
+MENSAJE_INACTIVA = "La cuenta está desactivada. Comuníquese con el administrador."
 MENSAJE_BLOQUEADA = "La cuenta está bloqueada por intentos fallidos. Solicite el desbloqueo al administrador."
 MENSAJE_ACTUAL_INCORRECTA = "La contraseña actual no es correcta."
 MENSAJE_IGUAL = "La nueva contraseña debe ser distinta de la actual."
@@ -76,16 +78,18 @@ def login(datos: SolicitudLogin, request: Request, sesion: Session = Depends(ses
         {"u": datos.usuario.strip().lower()},
     ).mappings().first()
 
+    # Fila 168: el estado de la cuenta solo se revela a quien sabe la contraseña. Un usuario inexistente
+    # y una cuenta inactiva con la clave equivocada reciben la misma respuesta que cualquier credencial
+    # inválida (401 con el mensaje genérico) y pasan por una verificación Argon2 (con un hash ficticio si
+    # el usuario no existe), así que tardan lo mismo.
     if cuenta is None:
+        verificar_contrasena_ficticia(datos.contrasena)
         registrar_evento(sesion, "INICIO_SESION_FALLIDO", detalle={"motivo": "usuario_inexistente"}, direccion_ip=ip)
         sesion.commit()
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, MENSAJE_GENERICO)
 
     if not cuenta["activo"]:
-        registrar_evento(sesion, "INICIO_SESION_FALLIDO", cuenta["id"], "usuario", cuenta["id"],
-                         {"motivo": "cuenta_inactiva"}, ip)
-        sesion.commit()
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "La cuenta está desactivada. Comuníquese con el administrador.")
+        _login_cuenta_inactiva(sesion, cuenta, datos.contrasena, max_intentos, ip)
 
     if cuenta["intentos_fallidos"] >= max_intentos:
         registrar_evento(sesion, "INICIO_SESION_FALLIDO", cuenta["id"], "usuario", cuenta["id"],
@@ -111,6 +115,32 @@ def login(datos: SolicitudLogin, request: Request, sesion: Session = Depends(ses
     # Con la marca de cambio obligatorio el inicio de sesión funciona igual: la interfaz lleva a la
     # pantalla de cambio y el resto de las rutas responde 403 (deps.usuario_actual).
     return _respuesta_con_token(usuario)
+
+
+def _login_cuenta_inactiva(sesion: Session, cuenta, contrasena: str, max_intentos: int, ip: str | None) -> None:
+    """Cuenta desactivada: siempre termina con un error. Con la clave equivocada, 401 genérico, y el
+    intento suma al contador (sin el 423: el bloqueo de una cuenta inactiva no se anuncia, para que no
+    se distinga de un usuario inexistente). Con la clave correcta, 403 con el aviso de cuenta
+    desactivada, salvo que el contador ya llegue al máximo: entonces también 401 genérico, para que la
+    respuesta no sirva para adivinar la clave de una cuenta inactiva a fuerza de intentos. Reactivar la
+    cuenta reinicia el contador (usuarios.reactivar)."""
+    if not verificar_contrasena(cuenta["hash_contrasena"], contrasena):
+        intentos = cuenta["intentos_fallidos"] + 1
+        sesion.execute(text("UPDATE seguridad.usuario SET intentos_fallidos = :n WHERE id_usuario = CAST(:id AS uuid)"),
+                       {"n": intentos, "id": cuenta["id"]})
+        registrar_evento(sesion, "INICIO_SESION_FALLIDO", cuenta["id"], "usuario", cuenta["id"],
+                         {"motivo": "cuenta_inactiva_contrasena_incorrecta", "intento": intentos}, ip)
+        sesion.commit()
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, MENSAJE_GENERICO)
+    if cuenta["intentos_fallidos"] >= max_intentos:
+        registrar_evento(sesion, "INICIO_SESION_FALLIDO", cuenta["id"], "usuario", cuenta["id"],
+                         {"motivo": "cuenta_inactiva_bloqueada"}, ip)
+        sesion.commit()
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, MENSAJE_GENERICO)
+    registrar_evento(sesion, "INICIO_SESION_FALLIDO", cuenta["id"], "usuario", cuenta["id"],
+                     {"motivo": "cuenta_inactiva"}, ip)
+    sesion.commit()
+    raise HTTPException(status.HTTP_403_FORBIDDEN, MENSAJE_INACTIVA)
 
 
 @router.get("/me", response_model=UsuarioSalida)
