@@ -231,12 +231,12 @@ def _cambiar_estado(id_usuario: UUID, request: Request, actor: UsuarioActual, se
                     accion, tipo_evento: str) -> dict:
     actual = _usuario_o_404(sesion, id_usuario)
     try:
-        accion(actual)
+        extra = accion(actual) or {}
     except srv.ErrorConflicto as exc:
         sesion.rollback()
         raise _error_negocio(exc)
     registrar_evento(sesion, tipo_evento, actor.id_usuario, "usuario", str(id_usuario),
-                     {"nombre_usuario": actual["nombre_usuario"]}, _ip(request))
+                     {"nombre_usuario": actual["nombre_usuario"], **extra}, _ip(request))
     sesion.commit()
     return srv.obtener(sesion, str(id_usuario), _max_intentos())
 

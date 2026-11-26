@@ -42,9 +42,19 @@ def test_bloqueo_tras_cinco_intentos_fallidos(cliente, desbloquear):
     assert r.status_code == 423
 
 
-def test_cuenta_inactiva_no_inicia_sesion(cliente):
-    r = cliente.post("/api/auth/login", json={"usuario": "sistema", "contrasena": "!"})
-    assert r.status_code == 403
+def test_cuenta_inactiva_con_clave_equivocada_responde_como_credencial_invalida(cliente, super_engine):
+    """Fila 168: la cuenta inactiva «sistema» con una clave equivocada no revela su estado (antes, 403).
+    Los casos con la clave correcta están en tests/test_cuentas_inactivas.py."""
+    with super_engine.connect() as c:
+        antes = c.execute(text("SELECT intentos_fallidos FROM seguridad.usuario WHERE nombre_usuario = 'sistema'")).scalar_one()
+    try:
+        r = cliente.post("/api/auth/login", json={"usuario": "sistema", "contrasena": "!"})
+        otro = cliente.post("/api/auth/login", json={"usuario": "no.existe", "contrasena": "!"})
+        assert r.status_code == otro.status_code == 401 and r.json() == otro.json()
+    finally:
+        with super_engine.begin() as c:
+            c.execute(text("UPDATE seguridad.usuario SET intentos_fallidos = :n WHERE nombre_usuario = 'sistema'"),
+                      {"n": antes})
 
 
 def test_sin_token_o_token_alterado(cliente):
