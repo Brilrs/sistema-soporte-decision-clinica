@@ -14,7 +14,7 @@ observaciones:
 - el texto filtrado de la consulta y el idioma de la respuesta;
 - los fragmentos enviados, con etiquetas únicas F-01 a F-05. Un fragmento agregado por una regla
   de punteros (parte G) lleva además agregado_por_referencia_de: la etiqueta del fragmento
-  enviado que contiene el puntero.
+  enviado que contiene el puntero (un fragmento agregado por una regla garantizada no lo lleva).
 
 No se envían observaciones, talla, fechas, distrito ni identificadores.
 
@@ -193,7 +193,8 @@ def construir_solicitud(datos: DatosClinicos, consulta: str, idioma_respuesta: s
         "evidencia": [
             {"etiqueta": e, "fuente": f.codigo_documento, "tipo_fuente": tipo_fuente(entidades.get(f.id_documento)),
              "seccion": f.seccion, "idioma": f.idioma, "texto": f.texto,
-             **({"agregado_por_referencia_de": por_id.get(f.referido_por)} if f.origen == PUNTERO else {})}
+             **({"agregado_por_referencia_de": por_id.get(f.referido_por)}
+                if f.origen == PUNTERO and f.referido_por is not None else {})}
             for e, f in etiquetas.items()
         ],
     }

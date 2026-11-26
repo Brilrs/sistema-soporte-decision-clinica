@@ -91,3 +91,85 @@ def buscar_destino(sesion: Session | Connection, regla: ReglaPuntero):
     if len(filas) != 1 or (filas[0].numero_tokens or 0) > MAX_TOKENS_AGREGADO:
         return None
     return filas[0]
+
+
+# ---------------------------------------------------------------------------
+# Fragmentos garantizados por la clasificación (sección garantizados de punteros.yaml)
+# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class ContextoClinico:
+    """Datos estructurados del tamizaje que deciden las reglas garantizadas."""
+    clasificacion: str | None
+    requiere_derivacion: bool = False
+
+
+@dataclass(frozen=True)
+class ReglaGarantizada:
+    id: str
+    clasificaciones: frozenset[str]
+    con_derivacion: bool
+    documento: str
+    pagina: int
+    encabezado: str
+    patron: re.Pattern
+
+    def aplica_a(self, contexto: ContextoClinico | None) -> bool:
+        if contexto is None:
+            return False
+        return contexto.clasificacion in self.clasificaciones or (self.con_derivacion and contexto.requiere_derivacion)
+
+
+def _patron_encabezado(encabezado: str) -> re.Pattern:
+    """El encabezado al inicio de una línea, sin distinguir mayúsculas y con cualquier espacio entre
+    las palabras («7. Tratamiento de anemia severa» no coincide con «17. Tratamiento ...»)."""
+    palabras = encabezado.split()
+    if not palabras:
+        raise ValueError("encabezado vacío")
+    return re.compile(r"^[ \t]*" + r"\s+".join(re.escape(p) for p in palabras), re.IGNORECASE | re.MULTILINE)
+
+
+def _garantizada(datos: dict) -> ReglaGarantizada:
+    clasificaciones = frozenset(str(c) for c in datos.get("clasificaciones") or [])
+    con_derivacion = bool(datos.get("requiere_derivacion", False))
+    if not clasificaciones and not con_derivacion:
+        raise ValueError(f"Regla {datos['id']}: no tiene clasificaciones ni requiere_derivacion")
+    return ReglaGarantizada(
+        id=str(datos["id"]), clasificaciones=clasificaciones, con_derivacion=con_derivacion,
+        documento=str(datos["documento"]), pagina=int(datos["pagina"]), encabezado=str(datos["encabezado"]),
+        patron=_patron_encabezado(str(datos["encabezado"])))
+
+
+def cargar_garantizadas(ruta: Path = REGLAS) -> tuple[ReglaGarantizada, ...]:
+    datos = yaml.safe_load(ruta.read_text(encoding="utf-8")) or {}
+    reglas = tuple(_garantizada(r) for r in datos.get("garantizados") or [])
+    ids = [r.id for r in reglas]
+    if len(ids) != len(set(ids)):
+        raise ValueError("punteros.yaml: hay reglas garantizadas con el mismo id")
+    return reglas
+
+
+@lru_cache(maxsize=1)
+def garantizadas_vigentes() -> tuple[ReglaGarantizada, ...]:
+    return cargar_garantizadas()
+
+
+_GARANTIZADO = f"""
+    SELECT f.id_fragmento::text AS id_fragmento, f.id_documento::text AS id_documento, d.titulo,
+           d.codigo_documento, d.idioma, f.seccion, f.pagina_inicio, f.pagina_fin, f.texto, f.tipo_contenido,
+           f.edad_min_meses, f.edad_max_meses, f.poblacion, f.rango_dudoso, f.numero_tokens
+      FROM conocimiento.fragmento f
+      JOIN conocimiento.documento_fuente d ON d.id_documento = f.id_documento
+     WHERE d.codigo_documento = :codigo AND f.pagina_inicio <= :pagina AND COALESCE(f.pagina_fin, f.pagina_inicio) >= :pagina
+       AND {CONDICION_RECUPERABLE}
+     ORDER BY f.numero_orden
+"""
+
+
+def buscar_garantizado(sesion: Session | Connection, regla: ReglaGarantizada):
+    """Fila del fragmento de la regla, o None si no hay exactamente uno recuperable del documento que
+    incluya la página y tenga el encabezado, o si supera MAX_TOKENS_AGREGADO."""
+    filas = [f for f in sesion.execute(text(_GARANTIZADO), {"codigo": regla.documento, "pagina": regla.pagina}).all()
+             if regla.patron.search(f.texto or "")]
+    if len(filas) != 1 or (filas[0].numero_tokens or 0) > MAX_TOKENS_AGREGADO:
+        return None
+    return filas[0]

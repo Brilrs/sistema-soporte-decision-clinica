@@ -54,7 +54,7 @@ from app.rag.normalizacion import normalizar as normalizar_consulta
 from app.rag.parametros import ParametrosRecuperacion, leer_parametros, parametros_recuperacion
 from app.rag.proteccion import construir_solicitud, controlar_identificadores, entidades_de_documentos, \
     leer_datos_clinicos
-from app.rag.punteros import PUNTERO
+from app.rag.punteros import PUNTERO, ContextoClinico
 from app.rag.recuperacion import AMPLIADA, INICIAL, Servicios, comprobar_fragmentos, recuperar as recuperar_fragmentos
 from app.rag.validacion import DATOS_FALTANTES, FUERA_DE_ALCANCE, TAMIZAJE_NO_VIGENTE, obtener_clasificacion, \
     validar_tamizaje
@@ -289,8 +289,9 @@ def recuperar(estado: Estado, ctx: Contexto) -> dict:
     tiempos = dict(estado["tiempos_intento"])
     inicio = time.perf_counter()
     with _turno(ctx, MODELOS) as espera, _sesion(ctx, GENERACION) as c:
+        datos = estado["datos"]
         rec = recuperar_fragmentos(c, estado["consulta"], ctx.servicios, estado["parametros"], tipo,
-                                   estado["datos"].edad_meses)
+                                   datos.edad_meses, ContextoClinico(datos.clasificacion, datos.requiere_derivacion))
     tiempos["recuperacion"] = _ms(inicio) - espera["ms"]
     tiempos["espera_modelos"] += espera["ms"]
     return {"recuperacion": rec, "solicitud": None, "control": None, "generacion": None, "tiempos_intento": tiempos,

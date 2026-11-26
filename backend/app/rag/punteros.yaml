@@ -22,6 +22,38 @@
 # modificación («(mod. RM 429-2024/MINSA, modificación N.° 5)»). Si la tabla quedara partida en
 # varios fragmentos, la regla no agrega nada (el tope es un fragmento).
 
+#
+# Fragmentos garantizados por la clasificación (sección garantizados, fila 165 de
+# docs/cambios_respecto_al_OE2.md): si el tamizaje tiene una de las clasificaciones de la regla, o
+# requiere derivación y la regla lo indica, el fragmento queda entre los enviados aunque la pregunta
+# trate de otra cosa (en casos severos, el criterio de derivación se perdía en las preguntas de dosis
+# o controles). Si ya está entre los enviados no cambia nada; si no, entra como el puntero: en el
+# lugar del 5.º enviado, sin sacar a los anteriores, con origen PUNTERO y sin fragmento que lo
+# refiera. Solo se aplica si el reranker seleccionó al menos un fragmento (no cambia la suficiencia
+# 6.3 ni la relevancia máxima), como máximo uno por regla y de hasta MAX_TOKENS_AGREGADO tokens.
+# Se aplica después de las reglas de punteros y nunca saca a un fragmento agregado por ellas ni al
+# que contiene su puntero.
+#
+# Campos:
+#   id:                  identificador de la regla
+#   clasificaciones:     clasificaciones del tamizaje que activan la regla
+#   requiere_derivacion: true si también la activa un tamizaje que requiere derivación
+#   documento:           codigo_documento del fragmento
+#   pagina:              página del documento que el fragmento incluye
+#   encabezado:          encabezado con el que empieza una línea del fragmento (sin distinguir
+#                        mayúsculas ni espacios); se identifica por documento, página y encabezado, no
+#                        por el id, que cambia entre bases. Debe haber exactamente un fragmento
+#                        recuperable que cumpla las tres condiciones; si no, se registra una
+#                        advertencia y la consulta sigue sin agregar nada.
+
+garantizados:
+  - id: nts213-anemia-severa-derivacion
+    clasificaciones: [ANEMIA_SEVERA]
+    requiere_derivacion: true
+    documento: NTS 213-MINSA/DGIESP-2024
+    pagina: 22
+    encabezado: "7. Tratamiento de anemia severa"
+
 reglas:
   - id: nts213-tabla4
     documento_origen: NTS 213-MINSA/DGIESP-2024
