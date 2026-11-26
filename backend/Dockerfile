@@ -25,6 +25,18 @@ RUN pip install --no-cache-dir -r requirements-jobs.txt
 USER cdss
 CMD ["python", "-m", "app.indexador", "--help"]
 
+# Evaluación del OE3 (docs/diseno_evaluacion_oe3.md): RAGAS y el código de app/evaluacion, que
+# .dockerignore deja fuera del contexto principal y entra solo aquí desde el contexto adicional
+# codigo_evaluacion (docker-compose.yml). Así las imágenes api y jobs no cambian.
+FROM base AS evaluacion
+USER root
+COPY requirements-evaluacion.txt .
+RUN pip install --no-cache-dir -r requirements-evaluacion.txt
+COPY --from=codigo_evaluacion . ./app/evaluacion
+ENV RAGAS_DO_NOT_TRACK=true
+USER cdss
+CMD ["python", "-m", "app.evaluacion", "--help"]
+
 # API (target por defecto)
 FROM base AS api
 EXPOSE 8000

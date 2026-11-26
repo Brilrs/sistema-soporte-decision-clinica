@@ -40,7 +40,7 @@
         "datos_ficticios": {
           "type": "object",
           "additionalProperties": false,
-          "description": "Solo con fuente ficticio. Sin nombres: el job pone un nombre genérico («Paciente de evaluación» más el id).",
+          "description": "Solo con fuente ficticio. Sin nombres: el job pone un nombre sintético de pseudopalabras derivado del id (nombre_ficticio de backend/app/evaluacion/ejecutar.py).",
           "required": ["sexo", "fecha_nacimiento", "ubigeo", "edad_gestacional", "bajo_peso_al_nacer", "tamizaje"],
           "properties": {
             "sexo": {"enum": ["M", "F"]},
@@ -93,7 +93,8 @@
                 "documento": {"type": "string", "description": "codigo_documento de conocimiento.documento_fuente."},
                 "paginas": {"type": "array", "items": {"type": "integer", "minimum": 1}, "minItems": 2, "maxItems": 2, "description": "[inicio, fin] en la numeración del índice (pagina_inicio y pagina_fin)."},
                 "numeral": {"type": "string", "description": "Numeral o tabla de la guía. Informativo: no hay columna de numeral en la base."},
-                "texto_anclaje": {"type": "string", "minLength": 12, "description": "Texto copiado del fragmento indexado; se compara normalizado (sección 4 del diseño)."}
+                "texto_anclaje": {"type": "string", "minLength": 12, "description": "Texto copiado del fragmento indexado; se compara normalizado (sección 4 del diseño)."},
+                "equivalencia_pendiente": {"type": "boolean", "description": "Opcional. true: la equivalencia clínica de esta alternativa con las demás (por ejemplo, g/L frente a g/dL) espera la ficha del CRED; un éxito que solo depende de ella se informa aparte."}
               }
             }
           }

@@ -1,5 +1,5 @@
 id: OE3-P10
-version_caso: 1
+version_caso: 2
 conjunto: piloto
 origen: nuevo
 origen_detalle: Controles y dosis en el tramo de 36 a 59 meses, con ajuste por altitud (Huancayo)
@@ -47,6 +47,7 @@ criterios:
         paginas: [34, 34]
         numeral: Table 4
         texto_anclaje: "3000-3499 21"
+        equivalencia_pendiente: true
 respuesta_referencia: >-
   Le corresponde tratamiento con suplemento de hierro a 3 mg/kg/día, con un máximo de 90 mg/día de
   36 a 59 meses, con sulfato ferroso o complejo polimaltosado férrico en jarabe, de forma diaria

@@ -1,5 +1,5 @@
 id: OE3-P12
-version_caso: 1
+version_caso: 2
 conjunto: piloto
 origen: nuevo
 origen_detalle: Paciente ficticio nuevo; anemia severa por ajuste de altitud (Puno), tramo de 6 a 23 meses
@@ -73,6 +73,7 @@ criterios:
         paginas: [34, 34]
         numeral: Table 4
         texto_anclaje: "3500-3999 25"
+        equivalencia_pendiente: true
 respuesta_referencia: >-
   Con la hemoglobina ajustada por altitud (9,3 menos 2,5 da 6,8 g/dL) la niña tiene anemia severa:
   se trata como un caso de anemia moderada y se refiere inmediatamente a un establecimiento de salud
@@ -88,6 +89,6 @@ revisado_por: null
 fecha_revision: null
 observaciones_revision: null
 notas: >-
-  Paciente ficticio: el job lo crea en una base limpia con un nombre genérico. Hb ajustada 6,8 g/dL a
+  Paciente ficticio: el job lo crea en una base limpia con un nombre sintético. Hb ajustada 6,8 g/dL a
   los 11 meses, por debajo de 7,0 (Tabla N° 13 de la RM 429). Antropometría inventada y plausible; no
   interviene en la clasificación.

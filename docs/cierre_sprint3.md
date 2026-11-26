@@ -283,5 +283,6 @@ cambiar `.env` durante la evaluación; la huella del paso 5 lo detecta.
 sustentan la respuesta) como cifra principal, más el diagnóstico de cuatro cuadrantes del artículo
 RAG-X como análisis complementario. La revisión clínica de los casos queda en manos de la
 coordinación CRED, con una ficha. El conjunto, con su esquema y un piloto de 12 casos en
-`jobs/evaluacion_oe3/conjunto/`, **sigue sin revisar** (`revisado: false`). Todavía no hay código de
-evaluación.
+`jobs/evaluacion_oe3/conjunto/`, **sigue sin revisar** (`revisado: false`). El job de evaluación
+(`backend/app/evaluacion/`, imagen y perfil `evaluacion`, fila 170) está implementado y probado solo
+con el cliente falso; la evaluación definitiva no se ejecutó.

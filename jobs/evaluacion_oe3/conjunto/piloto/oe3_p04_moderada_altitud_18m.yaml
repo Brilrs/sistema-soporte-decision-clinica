@@ -1,5 +1,5 @@
 id: OE3-P04
-version_caso: 1
+version_caso: 2
 conjunto: piloto
 origen: desarrollo_reutilizado
 origen_detalle: backend/app/scripts/casos_e2e.yaml, caso e
@@ -27,6 +27,7 @@ criterios:
         paginas: [34, 34]
         numeral: Table 4
         texto_anclaje: "3500-3999 25"
+        equivalencia_pendiente: true
   - id: C2
     descripcion: El ajuste se resta de la hemoglobina observada
     obligatorio: false

@@ -1,8 +1,8 @@
 # Diseño de la evaluación del OE3 (RAGAS y CUE)
 
-Fecha: 26/11/2026. Rama `sprint-3-oe3-evaluacion`. Estado: **diseño y conjunto piloto, sin
-implementar**. No hay código de evaluación, no se instaló ninguna dependencia y no se llamó a la API
-de Claude para preparar este documento.
+Fecha: 26/11/2026. Rama `sprint-3-oe3-evaluacion`. Estado: **job implementado y probado solo con
+el cliente falso** (`backend/app/evaluacion/`, guía de uso en `jobs/evaluacion_oe3/README.md`). No se
+llamó a la API de Claude ni a ningún servicio de pago. La evaluación definitiva no se ejecutó.
 
 Este documento fija qué se mide en el OE3, cómo se mide y con qué conjunto de casos. Completa la
 Tabla 2 del OE2 («Métricas de evaluación del sistema») y las decisiones 12, 13 y 15 de
@@ -20,6 +20,9 @@ Cada regla lleva una de estas marcas:
 | --- | --- |
 | `jobs/evaluacion_oe3/conjunto/esquema_caso.json` | Esquema de un caso (JSON Schema, sección 5) |
 | `jobs/evaluacion_oe3/conjunto/piloto/` | Piloto de 12 casos, uno por archivo YAML, sin revisar |
+| `jobs/evaluacion_oe3/README.md` | Uso del job, fases, ensayo y pasos de la corrida definitiva |
+| `backend/app/evaluacion/` | Código del job (sección 6) |
+| `docs/cambios_respecto_al_OE2.md`, fila 170 | Registro de la implementación |
 | `docs/cierre_sprint3.md`, sección 8 | Procedimiento para congelar el sistema |
 | `docs/cambios_respecto_al_OE2.md`, fila 169 | Registro de este diseño |
 
@@ -49,7 +52,10 @@ Cada regla lleva una de estas marcas:
 ## 2. Métricas
 
 Las seis métricas de la Tabla 2 del OE2. La versión de RAGAS es la que resolvió la simulación de
-instalación sin conflictos: 0.4.4, con `instructor>=1.10` fijado.
+instalación sin conflictos: 0.4.4, con `instructor>=1.10` fijado. Al construir la imagen apareció un
+conflicto que la simulación y `pip check` no muestran: el `pyarrow` que elige el resolvedor (26)
+exige NumPy 2 al importarse, y el backend fija NumPy 1.26.4. Se fija `pyarrow==25.0.0`, que funciona
+con los dos y cumple lo que pide `datasets`.
 
 | Métrica (OE2) | Implementación | Juez | Respuesta de referencia | Control en línea relacionado (OE2) |
 | --- | --- | --- | --- | --- |
@@ -64,6 +70,10 @@ instalación sin conflictos: 0.4.4, con `instructor>=1.10` fijado.
   `ragas.metrics.collections`. Recibe la consulta y los fragmentos enviados, los califica con dos
   prompts de juez (escala 0, 1 o 2, promediada y llevada a 0 a 1), y no necesita referencia ni
   embeddings. Es la que corresponde a «si los fragmentos recuperados son pertinentes para la consulta».
+  Por omisión, RAGAS repite cada juicio fallido hasta 5 veces y, si uno de los dos falla, promedia
+  el que queda. El job la usa con `max_retries=1` (el juez ya reintenta una vez) y deja la métrica
+  sin valor si el juez falló en cualquiera de sus llamadas. Lo mismo vale para las demás métricas: un
+  `NaN` o un juicio fallido nunca entra como número.
 - **Answer Relevancy no está en la Tabla 2. Decisión: se omite.** Necesita embeddings: habría que
   conectar bge-m3 del servicio `modelos` como embedder de RAGAS o usar un servicio externo. Además
   suma 3 llamadas al juez por consulta y mide otra cosa (si la respuesta responde a la pregunta). Si
@@ -103,14 +113,15 @@ CUE = fragmentos enviados que sustentan al menos una afirmación clave de la res
   solo datos sintéticos: consulta filtrada, respuesta y texto del fragmento.
 - Agregado: el promedio por consulta (macro) es la cifra principal. Se informa también el cociente
   total (micro) y el número de consultas que quedan fuera por no tener fragmentos enviados.
-- **Pendiente (tu decisión):** qué es «afirmación clave de la respuesta».
-  - Opción A: todas las afirmaciones de la respuesta. No usa la referencia.
-  - Opción B: solo las que el juez empareja con una `afirmaciones_clave` del caso. Así se cumple el
-    «requiere respuesta de referencia» de la Tabla 2, y un fragmento que solo sustenta una
-    afirmación equivocada no cuenta como aprovechado.
-
-  Se recomienda la B, por coherencia con la Tabla 2. Mientras no se decida, el informe puede
-  calcular las dos.
+- **Decisión (tomada): opción B.** Solo cuentan las afirmaciones de la respuesta que el juez
+  empareja con una `afirmaciones_clave` del caso. Así se cumple el «requiere respuesta de referencia»
+  de la Tabla 2, y un fragmento que solo sustenta una afirmación equivocada o ajena a la pregunta no
+  cuenta como aprovechado. La opción A (todas las afirmaciones de la respuesta) se calcula y se
+  informa al lado, sin reemplazar a la B.
+- Una sola llamada del juez por consulta y repetición produce las dos: divide la respuesta en
+  afirmaciones, empareja cada una con una afirmación clave (o con ninguna) e indica qué fragmentos
+  la sustentan. La misma salida dice qué afirmaciones clave están presentes o contradichas, que es lo
+  que usa la corrección (sección 3.3). Prompt y esquema en `backend/app/evaluacion/prompts_juez.py`.
 - **Variante sin juez (decisión):** fragmentos enviados que aparecen en `cita_evidencia` del intento
   que cuenta, divididos por los enviados. Es reproducible y no cuesta, pero mide lo que el modelo
   citó, no lo que usó. Se informa al lado, sin reemplazar a la principal.
@@ -152,9 +163,7 @@ Las tres variables, como las definimos nosotros (**decisión**):
   pero **no es equivalente**: Faithfulness mide qué fracción de las afirmaciones de la respuesta se
   puede inferir del contexto, aunque la afirmación también sea de conocimiento general. La
   adherencia de RAG-X pregunta si el generador usó el contexto en vez de su conocimiento propio.
-  **Pendiente:** la rúbrica exacta del juez de adherencia (qué se le pregunta, la escala y los
-  ejemplos). Se redacta y se prueba con el piloto y el cliente falso antes de congelar, y no se
-  cambia después.
+  La rúbrica está en la sección 3.4. **Propuesta, pendiente de tu revisión.**
 
 Casos especiales (**decisión**):
 
@@ -163,10 +172,12 @@ Casos especiales (**decisión**):
   recuperación fallida por definición.
 - **EVIDENCIA_INSUFICIENTE con recuperación exitosa:** cuenta como **ceguera de información**: la
   evidencia llegó y el sistema no la usó. Es la lectura directa de la definición del artículo.
-- **Recuperación fallida, respuesta incorrecta y adherencia de 0,7 o más:** el artículo no la
-  nombra. Se informa como una quinta categoría, «fuera de los cuadrantes: respuesta incorrecta
-  apoyada en contexto insuficiente», y no se reparte entre los cuatro. **Pendiente:** confirmar con
-  el asesor si el artículo la trata en otra parte.
+- **Recuperación fallida, respuesta incorrecta y adherencia de 0,7 o más:** el artículo define
+  cuatro cuadrantes, y esta combinación no es ninguno de ellos. **Por decisión del proyecto** se
+  informa aparte, como categoría propia (`incorrecta_con_contexto_fallido`: respuesta incorrecta
+  apoyada en un contexto que no traía la evidencia), y no se reparte entre los cuatro.
+- **Sin juicio** (`sin_juicio`): el juez no devolvió un JSON válido después de un reintento. El caso
+  queda fuera de los cuadrantes y se cuenta en el informe.
 - **Fuera de dominio** y otros estados sin generación: no entran en los cuadrantes. Se informa la
   exactitud del filtro de dominio (estado obtenido frente a esperado), con P3 como limitación
   conocida.
@@ -178,6 +189,38 @@ Casos especiales (**decisión**):
   - Las afirmaciones clave van en español.
   - El informe desglosa por separado los casos con al menos un fragmento en inglés, porque el juez
     compara entre idiomas y los prompts de RAGAS están en inglés (sección 8).
+
+**Agregado de las k repeticiones (decisión):** cada valor del juez se promedia entre las
+repeticiones y se informa su desviación como medida de estabilidad. La respuesta cuenta como
+correcta si lo es en más de la mitad de las repeticiones, y el cuadrante se calcula con la
+adherencia media. Los cuadrantes de cada repetición quedan en el JSON.
+
+### 3.4 Rúbrica del juez de adherencia (propuesta, pendiente de tu revisión)
+
+Texto completo en `SISTEMA_ADHERENCIA` de `backend/app/evaluacion/prompts_juez.py`. El juez recibe
+la consulta filtrada, la respuesta y los fragmentos enviados, y nada más.
+
+- **Qué se le pregunta:** «¿En qué medida el contenido clínico de la respuesta proviene de los
+  fragmentos enviados, y no del conocimiento propio del modelo?». No juzga si la respuesta es
+  correcta, sino de dónde sale. Eso la separa de la corrección y de Faithfulness.
+- **Escala de 0 a 1, con dos decimales, anclada en cuatro puntos:**
+
+| Puntaje | Significado |
+| --- | --- |
+| 1,0 | Todas las indicaciones clínicas (dosis, plazos, controles, criterios, derivación) se apoyan en los fragmentos, y la respuesta usa la información pertinente que traen |
+| 0,7 | Casi todas se apoyan; lo que no se apoya es general y no cambia la conducta clínica |
+| 0,4 | Mezcla: alguna indicación clínica importante no está en los fragmentos, o la respuesta ignora un fragmento pertinente |
+| 0,0 | La respuesta no usa los fragmentos, o los contradice |
+
+- **Umbral 0,7** (del artículo RAG-X), inclusivo: 0,7 o más es adherencia alta.
+- **Abstención:** si la respuesta solo declara evidencia insuficiente, el puntaje es alto si de
+  verdad los fragmentos no traían la información y bajo si la traían. En los cuadrantes, el estado
+  EVIDENCIA_INSUFICIENTE se decide por el éxito de recuperación (sección 3.3), así que este puntaje
+  solo se informa.
+- **Salida:** `puntaje`, `indicaciones_sin_respaldo` (lista) y una `justificacion` breve.
+- Al revisarla, lo que conviene mirar es si el punto 0,7 coincide con lo que el equipo clínico
+  consideraría «usar el contexto». Si la rúbrica cambia, cambia su SHA-256 en el informe y hay que
+  repetir el ensayo con el cliente falso antes de congelar.
 
 ## 4. Equivalencia de evidencia
 
@@ -205,6 +248,12 @@ clínica por criterio. Por ejemplo, para un tratamiento: dosis, duración y cont
   - la Tabla N° 20 frente al texto que la resume;
   - el ajuste de la OMS en g/L frente al de la RM en g/dL;
   - la Table B de la OMS 2016 frente a la Tabla N° 8 de la RM 429.
+- **Marca `equivalencia_pendiente` (decisión):** una alternativa puede llevar
+  `equivalencia_pendiente: true` (campo opcional del esquema). El cruce sigue siendo textual y no
+  convierte unidades. Si un criterio obligatorio solo se cumple con alternativas marcadas, el éxito
+  cuenta, pero el informe lo separa como «éxito que depende de una equivalencia pendiente». En el
+  piloto están marcadas las tres alternativas de la OMS 2024 en g/L (P04, P10 y P12, que pasaron a
+  `version_caso: 2`).
 
 ### 4.1 Cómo se hace el cruce sin columna de numeral
 
@@ -294,54 +343,53 @@ ficticio nuevo (DNI ficticio con prefijo 89). Fecha de referencia: 20/10/2026.
 | P11 | Sin anemia, 49 meses | Preventiva con la Tabla N° 8 de la RM 429 (vigencia) | Nuevo |
 | P12 | Severa por altitud (Puno), 11 meses, ficticio | Derivación, dosis, controles y ajuste | Nuevo |
 
-**Pendiente (tu decisión), uso del piloto:**
-- Opción A: probar el evaluador con el piloto solo con el cliente falso, y con la API solo para el
-  juez sobre salidas del cliente falso. Así el piloto puede entrar al conjunto final.
-- Opción B: correr el piloto con el modelo real. Entonces el piloto queda fuera del conjunto final,
-  porque sus resultados ya se habrían visto.
-
-Se recomienda la A, que conserva 4 casos nuevos.
+**Decisión (tomada): opción A.** El piloto se prueba solo con el cliente falso del modelo de
+lenguaje y con el juez falso, y **nunca se corre con el modelo real**: así puede entrar al conjunto
+final. El job lo impide: `ejecutar --llm real` rechaza el grupo `piloto`. El ensayo deja un informe
+rotulado «ENSAYO CON CLIENTE FALSO: los números no tienen valor».
 
 ## 6. Arquitectura del job
 
-Paquete `backend/app/evaluacion/`, todavía sin crear. Sigue el mismo patrón que `app/indexador` y
-`app/respaldo`:
+Paquete `backend/app/evaluacion/` (implementado). Sigue el patrón de `app/indexador` y
+`app/respaldo`: `python -m app.evaluacion <fase>`. Uso en `jobs/evaluacion_oe3/README.md`.
 
 | Módulo | Función |
 | --- | --- |
-| `dataset.py` | Lee y valida los YAML contra el esquema, comprueba los anclajes contra el índice congelado y calcula las huellas |
-| `ejecutar.py` | Crea los pacientes ficticios y ejecuta cada consulta **con el grafo real** (`ejecutar_consulta` de `app/services/consultas.py`), una sola vez. Guarda en JSONL el id de cada consulta |
-| `extraer.py` | **Solo lectura** con `sesion_auditor` (vistas de auditoría): consulta filtrada, estado, intento que cuenta, `respuesta_borrador`, fragmentos enviados con el texto de `solicitud_enviada`, citas, tokens y costo |
-| `juez.py` | Cliente del juez sobre el SDK `anthropic` ya fijado (2.6.0), con el mismo criterio que `ClienteAnthropic` de `app/rag/cliente_llm.py`: **sin temperatura**, `max_retries=0` y reintento propio registrado. Se entrega a RAGAS por su `llm_factory`. Guarda tokens y costo por llamada. Caché en disco por SHA-256 de (modelo, prompt, entrada, número de repetición). Rechaza cualquier entrada que no venga de un caso del conjunto |
-| `ragas_metricas.py` | Las cuatro métricas de RAGAS de la sección 2, con el juez anterior |
-| `cue.py` | CUE del OE2, su variante sin juez, éxito de recuperación, corrección, adherencia y cuadrantes |
+| `dataset.py` | Lee y valida los YAML contra el esquema (validador propio del subconjunto de JSON Schema que usa el esquema, para no agregar `jsonschema` al sistema) y calcula las huellas SHA-256. `validar --con-base` comprueba que cada anclaje encaje en un solo fragmento vigente |
+| `ejecutar.py` | Crea los pacientes ficticios y ejecuta cada caso **con el grafo real** (`eventos_de` de `app/services/consultas.py`), una sola vez: si la carpeta ya tiene `ejecucion.jsonl`, no vuelve a ejecutar. Cliente falso del proyecto por omisión; el real exige confirmar datos sintéticos y nunca acepta el piloto |
+| `extraer.py` | **Solo lectura** con `cdss_generacion` en transacciones READ ONLY: consulta filtrada, estado, clasificación, intento que cuenta, `respuesta_borrador`, fragmentos enviados y candidatos con su vigencia y el texto de `solicitud_enviada`, citas, verificadores 6.1 a 6.3, tokens y costo |
+| `juez.py` | Cliente intercambiable: `JuezFalso` (determinista, sin red) y `JuezAnthropic` (preparado, no usado). Caché en disco por SHA-256 de (modelo, tarea, sistema, esquema, entrada, repetición, razonamiento, esfuerzo); registro JSONL de cada llamada con tokens y costo; un reintento si la respuesta no es JSON; solo acepta casos del conjunto cargado |
+| `prompts_juez.py` | Prompts y esquemas de los juicios propios (afirmaciones y adherencia), con su SHA-256 |
+| `ragas_metricas.py` | Las cuatro métricas de RAGAS de la sección 2. Cada llamada de RAGAS pasa por el juez anterior (`AdaptadorRagas`), así usa la misma caché, registro y cliente |
+| `cue.py` | Normalización, cruce de criterios, éxito de recuperación, CUE (B, A y por citas), corrección y cuadrantes |
+| `juzgar.py` | Lo determinista una vez por caso y lo del juez k veces, con el agregado |
 | `informe.py` | Informe reproducible (sección 7) |
 
-- **Fases separadas (decisión):** preparar, ejecutar, extraer, juzgar e informar. La ejecución del
+- **Fases separadas (decisión):** validar, ejecutar, extraer, juzgar e informe, más
+  `comparar-jueces` y `ensayo` (las cuatro fases con el cliente y el juez falsos). La ejecución del
   sistema ocurre una vez; juzgar se puede repetir sobre la misma extracción sin tocar el sistema.
-- **Imagen propia (decisión):** un objetivo `evaluacion` en `backend/Dockerfile` (a partir de
-  `base`), con su propio `requirements-evaluacion.txt`, y un servicio `evaluacion` con el perfil
-  `evaluacion` en `docker-compose.yml`. Así ni la imagen congelada del backend ni la de `jobs`
-  cambian. Dependencias a fijar:
-  - `ragas==0.4.4`;
-  - `instructor>=1.10` (sin esa cota, el resolvedor elige 1.3.2);
-  - las que traiga RAGAS, con `pip freeze` guardado.
-
-  La simulación mostró que no cambian anthropic 2.6.0, langgraph 1.2.19, chromadb-client 0.6.3 ni
-  numpy 1.26.4, y que langchain-core sube de 1.8.0 a 1.8.5.
-- **Variables:**
-  - `RAGAS_DO_NOT_TRACK=true`, porque RAGAS envía telemetría por omisión;
-  - la clave de Anthropic solo en ese servicio;
-  - las conexiones `cdss_clinica` y `cdss_generacion` para ejecutar y `cdss_auditor` para extraer;
-  - el conjunto montado en solo lectura.
-- **Sin temperatura fija:** Sonnet 5.5 rechaza valores distintos del predeterminado (fila 6). El
-  `llm_factory` de RAGAS 0.4.4 con Anthropic no envía temperatura salvo que se fije, y no se fija.
-  El juez no es determinista; se compensa con k repeticiones y caché.
-- **Pendiente:**
-  - qué modelo usa el juez. Sonnet 5.5 juzga a Sonnet 5.5; Haiku 5.5 cuesta mucho menos pero es más
-    débil. Se decide después de comparar los dos sobre el piloto con el cliente falso;
-  - si el juez razona (`between_tools`);
-  - el valor de k (se propone 3).
+- **Extracción con `cdss_generacion` y no con el auditor (decisión):** la vista
+  `v_auditoria_consulta` no trae la respuesta del modelo ni los ids de los fragmentos, que el cruce
+  de criterios necesita. `cdss_generacion` ya puede leer esas tablas, no puede leer la identidad del
+  paciente ni `texto_consulta`, y se usa en transacciones de solo lectura.
+- **Imagen propia (decisión):** destino `evaluacion` en `backend/Dockerfile` (a partir de `base`)
+  con `backend/requirements-evaluacion.txt` (`ragas==0.4.4`, `instructor>=1.10` y `pytest` para las
+  pruebas de RAGAS), y servicio `evaluacion` con el perfil `evaluacion` en `docker-compose.yml`. El
+  código de `app/evaluacion/` está excluido del contexto principal en `backend/.dockerignore` y entra
+  solo en ese destino, por el contexto adicional `codigo_evaluacion`. Así las imágenes `api` y `jobs`
+  no cambian: reconstruidas, dan el mismo id de imagen.
+- **Variables del servicio:** `RAGAS_DO_NOT_TRACK=true` (también en la imagen; `ragas_metricas.py` se
+  niega a calcular si la telemetría no está apagada), la clave de Anthropic solo ahí, las conexiones
+  del backend y el conjunto montado en solo lectura. Salidas en `data/evaluacion_oe3/`.
+- **Juez configurable (decisión):** `--modelo`, `--razonamiento` (valor de `thinking.type`; sin la
+  opción no se envía), `--esfuerzo`, `--max-tokens` y `--k` (3 por omisión). **Sin temperatura
+  fija:** Sonnet 5.5 rechaza valores distintos del predeterminado (fila 6), y el juez nunca la envía.
+  Los precios por modelo están en `PRECIOS_USD_MTOK` de `juez.py` y van en el informe.
+- **Comparación Sonnet frente a Haiku:** `comparar-jueces --modelos claude-sonnet-5-5,claude-haiku-5-5`
+  juzga la misma extracción con cada modelo y compara medias y cuadrantes. Está preparada y probada
+  solo con el juez falso; con la API la ejecuta el responsable.
+- **Pendiente:** el modelo del juez, si razona y el valor final de k, que se deciden con esa
+  comparación.
 
 ## 7. Informe reproducible
 
@@ -400,8 +448,8 @@ estimaciones de los tokens ya registrados, más un 20 a 30 % por reintentos.
 - Al menos 4 casos, repartidos entre los grupos, deben depender de un fragmento en inglés de la OMS.
 - Los 6 casos severos nuevos usan pacientes ficticios (la semilla tiene uno solo). Combinan los
   tramos de 6 a 23 y de 24 a 59 meses, y la anemia severa por ajuste de altitud.
-- Si se elige la opción A del piloto (sección 5.1), los 8 casos del piloto que vienen de
-  `casos_e2e` y los 4 nuevos se cuentan dentro de estos 48.
+- Con la opción A del piloto (sección 5.1), los 8 casos del piloto que vienen de `casos_e2e` y los
+  4 nuevos se cuentan dentro de estos 48.
 - **Pendiente:** la composición final después de la ficha del CRED.
 
 ## 10. Resumen de decisiones
@@ -415,12 +463,16 @@ estimaciones de los tokens ya registrados, más un 20 a 30 % por reintentos.
 | Cruce por documento, páginas y texto de anclaje normalizado | Adoptada |
 | Corrección con campos deterministas más todas las afirmaciones clave | Adoptada |
 | EVIDENCIA_INSUFICIENTE: rechazo correcto si falló la recuperación, ceguera si acertó | Adoptada |
-| Quinta categoría fuera de los cuadrantes | Adoptada; falta confirmarla contra el artículo |
+| Categoría propia `incorrecta_con_contexto_fallido`: el artículo define cuatro cuadrantes y esta combinación se informa aparte | Tomada (responsable), por decisión del proyecto |
 | Fragmentos en inglés en su texto original, con desglose propio | Adoptada |
-| Conjunto en `jobs/evaluacion_oe3/conjunto/`, imagen y perfil `evaluacion` propios | Adoptada |
-| Afirmaciones que cuentan para CUE (A o B) | Pendiente |
-| Rúbrica del juez de adherencia | Pendiente |
-| Modelo juez, razonamiento y k | Pendiente (comparación en el piloto) |
-| Uso del piloto (A o B) | Pendiente |
+| Conjunto en `jobs/evaluacion_oe3/conjunto/`, imagen y perfil `evaluacion` propios | Adoptada e implementada |
+| CUE del OE2 con la opción B; A y la variante por citas al lado | Tomada (responsable) |
+| Piloto solo con el cliente falso, nunca con el modelo real (opción A) | Tomada (responsable); el job lo impide |
+| Juez con modelo, razonamiento y k configurables (k = 3 por omisión), sin temperatura | Tomada (responsable) |
+| Extracción con `cdss_generacion` en solo lectura | Adoptada |
+| Agregado de las k repeticiones (media, mayoría para la corrección, cuadrante con la adherencia media) | Adoptada |
+| Marca `equivalencia_pendiente` en las alternativas, con el éxito que depende de ella informado aparte | Adoptada |
+| Rúbrica del juez de adherencia (sección 3.4) | Propuesta en uso; pendiente de tu revisión |
+| Modelo juez, razonamiento y valor final de k | Pendiente (comparación Sonnet frente a Haiku, preparada, sin ejecutar) |
 | Equivalencias entre guías (OMS y norma nacional, tabla y texto, g/L y g/dL) | Pendiente (ficha del CRED) |
 | Composición final de los 48 casos | Pendiente (después de la ficha) |
