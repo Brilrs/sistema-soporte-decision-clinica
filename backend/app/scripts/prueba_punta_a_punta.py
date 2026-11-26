@@ -45,6 +45,7 @@ from app.rag.normalizacion import normalizar
 from app.rag.parametros import ParametrosRecuperacion, leer_parametros, parametros_recuperacion
 from app.rag.proteccion import construir_solicitud, controlar_identificadores, entidades_de_documentos, \
     leer_datos_clinicos
+from app.rag.punteros import ContextoClinico
 from app.rag.recuperacion import AMPLIADA, INICIAL, Servicios, comprobar_fragmentos, leer_texto_filtrado, recuperar
 from app.rag.validacion import DATOS_FALTANTES, FUERA_DE_ALCANCE, TAMIZAJE_NO_VIGENTE, validar_tamizaje
 from app.scripts.seed_demo import PACIENTES
@@ -199,7 +200,7 @@ def etapa_generacion(entorno: Entorno, r: ResultadoCaso, id_tamizaje: str, huell
             if rec is None or siguiente == ver.AMPLIADA:
                 t0 = time.perf_counter()
                 rec = recuperar(c, consulta, entorno.servicios, parametros, AMPLIADA if numero == 2 else INICIAL,
-                                datos.edad_meses)
+                                datos.edad_meses, ContextoClinico(datos.clasificacion, datos.requiere_derivacion))
                 tiempos["recuperacion"] = _ms(t0)
             intento = {"numero": numero, "tipo_busqueda": rec.tipo_busqueda, "relevancia_maxima": rec.relevancia_maxima,
                        "tiempos_ms": tiempos}

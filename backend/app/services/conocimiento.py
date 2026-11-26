@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.indexador.modificaciones import DIR_MODIFICACIONES, cargar_mapa
-from app.rag.punteros import reglas_vigentes
+from app.rag.punteros import garantizadas_vigentes, reglas_vigentes
 
 PERMISO = "ADMINISTRAR_GUIAS"
 NIVEL_API = 2  # M11 solo carga documentos de nivel 2 (decisión de la parte F2)
@@ -402,6 +402,10 @@ def referencias(sesion: Session, id_documento: str, nivel: int, codigo: str | No
             if r.documento_destino == codigo:
                 refs.append({"tipo": "PUNTERO", "descripcion":
                              f"La regla de punteros «{r.id}» (punteros.yaml) la usa como documento de destino"})
+        for g in garantizadas_vigentes():
+            if g.documento == codigo:
+                refs.append({"tipo": "PUNTERO", "descripcion":
+                             f"La regla garantizada «{g.id}» (punteros.yaml) agrega un fragmento suyo"})
     return refs
 
 

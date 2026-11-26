@@ -24,6 +24,10 @@
    documento («según Tabla N° 4») y esa tabla no está entre los enviados, se agrega con origen
    PUNTERO en lugar del último enviado (como máximo uno por intento y de hasta 600 tokens). No
    cambia los puntajes del reranker, la relevancia máxima ni la suficiencia (6.3).
+8. Garantizados (punteros.yaml, sección garantizados; fila 165): con la clasificación del tamizaje
+   (por ejemplo ANEMIA_SEVERA o que requiere derivación), el fragmento de la regla queda entre los
+   enviados con origen PUNTERO, en el lugar del 5.º, si no estaba ya. Tampoco cambia los puntajes,
+   la relevancia máxima ni la suficiencia, y no agrega búsquedas ni llamadas a modelos.
 
 Para el registro, el resultado lleva además los candidatos de la fusión que siguen a
 los evaluados hasta completar CANDIDATOS_REGISTRADOS (20), sin puntaje del reranker ni
@@ -32,6 +36,7 @@ posición final.
 La consulta que recibe esta capa es el texto filtrado (asistencia.consulta.texto_filtrado)
 o una consulta construida con datos estructurados; nunca texto_consulta. La
 persistencia en asistencia.fragmento_recuperado corresponde al orquestador."""
+import logging
 import re
 import time
 from collections.abc import Callable
@@ -45,7 +50,10 @@ from app.core.vectores import AlmacenVectorial
 from app.rag.bm25 import CONDICION_RECUPERABLE, CacheBM25, terminos_consulta
 from app.rag.normalizacion import ConsultaNormalizada
 from app.rag.parametros import ParametrosRecuperacion
-from app.rag.punteros import MAX_AGREGADOS, PUNTERO, RERANKER, ReglaPuntero, buscar_destino, reglas_vigentes
+from app.rag.punteros import (MAX_AGREGADOS, PUNTERO, RERANKER, ContextoClinico, ReglaGarantizada, ReglaPuntero,
+                              buscar_destino, buscar_garantizado, garantizadas_vigentes, reglas_vigentes)
+
+log = logging.getLogger(__name__)
 
 CANDIDATOS_REGISTRADOS = 20
 
@@ -112,7 +120,8 @@ class FragmentoRecuperado:
     poblacion: str = "GENERAL"
     # RERANKER (seleccionado por el reranker) o PUNTERO (agregado por una regla de punteros.yaml).
     origen: str = RERANKER
-    # Del fragmento agregado: id del fragmento enviado que contiene el puntero y id de la regla.
+    # Del fragmento agregado: id del fragmento enviado que contiene el puntero (None si lo agregó una
+    # regla garantizada) y id de la regla.
     referido_por: str | None = None
     regla_puntero: str | None = None
 
@@ -258,17 +267,19 @@ def buscar_candidatos(sesion: Session | Connection, consulta: ConsultaNormalizad
 
 def recuperar(sesion: Session | Connection, consulta: ConsultaNormalizada, servicios: Servicios,
               parametros: ParametrosRecuperacion, tipo_busqueda: str = INICIAL,
-              edad_meses: int | None = None) -> ResultadoRecuperacion:
+              edad_meses: int | None = None, contexto: ContextoClinico | None = None) -> ResultadoRecuperacion:
     """Una pasada de la recuperación híbrida. Con servicios.reranker = None (solo para
-    las mediciones) se seleccionan los mejores de la fusión RRF sin umbral."""
+    las mediciones) se seleccionan los mejores de la fusión RRF sin umbral. contexto (clasificación
+    del tamizaje) activa las reglas garantizadas; sin él no se aplican."""
     cand = buscar_candidatos(sesion, consulta, servicios, parametros, tipo_busqueda, edad_meses)
-    return seleccionar(sesion, consulta, cand, servicios.reranker, parametros)
+    return seleccionar(sesion, consulta, cand, servicios.reranker, parametros, contexto)
 
 
 def seleccionar(sesion: Session | Connection, consulta: ConsultaNormalizada, cand: Candidatos,
-                reranker: Reranker | None, parametros: ParametrosRecuperacion) -> ResultadoRecuperacion:
-    """Pasos 4 a 6: reranker sobre los mejores de la fusión, selección con umbral y
-    recomprobación en PostgreSQL."""
+                reranker: Reranker | None, parametros: ParametrosRecuperacion,
+                contexto: ContextoClinico | None = None) -> ResultadoRecuperacion:
+    """Pasos 4 a 8: reranker sobre los mejores de la fusión, selección con umbral,
+    recomprobación en PostgreSQL, punteros y garantizados."""
     c, filas, descartados = cand.cronometro, cand.filas, list(cand.descartados)
     evaluados = cand.fusionados[:parametros.candidatos_reranker]
 
@@ -297,6 +308,8 @@ def seleccionar(sesion: Session | Connection, consulta: ConsultaNormalizada, can
                     for i, rrf, pos in cand.fusionados[len(evaluados):CANDIDATOS_REGISTRADOS]]
     fragmentos, no_evaluados = aplicar_punteros(sesion, fragmentos, no_evaluados, parametros.fragmentos_enviados,
                                                 reglas_vigentes())
+    fragmentos, no_evaluados = aplicar_garantizados(sesion, fragmentos, no_evaluados, parametros.fragmentos_enviados,
+                                                    garantizadas_vigentes(), contexto)
 
     reales = [f.puntaje_reranker for f in fragmentos if f.puntaje_reranker is not None]
     maxima = max(reales) if reales else None
@@ -374,12 +387,71 @@ def aplicar_punteros(sesion: Session | Connection, fragmentos: list[FragmentoRec
     return fragmentos, no_evaluados
 
 
+def aplicar_garantizados(sesion: Session | Connection, fragmentos: list[FragmentoRecuperado],
+                         no_evaluados: list[FragmentoRecuperado], maximo_enviados: int,
+                         reglas: tuple[ReglaGarantizada, ...], contexto: ContextoClinico | None,
+                         ) -> tuple[list[FragmentoRecuperado], list[FragmentoRecuperado]]:
+    """Paso 8. Para cada regla que aplica al contexto clínico: si su fragmento ya está entre los
+    enviados no cambia nada; si no, pasa a enviado con origen PUNTERO (sin referido_por). Si ya hay
+    maximo_enviados enviados, deja de estarlo el último que salió del reranker y no contiene el
+    puntero de un fragmento agregado (en la práctica el 5.º); los anteriores no se mueven. Solo con al
+    menos un enviado por el reranker que pueda quedarse: sin enviados la búsqueda no fue suficiente
+    (6.3) y no se agrega nada. Igual que en aplicar_punteros, el fragmento conserva su posición y
+    puntaje si ya era candidato y queda al final de los enviados. Si el fragmento no se encuentra, se
+    registra una advertencia y la recuperación sigue."""
+    for regla in reglas:
+        if not regla.aplica_a(contexto):
+            continue
+        seleccionados = [f for f in fragmentos if f.seleccionado]
+        if not any(f.origen == RERANKER for f in seleccionados):
+            continue
+        try:
+            fila = buscar_garantizado(sesion, regla)
+        except Exception:  # noqa: BLE001 (la regla no debe hacer fallar la consulta)
+            log.warning("Regla garantizada %s: falló la búsqueda del fragmento", regla.id, exc_info=True)
+            continue
+        if fila is None:
+            log.warning("Regla garantizada %s: no hay exactamente un fragmento recuperable de %s, página %s, con el "
+                        "encabezado «%s» (o supera el tope de tokens); no se agrega", regla.id, regla.documento,
+                        regla.pagina, regla.encabezado)
+            continue
+        if any(f.id_fragmento == fila.id_fragmento for f in seleccionados):
+            continue
+        if len(seleccionados) >= maximo_enviados:
+            referentes = {f.referido_por for f in seleccionados if f.origen == PUNTERO}
+            quitables = [f for f in seleccionados if f.origen == RERANKER and f.id_fragmento not in referentes]
+            if len(quitables) < 2:
+                # Sin lugar: quitar el único enviado del reranker dejaría la respuesta sin su evidencia.
+                continue
+            quitables[-1].seleccionado = False
+        previo = next((f for f in [*fragmentos, *no_evaluados] if f.id_fragmento == fila.id_fragmento), None)
+        if previo is not None:
+            destino = previo
+            fragmentos = [f for f in fragmentos if f is not previo]
+            no_evaluados = [f for f in no_evaluados if f is not previo]
+        else:
+            destino = FragmentoRecuperado(
+                id_fragmento=fila.id_fragmento, posicion_bm25=None, posicion_vectorial=None, posicion_rrf=None,
+                puntaje_rrf=None, puntaje_reranker=None, posicion_final=None, seleccionado=False,
+                id_documento=fila.id_documento, documento=fila.titulo, codigo_documento=fila.codigo_documento,
+                seccion=fila.seccion, pagina_inicio=fila.pagina_inicio, pagina_fin=fila.pagina_fin, idioma=fila.idioma,
+                tipo_contenido=fila.tipo_contenido, texto=fila.texto, edad_min_meses=fila.edad_min_meses,
+                edad_max_meses=fila.edad_max_meses, poblacion=fila.poblacion)
+        destino.seleccionado = True
+        destino.origen = PUNTERO
+        destino.referido_por = None
+        destino.regla_puntero = regla.id
+        elegidos = [f for f in fragmentos if f.seleccionado]
+        fragmentos = elegidos + [destino] + [f for f in fragmentos if not f.seleccionado]
+    return fragmentos, no_evaluados
+
+
 def recuperar_con_ampliacion(sesion: Session | Connection, consulta: ConsultaNormalizada, servicios: Servicios,
-                             parametros: ParametrosRecuperacion,
-                             edad_meses: int | None = None) -> list[ResultadoRecuperacion]:
+                             parametros: ParametrosRecuperacion, edad_meses: int | None = None,
+                             contexto: ContextoClinico | None = None) -> list[ResultadoRecuperacion]:
     """Búsqueda inicial y, si ningún fragmento alcanza el umbral, la ampliada. Devuelve
     las pasadas ejecutadas en orden; la última es la que cuenta."""
-    inicial = recuperar(sesion, consulta, servicios, parametros, INICIAL, edad_meses)
+    inicial = recuperar(sesion, consulta, servicios, parametros, INICIAL, edad_meses, contexto)
     if inicial.suficiente:
         return [inicial]
-    return [inicial, recuperar(sesion, consulta, servicios, parametros, AMPLIADA, edad_meses)]
+    return [inicial, recuperar(sesion, consulta, servicios, parametros, AMPLIADA, edad_meses, contexto)]
