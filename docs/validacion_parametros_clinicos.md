@@ -5,8 +5,8 @@ hemoglobina, ajuste por altitud, vigencia del tamizaje y niveles de riesgo) y de
 coordinación CRED del Centro de Salud San Luis el 25/11/2026. Este documento no cambia ningún valor:
 los valores son los de `db/init/02_catalogos.sql` y `db/init/01_esquema.sql`.
 
-Estado al 25/11/2026: validación del CRED hecha, sin observaciones. **Falta** registrar la
-confirmación en M12 (sección 6) y calcular la huella final (sección 7).
+Estado al 26/11/2026: validación del CRED hecha, sin observaciones, y registrada en M12 (sección 6);
+huella de control calculada (sección 7). **Falta** la huella definitiva, al congelar el sistema.
 
 ## 1. Fuentes normativas
 
@@ -136,13 +136,13 @@ sha256sum "data/evidencia/Ficha de verificación de parámetros clínicos del CD
 
 ## 6. Registro en M12
 
-Pendiente. Se hace con «Editar», marcando cada valor como verificado (en la vigencia, «Validado por el
-CRED (criterio operativo, no normativo)») y guardando sin cambiar ningún valor; la columna «Quién»
-mostrará la cuenta de demostración coord.ortiz («Dra. Carmen Ortiz»).
+Registrado el 26/11/2026 (UTC). Se hizo con «Editar», marcando cada valor como verificado (en la
+vigencia, «Validado por el CRED (criterio operativo, no normativo)») y guardando sin cambiar ningún
+valor; la columna «Quién» muestra la cuenta de demostración coord.ortiz («Dra. Carmen Ortiz»).
 
 El registro en M12 lo ejecutó el equipo del proyecto con la cuenta de demostración coord.ortiz, sobre la validación de la ficha del CRED.
 
-El motivo admite de 10 a 500 caracteres y la referencia hasta 200; ninguno lleva nombres reales de
+El motivo admite de 10 a 500 caracteres y la referencia hasta 200; ninguno llevó nombres reales de
 personas.
 
 | Grupo | Motivo | Referencia |
@@ -156,8 +156,8 @@ la ficha.
 
 ## 7. Huella de la configuración
 
-PENDIENTE. Se calcula después del registro en M12 y antes de congelar el sistema para el OE3
-(`docs/cierre_sprint3.md`, paso 5):
+Huella de control, calculada después del registro en M12 y antes del congelamiento; no es la
+definitiva, que se calcula al congelar el sistema para el OE3 (`docs/cierre_sprint3.md`, paso 5):
 
 ```bash
 docker compose exec backend python -m app.scripts.huella_configuracion --json
@@ -165,6 +165,20 @@ docker compose exec backend python -m app.scripts.huella_configuracion --json
 
 | Dato | Valor |
 | --- | --- |
-| Fecha | PENDIENTE |
-| Etiqueta de git | PENDIENTE |
-| Huella | PENDIENTE |
+| Fecha | 2026-11-26 02:59:12 UTC (25/11/2026, 21:59 hora de Perú) |
+| Etiqueta de git | Se asigna al congelar el sistema |
+| Huella (SHA-256) | `a3e653743e5ec2ab411dc0680e596a55d99312c3059c70eb172fcb8f650f1449` |
+
+| Componente | Elementos | SHA-256 |
+| --- | --- | --- |
+| `puntos_corte` | 8 | `28c36bd21419e7398c610b360a4228eacd95ac0bac4ccbb64ccbbba68941acaf` |
+| `ajuste_altitud` | 11 | `d583324e0be8372686c5011d2b6b96683d2f36ae40f4795d9e1f8c66fb8a2c94` |
+| `categorias` | 4 | `02624915bfff4226246a5189df147c0f7606baf0e24e185debd088cff445f762` |
+| `parametros_sistema` | 26 | `1f132b7e60f3e2823170f701f66b7f4d46152e18b329d4ca17883554e83c440b` |
+| `indexacion` | 4 | `ac698ac4280649229009a4802e2bf88d5a320760062941cdc9d2c4d12ad7f5c1` |
+| `version_prompt` (v1.1) | 1 | `ca7948f56d353a9eac81c773591c36f6a4eb6532979a117a5e162be730a3ed23` |
+
+En `indexacion`, las cuatro guías (NTS 213, RM 429, OMS 2016 y OMS 2024) tienen la versión de
+indexación 1.
+
+Esta huella es un punto de control. La definitiva se calcula y se registra al congelar el sistema; si algún valor cambia después, se genera una huella nueva y se repite la evaluación.

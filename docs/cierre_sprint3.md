@@ -204,13 +204,13 @@ ni eliminaciones y referencia estas filas, así que se conservan:
 
 ## 6. Validaciones pendientes con el asesor o con clínicos
 
-Todas son **pendientes**. Ninguna cambia el código hasta que se decida.
+Todas son **pendientes**, salvo los valores clínicos `[VERIFICAR]`, ya validados y registrados en M12. Ninguna cambia el código hasta que se decida.
 
 | Tema | Qué hay que validar | Dueño | Fecha |
 | --- | --- | --- | --- |
 | Frases del reporte para el cuidador | `backend/app/reportes/lenguaje_sencillo.yaml` tiene `revisado: false`: cada página lleva «Texto en revisión clínica: no entregar a pacientes» | Asesor y personal de salud | Por definir |
 | Rangos de plausibilidad y avisos de M12 | `backend/app/services/parametros_reglas.py`: Hb de 2,0 a 20,0 g/dL; vigencia de 7 a 90 días, con aviso por encima de 60; cobertura de altitud de al menos 4380 m; ajuste de 0 a 6,0 g/dL; aviso si un límite de Hb cambia más de 1,0 g/dL (también si «sin anemia» queda fuera de 10,0 a 12,0 o un ajuste cambia más de 0,5) | Asesor | Por definir |
-| Valores clínicos `[VERIFICAR]` | Puntos de corte de Hb, ajuste por altitud, vigencia de 30 días y niveles de riesgo: validados por la coordinación CRED el 25/11/2026, sin observaciones (`docs/validacion_parametros_clinicos.md`, fila 164). Falta confirmarlos en M12 (hoy `verificado = false`) y calcular la huella | Equipo del proyecto (registro en M12 con la cuenta de demostración coord.ortiz, sobre la ficha del CRED) | Antes de congelar el sistema para el OE3 |
+| Valores clínicos `[VERIFICAR]` | Puntos de corte de Hb, ajuste por altitud, vigencia de 30 días y niveles de riesgo: validados por la coordinación CRED el 25/11/2026, sin observaciones (`docs/validacion_parametros_clinicos.md`, fila 164). Confirmados en M12 el 26/11/2026 y huella de control calculada (la definitiva se calcula al congelar) | Equipo del proyecto (registro hecho en M12 con la cuenta de demostración coord.ortiz, sobre la ficha del CRED) | Hecho el 26/11/2026; el congelamiento sigue pendiente |
 | Altitudes de los distritos `[VERIFICAR]` | Catálogo de `db/init/02_catalogos.sql` contra el INEI; fuera de M12, por migración | Desarrollo | Antes del OE3 (por definir) |
 | Descriptores MeSH y DeCS `[VERIFICAR]` | Los de `clinico.sintoma` (`02_catalogos.sql`) y los de `diccionario_normalizacion.yaml`, tomados de memoria. **Hallazgo de la parte Z:** ningún código de recuperación, reescritura de la consulta ni filtro los usa; solo existen como datos (detalle abajo). Conviene corregir el documento de tesis | Desarrollo | Por definir |
 | Revisión de las guías de nivel 1 (N1) | Las tablas críticas transcritas están verificadas (en la última versión, 22 fragmentos de transcripción con `verificado` verdadero: 8 de la NTS 213 y 14 de la RM 429); el resto del texto de nivel 1 viene de la capa de texto del PDF (180 fragmentos de la última versión) sin una revisión clínica fragmento por fragmento | Asesor y personal de salud | Por definir |
