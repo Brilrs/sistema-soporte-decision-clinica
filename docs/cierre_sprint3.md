@@ -277,3 +277,12 @@ desde la raíz del repositorio y con el stack levantado.
 
 **Pendiente:** hoy nada impide, salvo el procedimiento, cambiar `VERSION_PROMPT` por migración o
 cambiar `.env` durante la evaluación; la huella del paso 5 lo detecta.
+
+**Diseño de la evaluación (26/11/2026):** está en [`diseno_evaluacion_oe3.md`](diseno_evaluacion_oe3.md)
+(fila 169). CUE se reporta con la definición del OE2 (proporción de los fragmentos enviados que
+sustentan la respuesta) como cifra principal, más el diagnóstico de cuatro cuadrantes del artículo
+RAG-X como análisis complementario. La revisión clínica de los casos queda en manos de la
+coordinación CRED, con una ficha. El conjunto, con su esquema y un piloto de 12 casos en
+`jobs/evaluacion_oe3/conjunto/`, **sigue sin revisar** (`revisado: false`). El job de evaluación
+(`backend/app/evaluacion/`, imagen y perfil `evaluacion`, fila 170) está implementado y probado solo
+con el cliente falso; la evaluación definitiva no se ejecutó.

@@ -1,0 +1,66 @@
+id: OE3-P10
+version_caso: 2
+conjunto: piloto
+origen: nuevo
+origen_detalle: Controles y dosis en el tramo de 36 a 59 meses, con ajuste por altitud (Huancayo)
+tipos: [anemia_leve, altitud, tratamiento, control_tratamiento]
+paciente:
+  fuente: seed_demo
+  dni_ficticio: "81890123"
+  fecha_tamizaje: 2026-10-12
+fecha_referencia: 2026-10-20
+consulta: ¿Qué dosis de hierro le corresponde para tratar la anemia y cada cuánto se controla la hemoglobina?
+estado_esperado: VERIFICADA
+clasificacion_esperada: ANEMIA_LEVE
+requiere_derivacion: false
+evidencia_suficiente_esperada: true
+criterios:
+  - id: C1
+    descripcion: Dosis máxima y producto de 36 a 59 meses (Tabla N° 17)
+    obligatorio: true
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [19, 19]
+        numeral: 6.1.2 B.3, Tabla N° 17
+        texto_anclaje: "| 36 a 59 meses | 3 mg/Kg/día (Máximo dosis 90 mg/día) | Sulfato Ferroso o Complejo Polimaltosado Férrico* | jarabe | Diaria | 6 meses continuos |"
+  - id: C2
+    descripcion: Controles de hemoglobina de 36 meses a 11 años
+    obligatorio: true
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [23, 23]
+        numeral: 6.1.2 B.11, Tabla N° 20
+        texto_anclaje: "| 36 meses a 11 años | Al mes de iniciado el tratamiento. Al tercer y sexto mes del tratamiento |"
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [22, 23]
+        numeral: 6.1.2 B.11
+        texto_anclaje: "En el niño y la niña de 36 meses a 11 años de edad, la/el adolescente y mujer en edad fértil, se realiza al mes, tercer mes y sexto mes de iniciado el tratamiento."
+  - id: C3
+    descripcion: Valor del ajuste para 3000 a 3499 msnm (Huancayo, 3259 msnm)
+    obligatorio: false
+    alternativas:
+      - documento: RM 429-2024/MINSA
+        paginas: [4, 5]
+        numeral: 5.3.2, Tabla N° 1 (modificación N.° 2)
+        texto_anclaje: "| 3000 - 3499 | 2.1 |"
+      - documento: OMS 2024
+        paginas: [34, 34]
+        numeral: Table 4
+        texto_anclaje: "3000-3499 21"
+        equivalencia_pendiente: true
+respuesta_referencia: >-
+  Le corresponde tratamiento con suplemento de hierro a 3 mg/kg/día, con un máximo de 90 mg/día de
+  36 a 59 meses, con sulfato ferroso o complejo polimaltosado férrico en jarabe, de forma diaria
+  durante 6 meses continuos. La hemoglobina se controla al mes de iniciado el tratamiento y al tercer
+  y sexto mes del tratamiento.
+afirmaciones_clave:
+  - El tratamiento es con suplemento de hierro a 3 mg/kg/día, con un máximo de 90 mg/día.
+  - El tratamiento es diario durante 6 meses continuos.
+  - La hemoglobina se controla al mes, al tercer mes y al sexto mes del tratamiento.
+revisado: false
+revisado_por: null
+fecha_revision: null
+observaciones_revision: null
+notas: >-
+  Hb observada 12,5 g/dL en Huancayo (3259 msnm): menos 2,1 da 10,4 g/dL, anemia leve de 24 a 59
+  meses (10,0 a 10,9). Distinto de los casos de 6 a 35 meses: otra dosis máxima y otros controles.

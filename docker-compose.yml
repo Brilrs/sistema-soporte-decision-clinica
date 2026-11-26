@@ -275,6 +275,47 @@ services:
       chromadb:
         condition: service_started
 
+  # Evaluación del OE3 (docs/diseno_evaluacion_oe3.md, jobs/evaluacion_oe3/README.md). No arranca con
+  # el stack. Imagen propia (destino evaluacion, con RAGAS): el código del job entra solo aquí, desde el
+  # contexto adicional, así las imágenes del backend y de jobs no cambian. Conjunto en solo lectura.
+  #   docker compose --profile evaluacion run --rm evaluacion python -m app.evaluacion --help
+  evaluacion:
+    build:
+      context: ./backend
+      target: evaluacion
+      additional_contexts:
+        codigo_evaluacion: ./backend/app/evaluacion
+    profiles: ["evaluacion"]
+    command: ["python", "-m", "app.evaluacion", "--help"]
+    environment:
+      CDSS_ENTORNO: desarrollo
+      DATABASE_URL_CLINICA: postgresql+psycopg://cdss_clinica:${CDSS_DB_PWD_CLINICA}@db:5432/cdss
+      DATABASE_URL_GENERACION: postgresql+psycopg://cdss_generacion:${CDSS_DB_PWD_GENERACION}@db:5432/cdss
+      DATABASE_URL_ADMIN: postgresql+psycopg://cdss_admin:${CDSS_DB_PWD_ADMIN}@db:5432/cdss
+      DATABASE_URL_AUDITOR: postgresql+psycopg://cdss_auditor:${CDSS_DB_PWD_AUDITOR}@db:5432/cdss
+      JWT_SECRETO: ${JWT_SECRETO}
+      CDSS_CLAVE_PII: ${CDSS_CLAVE_PII}
+      CDSS_CLAVE_HMAC: ${CDSS_CLAVE_HMAC}
+      CHROMA_URL: http://chromadb:8000
+      MODELOS_URL: http://modelos:8000
+      # Solo para --llm real o --juez anthropic, que ejecuta el responsable (nunca con el piloto).
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      RAGAS_DO_NOT_TRACK: "true"
+      ANONYMIZED_TELEMETRY: "FALSE"
+      EVALUACION_DIR_CONJUNTO: /datos/conjunto
+      EVALUACION_GIT: ${EVALUACION_GIT:-}
+    volumes:
+      - ./jobs/evaluacion_oe3/conjunto:/datos/conjunto:ro
+      - ./data/evaluacion_oe3:/datos/evaluacion
+    mem_limit: 1g
+    depends_on:
+      db:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
+      modelos:
+        condition: service_healthy
+
 volumes:
   datos_pg:
   datos_chroma:

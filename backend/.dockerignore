@@ -2,3 +2,6 @@ __pycache__/
 .pytest_cache/
 tests/
 .env*
+# Código del job de evaluación del OE3: entra solo en el destino evaluacion (contexto adicional
+# codigo_evaluacion de docker-compose.yml), para que las imágenes api y jobs no cambien.
+app/evaluacion/
