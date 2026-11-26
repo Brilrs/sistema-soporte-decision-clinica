@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import cuidador from "../__fixtures__/reporte_vista_previa_cuidador.json";
 import expediente from "../__fixtures__/reporte_vista_previa_expediente.json";
 import lista from "../__fixtures__/reportes_lista.json";
+import { FRASES_FINALES } from "../components/reporte/textos";
 import { SECCIONES_OBLIGATORIAS, SECCIONES_POR_DESTINO, type ReporteListado, type VistaPreviaReporte } from "./tipos_reporte";
 
 const VISTAS: VistaPreviaReporte[] = [expediente as VistaPreviaReporte, cuidador as VistaPreviaReporte];
@@ -14,8 +15,9 @@ describe("fixtures del reporte", () => {
     for (const v of VISTAS) {
       for (const s of SECCIONES_OBLIGATORIAS) expect(v.secciones).toContain(s);
       for (const s of v.secciones) expect(SECCIONES_POR_DESTINO[v.destino]).toContain(s);
-      expect(v.frase_final).toBe("La decisión final corresponde al profesional tratante.");
     }
+    expect(expediente.frase_final).toBe(FRASES_FINALES.EXPEDIENTE);
+    expect(cuidador.frase_final).toBe(FRASES_FINALES.CUIDADOR);
     expect(cuidador.revision_pendiente).toBe(true);
     expect(cuidador.avisos).toContain("Texto en revisión clínica: no entregar a pacientes");
   });

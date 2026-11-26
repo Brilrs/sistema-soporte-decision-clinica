@@ -83,6 +83,40 @@ def test_filtro_sin_falsos_positivos(texto):
     assert r.texto_filtrado == texto and not r.reemplazos
 
 
+# Fila 167: fechas completas. Se marcan los formatos de siempre y los nuevos (mes abreviado,
+# aaaa/mm/dd, coma antes del año); no se marcan los rangos decimales, las fechas incompletas, las
+# listas de números cortos ni los días o meses fuera de rango.
+@pytest.mark.parametrize("texto, esperado", [
+    ("Control el 20/12/2026", "Control el [FECHA]"),
+    ("Vacuna el 3.11.25", "Vacuna el [FECHA]"),
+    ("Control el 2026-12-20", "Control el [FECHA]"),
+    ("Nació el 12 de julio de 2025", "Nació el [FECHA]"),
+    ("Inició el 5 de setiembre del 2024", "Inició el [FECHA]"),
+    ("Control el 20 dic 2026", "Control el [FECHA]"),
+    ("Control el 20-dic-2026", "Control el [FECHA]"),
+    ("Control el 20 DIC. 2026", "Control el [FECHA]"),
+    ("Control el 2026/12/20", "Control el [FECHA]"),
+    ("Control el 20 de diciembre, 2026", "Control el [FECHA]"),
+    ("Control el 20 / 12 / 2026 en el puesto", "Control el [FECHA] en el puesto"),
+    ("Del 01/10/2026 al 31/10/2026", "Del [FECHA] al [FECHA]"),
+])
+def test_filtro_marca_las_fechas_completas(texto, esperado):
+    r = filtrar_texto(texto, None, frozenset())
+    assert r.texto_filtrado == esperado
+    assert r.reemplazos == {FECHA: esperado.count(FECHA)}
+
+
+@pytest.mark.parametrize("texto", [
+    "Hb entre 9.5-10.4", "Hb entre 9.5-10.4 g/dL en controles previos", "Peso 12.5-13 kg", "Rango 10.5-11.0",
+    "Hb 9,5-10,4 g/dL", "Control el 20 de diciembre", "Control en diciembre de 2026", "1-2-3 gotas",
+    "Dosis 1-2-3 gotas", "1/2/3 meses", "control a los 1/2/3 meses", "Fecha 32/12/2026", "Fecha 20/13/2026",
+    "Fecha 0/12/2026", "Fecha 2026/13/20", "Fecha 2026-12-32", "Hb 9.5.2026.1",
+])
+def test_filtro_no_marca_lo_que_no_es_fecha_completa(texto):
+    r = filtrar_texto(texto, None, frozenset())
+    assert r.texto_filtrado == texto and FECHA not in r.reemplazos
+
+
 def test_filtro_reemplaza_nombres_frecuentes_de_terceros():
     r = filtrar_texto("La mamá, Juana Ccori, pregunta si puede darle hierro", MATEO)
     assert r.texto_filtrado == f"La mamá, {NOMBRE}, pregunta si puede darle hierro"

@@ -31,7 +31,7 @@ import {
   AVISO_REVISION,
   AYUDA_GENERADO,
   DESTINOS,
-  FRASE_FINAL,
+  FRASES_FINALES,
   SECCIONES,
 } from "../components/reporte/textos";
 import { ESTADOS_CONSULTA, fechaHora } from "../utilidades/formato";
@@ -233,7 +233,7 @@ export default function ExportarReporte() {
             })}
             <label className="reporte__opcion">
               <input type="checkbox" checked disabled readOnly />
-              <span>Frase «{FRASE_FINAL.replace(/\.$/, "")}»{" "}<span className="reporte__obligatoria">(obligatoria)</span></span>
+              <span>Frase «{FRASES_FINALES[destino].replace(/\.$/, "")}»{" "}<span className="reporte__obligatoria">(obligatoria)</span></span>
             </label>
             <p id={`${idSecciones}-ayuda`} className="texto-tenue reporte__ayuda">
               Las obligatorias van siempre. La vista previa se actualiza al cambiar las opciones.

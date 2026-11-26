@@ -4,6 +4,9 @@ import type { DestinoReporte, SeccionReporte } from "../../api/tipos_reporte";
 export const AVISO_PRUEBA = "MODO DE PRUEBA, no es un documento clínico";
 export const AVISO_REVISION = "Texto en revisión clínica: no entregar a pacientes";
 export const FRASE_FINAL = "La decisión final corresponde al profesional tratante.";
+// En el reporte para el cuidador, una frase para la familia (fila 166); la imprime el backend.
+export const FRASE_FINAL_CUIDADOR = "Estas indicaciones las revisa y confirma el personal de salud que atiende a su niña o niño.";
+export const FRASES_FINALES: Record<DestinoReporte, string> = { EXPEDIENTE: FRASE_FINAL, CUIDADOR: FRASE_FINAL_CUIDADOR };
 
 export const DESTINOS: Record<DestinoReporte, { etiqueta: string; ayuda: string }> = {
   EXPEDIENTE: { etiqueta: "Expediente clínico", ayuda: "Reporte completo para la historia clínica." },
