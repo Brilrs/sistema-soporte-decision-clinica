@@ -1,0 +1,74 @@
+id: OE3-P24
+version_caso: 1
+conjunto: piloto
+origen: desarrollo_reutilizado
+origen_detalle: backend/app/rag/consultas_referencia.yaml, R04
+tipos: [anemia_moderada, tratamiento]
+paciente:
+  fuente: ficticio
+  dni_ficticio: "89000024"
+  fecha_tamizaje: 2026-10-13
+  datos_ficticios:
+    sexo: M
+    fecha_nacimiento: 2024-10-03
+    ubigeo: "150134"
+    edad_gestacional: A_TERMINO
+    bajo_peso_al_nacer: false
+    tamizaje:
+      hemoglobina_g_dl: 9.0
+      peso_kg: 11.0
+      talla_cm: 84.0
+      recibe_suplementacion_hierro: false
+      lactancia_materna_actual: false
+      parasitosis: false
+      sintomas: [Palidez]
+fecha_referencia: 2026-10-20
+consulta: ¿Cuál es el tratamiento de la anemia moderada en un niño de 2 años?
+estado_esperado: VERIFICADA
+clasificacion_esperada: ANEMIA_MODERADA
+requiere_derivacion: false
+evidencia_suficiente_esperada: true
+criterios:
+  - id: C1
+    descripcion: Dosis y duración del tratamiento de 6 meses a 11 años
+    obligatorio: true
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [19, 19]
+        numeral: 6.1.2 B.3
+        texto_anclaje: "Se indica suplemento de hierro a una dosis de 3mg/kg/día, durante 6 meses continuos (Tabla N°17)."
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [19, 19]
+        numeral: 6.1.2 B.3, Tabla N° 17
+        texto_anclaje: "| 6 a 35 meses | 3 mg/Kg/día (Máximo dosis 70 mg/día) | Sulfato Ferroso o Complejo Polimaltosado Férrico* | gotas o jarabe | Diaria | 6 meses continuos |"
+  - id: C2
+    descripcion: Dosis máxima, producto y presentación de 6 a 35 meses (Tabla N° 17)
+    obligatorio: true
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [19, 19]
+        numeral: 6.1.2 B.3, Tabla N° 17
+        texto_anclaje: "| 6 a 35 meses | 3 mg/Kg/día (Máximo dosis 70 mg/día) | Sulfato Ferroso o Complejo Polimaltosado Férrico* | gotas o jarabe | Diaria | 6 meses continuos |"
+  - id: C3
+    descripcion: Al concluir el tratamiento se inicia la suplementación preventiva
+    obligatorio: false
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [19, 19]
+        numeral: 6.1.2 B.3
+        texto_anclaje: "Concluido el tratamiento, se inicia la suplementación preventiva de acuerdo a la edad."
+respuesta_referencia: >-
+  El tratamiento es con suplemento de hierro a 3 mg/kg/día, con un máximo de 70 mg/día de 6 a 35
+  meses, con sulfato ferroso o complejo polimaltosado férrico en gotas o jarabe, diario, durante 6
+  meses continuos. Concluido el tratamiento, se inicia la suplementación preventiva de acuerdo a la
+  edad.
+afirmaciones_clave:
+  - El tratamiento es con suplemento de hierro a 3 mg/kg/día durante 6 meses continuos.
+  - La dosis máxima de 6 a 35 meses es 70 mg/día.
+revisado: false
+revisado_por: null
+fecha_revision: null
+observaciones_revision: null
+notas: >-
+  Consulta R04 sin cambios; paciente ficticio de 24 meses (2 años). El texto de C3 termina en punto
+  a propósito, como en P02.

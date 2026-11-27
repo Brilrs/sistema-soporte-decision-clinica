@@ -1,0 +1,28 @@
+id: OE3-P48
+version_caso: 1
+conjunto: piloto
+origen: nuevo
+origen_detalle: Población fuera del alcance (gestante) con términos del dominio
+tipos: [fuera_de_dominio]
+paciente:
+  fuente: seed_demo
+  dni_ficticio: "81456789"
+  fecha_tamizaje: 2026-10-18
+fecha_referencia: 2026-10-20
+consulta: ¿Qué dosis de sulfato ferroso le corresponde a una gestante de 20 semanas con anemia?
+estado_esperado: FUERA_DE_DOMINIO
+clasificacion_esperada: null
+requiere_derivacion: null
+evidencia_suficiente_esperada: null
+criterios: []
+respuesta_referencia: null
+afirmaciones_clave: []
+revisado: false
+revisado_por: null
+fecha_revision: null
+observaciones_revision: null
+notas: >-
+  Solo se evalúa el estado. Sin generación no entra en las métricas de RAGAS, en CUE ni en los
+  cuadrantes (sección 3 del diseño). La regla de población (gestantes) va antes que los términos del
+  dominio: aunque las guías sí tratan a la gestante, el sistema solo atiende a niños de 0 a 59
+  meses.

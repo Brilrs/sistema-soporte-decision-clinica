@@ -11,3 +11,5 @@ backend/app/reportes/*.yaml text eol=lf
 deploy/*.ejemplo text eol=lf
 deploy/systemd/* text eol=lf
 docker-compose*.yml text eol=lf
+# Conjunto de casos del OE3: la huella SHA-256 se calcula sobre estos archivos, siempre con LF
+jobs/evaluacion_oe3/conjunto/** text eol=lf

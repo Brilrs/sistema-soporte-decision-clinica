@@ -1,0 +1,34 @@
+id: OE3-P43
+version_caso: 1
+conjunto: piloto
+origen: nuevo
+origen_detalle: Tiempo de uso del jarabe una vez abierto
+tipos: [anemia_leve, evidencia_insuficiente]
+paciente:
+  fuente: seed_demo
+  dni_ficticio: "81890123"
+  fecha_tamizaje: 2026-10-12
+fecha_referencia: 2026-10-20
+consulta: ¿Cuánto tiempo se puede usar el jarabe de sulfato ferroso una vez abierto antes de desecharlo?
+estado_esperado: EVIDENCIA_INSUFICIENTE
+clasificacion_esperada: ANEMIA_LEVE
+requiere_derivacion: false
+evidencia_suficiente_esperada: false
+criterios: []
+respuesta_referencia: >-
+  Las guías indexadas indican dónde guardar el suplemento (bien cerrado, protegido de la luz, el
+  calor y la humedad), pero no cuánto tiempo puede usarse una vez abierto. El sistema debe declarar
+  evidencia insuficiente.
+afirmaciones_clave:
+  - Las guías disponibles no indican cuánto tiempo puede usarse el jarabe una vez abierto.
+revisado: false
+revisado_por: null
+fecha_revision: null
+observaciones_revision: null
+notas: >-
+  Sin criterios. Comprobación (26/11/2026): búsqueda con expresiones regulares, sin tildes ni
+  mayúsculas, en el texto de los 202 fragmentos de la última versión de las cuatro guías (vigentes y
+  no vigentes, base del ensayo, con las mismas cifras de fragmentos que la VM). «\babiert»: 0.
+  «vencim|caduc|desech|expir»: 0. «conserv|guarda»: 6, solo el Anexo N° 4 de la NTS (página 34:
+  guardar bien cerrado, protegido de la luz solar, calor y humedad) y textos ajenos.
+  «\bstor|bottle»: 5, ninguno sobre conservación del producto.

@@ -32,9 +32,29 @@ def alt(documento, texto, paginas=(10, 10), pendiente=False):
 # ---------------------------------------------------------------------------
 # Conjunto y esquema
 # ---------------------------------------------------------------------------
+PILOTO_ORIGINAL = frozenset(f"OE3-P{i:02d}" for i in range(1, 13))
+# Composición de los 48 casos (docs/diseno_evaluacion_oe3.md, sección 9).
+COMPOSICION = {
+    "sin_anemia": [1, 9, 11, 13, 14, 15, 16, 17],
+    "leve": [2, 10, 18, 19, 20, 21, 22, 23],
+    "moderada": [3, 4, 24, 25, 26, 27, 28, 29],
+    "severa_con_derivacion": [5, 6, 12, 30, 31, 32, 33, 34],
+    "calendario_hb": [35, 36, 37, 38, 39, 40],
+    "evidencia_insuficiente": [7, 41, 42, 43, 44, 45],
+    "fuera_de_dominio": [8, 46, 47, 48],
+}
+
+
+@pytest.fixture(scope="module")
+def conjunto48():
+    """Toda la carpeta piloto/: los 12 casos del piloto y los 36 que lo completan (P13 a P48)."""
+    return dataset.cargar_conjunto(CONJUNTO, "piloto")
+
+
 @pytest.fixture(scope="module")
 def piloto():
-    return dataset.cargar_conjunto(CONJUNTO, "piloto")
+    """Los 12 casos del piloto original (P01 a P12); la huella sigue cubriendo toda la carpeta."""
+    return dataset.cargar_conjunto(CONJUNTO, "piloto", set(PILOTO_ORIGINAL))
 
 
 @pytest.fixture(scope="module")
@@ -46,9 +66,41 @@ def test_el_piloto_carga_valida_y_tiene_huella(piloto):
     assert len(piloto.casos) == 12
     assert [c.id for c in piloto.casos] == [f"OE3-P{i:02d}" for i in range(1, 13)]
     assert all(c["revisado"] is False and c["revisado_por"] is None for c in piloto.casos)
-    lineas = "".join(f"{p.name}  {dataset.sha256(p.read_bytes())}\n" for p in sorted((CONJUNTO / "piloto").glob("*.yaml")))
+    archivos = sorted((CONJUNTO / "piloto").glob("*.yaml"))
+    def con_lf(ruta):
+        return ruta.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+
+    lineas = "".join(f"{p.name}  {dataset.sha256(con_lf(p))}\n" for p in archivos)
     assert piloto.huella == dataset.sha256(lineas.encode())
-    assert piloto.manifiesto()["casos"] == 12 and len(piloto.huellas) == 12
+    assert piloto.manifiesto()["casos"] == 12 and len(piloto.huellas) == len(archivos)
+    for c in piloto.casos:
+        assert piloto.huellas[c.archivo] == dataset.sha256(con_lf(CONJUNTO / "piloto" / c.archivo))
+
+
+def test_los_48_casos_tienen_ids_unicos_y_la_composicion_del_diseno(conjunto48):
+    ids = [c.id for c in conjunto48.casos]
+    assert len(ids) == 48 and len(set(ids)) == 48
+    assert ids == [f"OE3-P{i:02d}" for i in range(1, 49)]
+    grupos = {i: g for g, ns in COMPOSICION.items() for i in ns}
+    assert sorted(grupos) == list(range(1, 49))  # cada caso en un solo grupo
+    assert [len(ns) for ns in COMPOSICION.values()] == [8, 8, 8, 8, 6, 6, 4]
+    esperado = {"sin_anemia": "SIN_ANEMIA", "leve": "ANEMIA_LEVE", "moderada": "ANEMIA_MODERADA",
+                "severa_con_derivacion": "ANEMIA_SEVERA"}
+    for c in conjunto48.casos:
+        g = grupos[int(c.id[5:])]
+        assert c["revisado"] is False and c["revisado_por"] is None
+        if g in esperado and c.id != "OE3-P15":  # P15: menor de 6 meses, sin clasificación
+            assert c["clasificacion_esperada"] == esperado[g], c.id
+        if g == "severa_con_derivacion":
+            assert c["requiere_derivacion"] is True and "derivacion" in c["tipos"]
+        if g == "calendario_hb":
+            assert "calendario_hb" in c["tipos"]
+        if g == "evidencia_insuficiente":
+            assert c["estado_esperado"] == "EVIDENCIA_INSUFICIENTE" and not c.criterios
+        if g == "fuera_de_dominio":
+            assert c["estado_esperado"] == "FUERA_DE_DOMINIO" and not c.criterios
+    origen = [c["origen"] for c in conjunto48.casos]
+    assert origen.count("desarrollo_reutilizado") == 20 and origen.count("nuevo") == 28
 
 
 def test_el_subconjunto_conserva_la_huella_de_toda_la_carpeta(piloto):
@@ -107,6 +159,63 @@ def test_la_huella_cambia_con_un_byte():
     assert a != dataset.huella_conjunto({"a.yaml": "1" * 64, "b.yaml": "3" * 64})
 
 
+def test_normalizar_fin_de_linea_solo_cambia_cr():
+    assert dataset.normalizar_fin_de_linea(b"a\r\nb\rc\nd") == b"a\nb\nc\nd"
+    assert dataset.normalizar_fin_de_linea(b"\r\r\n") == b"\n\n"
+    assert dataset.normalizar_fin_de_linea("ñ\t«x»".encode()) == "ñ\t«x»".encode()
+    assert dataset.huella_archivo(b"a\r\nb\r\n") == dataset.sha256(b"a\nb\n")
+
+
+def _copia_del_conjunto(destino, fin_de_linea):
+    """Copia el esquema y 4 casos del piloto con el fin de línea pedido: "lf", "crlf" o "mezcla"
+    (archivos alternados en LF y CRLF, y un caso con CRLF, CR sueltos y LF en sus líneas)."""
+    (destino / "piloto").mkdir(parents=True)
+    origenes = [CONJUNTO / dataset.ESQUEMA] + sorted((CONJUNTO / "piloto").glob("*.yaml"))[:4]
+    for i, origen in enumerate(origenes):
+        lf = dataset.normalizar_fin_de_linea(origen.read_bytes())
+        if fin_de_linea == "crlf" or (fin_de_linea == "mezcla" and i % 2 == 0):
+            datos = lf.replace(b"\n", b"\r\n")
+        elif fin_de_linea == "mezcla" and i == 3:
+            lineas = lf.split(b"\n")
+            finales = (b"\r\n", b"\r", b"\n")
+            datos = b"".join(l + finales[j % 3] for j, l in enumerate(lineas[:-1])) + lineas[-1]
+        else:
+            datos = lf
+        carpeta = destino if origen.name == dataset.ESQUEMA else destino / "piloto"
+        (carpeta / origen.name).write_bytes(datos)
+    return destino
+
+
+def test_la_huella_no_depende_del_fin_de_linea(tmp_path):
+    copias = {f: _copia_del_conjunto(tmp_path / f, f) for f in ("lf", "crlf", "mezcla")}
+    # Los bytes de las tres copias son distintos...
+    crudos = {f: b"".join(p.read_bytes() for p in sorted(d.rglob("*.*"), key=lambda r: r.name))
+              for f, d in copias.items()}
+    assert len(set(crudos.values())) == 3
+    assert b"\r" in crudos["mezcla"] and b"\r" not in crudos["lf"]
+    # ...y las huellas, iguales.
+    cargados = {f: dataset.cargar_conjunto(d, "piloto") for f, d in copias.items()}
+    assert len(cargados["lf"].casos) == 4
+    assert len({c.huella for c in cargados.values()}) == 1
+    assert len({c.huella_esquema for c in cargados.values()}) == 1
+    assert cargados["lf"].huellas == cargados["crlf"].huellas == cargados["mezcla"].huellas
+    # En LF, la huella de cada archivo es el SHA-256 de sus bytes tal cual.
+    for nombre, h in cargados["lf"].huellas.items():
+        assert h == dataset.sha256((copias["lf"] / "piloto" / nombre).read_bytes())
+
+
+def test_un_cambio_de_contenido_cambia_la_huella_aunque_cambie_el_fin_de_linea(tmp_path):
+    lf = _copia_del_conjunto(tmp_path / "lf", "lf")
+    otro = _copia_del_conjunto(tmp_path / "otro", "crlf")
+    ruta = sorted((otro / "piloto").glob("*.yaml"))[0]
+    original = ruta.read_bytes()
+    ruta.write_bytes(original.replace(b"revisado: false", b"revisado:  false", 1))
+    assert ruta.read_bytes() != original
+    a, b = dataset.cargar_conjunto(lf, "piloto"), dataset.cargar_conjunto(otro, "piloto")
+    assert a.huella != b.huella
+    assert [n for n in a.huellas if a.huellas[n] != b.huellas[n]] == [ruta.name]
+
+
 # ---------------------------------------------------------------------------
 # Emparejamiento de criterios
 # ---------------------------------------------------------------------------
@@ -162,10 +271,13 @@ def test_oms_en_g_por_litro_queda_como_equivalencia_pendiente():
     assert not cue.evaluar_criterios(c, [frag("F-02", OMS, "3500-3999 2.5", (34, 34))]).exito
 
 
-def test_los_anclajes_del_piloto_marcan_la_oms_en_g_por_litro(piloto):
+def test_los_anclajes_del_piloto_marcan_la_oms_en_g_por_litro(piloto, conjunto48):
     pendientes = {(c.id, cr.id) for c in piloto.casos for cr in c.criterios for a in cr.alternativas
                   if a.equivalencia_pendiente}
     assert pendientes == {("OE3-P04", "C1"), ("OE3-P10", "C3"), ("OE3-P12", "C4")}
+    # En todo el conjunto, solo las alternativas de la OMS 2024 en g/L llevan la marca.
+    marcadas = [a for c in conjunto48.casos for cr in c.criterios for a in cr.alternativas if a.equivalencia_pendiente]
+    assert marcadas and all(a.documento == OMS and a.numeral == "Table 4" for a in marcadas)
 
 
 def test_caso_sin_criterios_es_recuperacion_fallida():
@@ -381,9 +493,49 @@ def test_el_nombre_ficticio_no_bloquea_la_solicitud(piloto):
     assert not controlar_identificadores(solicitud, viejo).aprobado
 
 
-def test_preparar_crea_el_ficticio_clasificado_y_su_identidad_no_bloquea(piloto, super_engine, pacientes_creados):
-    """Con la base de pruebas: crea el paciente de P12 (prefijo 89), lo clasifica con el servicio del
-    sistema y comprueba que el control previo aprueba una solicitud con su identidad. Se borra al final."""
+def _ids_ficticios(super_engine) -> list[str]:
+    """Pacientes de la base de pruebas cuyo DNI (descifrado) tiene el prefijo de los ficticios del conjunto."""
+    from sqlalchemy import text
+
+    from app.core.config import get_settings
+    with super_engine.connect() as c:
+        return [f[0] for f in c.execute(text(
+            """SELECT id_paciente::text FROM clinico.paciente_identidad
+                WHERE pgp_sym_decrypt(dni_cifrado, :k) LIKE :prefijo"""),
+            {"k": get_settings().clave_pii, "prefijo": dataset.PREFIJO_FICTICIO + "%"}).all()]
+
+
+def _borrar_pacientes(super_engine, ids: list[str]) -> None:
+    from sqlalchemy import text
+    with super_engine.begin() as c:
+        p = {"ids": ids}
+        c.execute(text("""DELETE FROM clinico.tamizaje_sintoma WHERE id_tamizaje IN
+                            (SELECT id_tamizaje FROM clinico.tamizaje WHERE id_paciente::text = ANY(:ids))"""), p)
+        c.execute(text("""DELETE FROM clinico.resultado_clasificacion WHERE id_tamizaje IN
+                            (SELECT id_tamizaje FROM clinico.tamizaje WHERE id_paciente::text = ANY(:ids))"""), p)
+        c.execute(text("DELETE FROM clinico.tamizaje WHERE id_paciente::text = ANY(:ids)"), p)
+        c.execute(text("DELETE FROM clinico.paciente_identidad WHERE id_paciente::text = ANY(:ids)"), p)
+        c.execute(text("DELETE FROM clinico.paciente WHERE id_paciente::text = ANY(:ids)"), p)
+
+
+@pytest.fixture
+def sin_ficticios(super_engine):
+    """La base de pruebas empieza sin pacientes ficticios del conjunto (DNI con prefijo 89) y termina
+    sin ellos, aunque la prueba falle: borra los que haya creado (los eventos de auditoría se conservan)."""
+    assert _ids_ficticios(super_engine) == [], "restos de una corrida anterior: pacientes ficticios en la base"
+    try:
+        yield
+    finally:
+        restos = _ids_ficticios(super_engine)
+        if restos:
+            _borrar_pacientes(super_engine, restos)
+        assert _ids_ficticios(super_engine) == [], "la limpieza dejó pacientes ficticios en la base"
+
+
+def test_preparar_crea_el_ficticio_clasificado_y_su_identidad_no_bloquea(piloto, super_engine, sin_ficticios):
+    """Con la base de pruebas: crea solo el paciente de P12 (prefijo 89), lo clasifica con el servicio del
+    sistema y comprueba que el control previo aprueba una solicitud con su identidad. La fixture
+    sin_ficticios lo borra al final, aunque la prueba falle."""
     from sqlalchemy import text
 
     from app.core.db import engines
@@ -392,10 +544,7 @@ def test_preparar_crea_el_ficticio_clasificado_y_su_identidad_no_bloquea(piloto,
     from app.rag.filtro_texto import generar_huellas, leer_identidad
     from app.rag.proteccion import controlar_identificadores
     p12 = next(c for c in piloto.casos if c.id == "OE3-P12")
-    with super_engine.connect() as c:
-        assert c.execute(text("SELECT 1 FROM clinico.paciente_identidad WHERE dni_hash = :h"),
-                         {"h": hmac_identificador("89000012")}).first() is None, "restos de una corrida anterior"
-    assert preparar_ficticios(engines()["clinica"], piloto.casos) == ["OE3-P12"]
+    assert preparar_ficticios(engines()["clinica"], [p12]) == ["OE3-P12"]
     with super_engine.connect() as c:
         fila = c.execute(text(
             """SELECT p.id_paciente::text, t.id_tamizaje::text, t.edad_meses, k.nombre FROM clinico.paciente p
@@ -403,9 +552,9 @@ def test_preparar_crea_el_ficticio_clasificado_y_su_identidad_no_bloquea(piloto,
                  JOIN clinico.resultado_clasificacion r USING (id_tamizaje)
                  JOIN configuracion.categoria_anemia k USING (id_categoria) WHERE i.dni_hash = :h"""),
             {"h": hmac_identificador("89000012")}).one()
-    pacientes_creados.append(fila[0])
+    assert _ids_ficticios(super_engine) == [fila[0]]  # solo el de P12
     assert fila[2] == 11 and fila[3] == p12["clasificacion_esperada"] == "ANEMIA_SEVERA"
-    assert preparar_ficticios(engines()["clinica"], piloto.casos) == []  # no lo duplica
+    assert preparar_ficticios(engines()["clinica"], [p12]) == []  # no lo duplica
     with engines()["clinica"].connect() as c:
         identidad = leer_identidad(c, fila[1])
     solicitud = json.dumps({"paciente": {"edad_meses": 11}, "consulta": p12["consulta"],

@@ -4,7 +4,8 @@ Cada caso es un YAML validado contra esquema_caso.json con un validador propio d
 JSON Schema que usa el esquema (tipos, enum, required, additionalProperties, pattern, minLength,
 minItems, maxItems, uniqueItems, minimum y format date): así no se agrega jsonschema al sistema.
 La huella del conjunto es el SHA-256 de las líneas «archivo, dos espacios, SHA-256 del archivo»,
-ordenadas por nombre."""
+ordenadas por nombre. El SHA-256 de cada archivo (y el del esquema) se calcula después de normalizar
+el fin de línea (CRLF y CR sueltos a LF), para que la huella no dependa de la copia de git."""
 from __future__ import annotations
 
 import datetime as dt
@@ -82,6 +83,16 @@ class Conjunto:
 
 def sha256(datos: bytes) -> str:
     return hashlib.sha256(datos).hexdigest()
+
+
+def normalizar_fin_de_linea(datos: bytes) -> bytes:
+    """CRLF y CR sueltos a LF; el resto de los bytes no cambia."""
+    return datos.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+
+
+def huella_archivo(datos: bytes) -> str:
+    """SHA-256 del archivo con el fin de línea normalizado."""
+    return sha256(normalizar_fin_de_linea(datos))
 
 
 def huella_conjunto(huellas: dict[str, str]) -> str:
@@ -178,7 +189,7 @@ def validar_caso(datos: dict, esquema: dict, grupo: str | None = None) -> list[s
 
 def cargar_esquema(dir_conjunto: Path) -> tuple[dict, str]:
     crudo = (dir_conjunto / ESQUEMA).read_bytes()
-    return json.loads(crudo), sha256(crudo)
+    return json.loads(crudo), huella_archivo(crudo)
 
 
 def cargar_conjunto(dir_conjunto: Path = DIR_CONJUNTO_DEFECTO, grupo: str = "piloto",
@@ -193,7 +204,7 @@ def cargar_conjunto(dir_conjunto: Path = DIR_CONJUNTO_DEFECTO, grupo: str = "pil
     casos, huellas, errores, vistos = [], {}, [], set()
     for ruta in archivos:
         crudo = ruta.read_bytes()
-        huellas[ruta.name] = sha256(crudo)
+        huellas[ruta.name] = huella_archivo(crudo)
         try:
             datos = yaml.safe_load(crudo.decode("utf-8"))
         except yaml.YAMLError as e:
