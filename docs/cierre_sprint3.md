@@ -187,7 +187,7 @@ las revisiones con el asesor. Donde no hay una, se escribe «por definir».
 | Tema | Detalle | Dueño | Fecha |
 | --- | --- | --- | --- |
 | Despliegue en Azure (parte L) | Compose de producción, HTTPS en el puerto 443, secretos en Key Vault, `aplicar_bd.sh` con `\getenv` (`mejoras_despliegue.md`), prueba real del respaldo a Blob y medición en la máquina B2ms | Desarrollo | Por definir |
-| Trabajo de evaluación del OE3 | RAGAS y CUE sobre el sistema congelado, con el juez solo sobre datos sintéticos (decisión 13) | Desarrollo | Por definir |
+| Trabajo de evaluación del OE3 | RAGAS y CUE sobre el sistema congelado, con el juez solo sobre datos sintéticos (decisión 13). Job implementado y probado solo con el cliente falso (fila 170); sistema congelado el 26/11/2026 con la etiqueta `oe3-congelado-v1` (sección 8, fila 171). Falta el conjunto de casos con su revisión por el CRED, su etiqueta y su SHA-256, y la corrida única de OE3-A | Desarrollo | Congelamiento hecho (26/11/2026); corrida pendiente |
 | Carga de nivel 1 desde M11 con «Aprobar» y recorte por documento (parte G) | Después del OE3 (decisión 7) | Desarrollo | Por definir |
 | Inicio de sesión con una cuenta desactivada | Corregido (fila 168): primero se comprueba la contraseña. Con la contraseña equivocada, una cuenta desactivada recibe el 401 genérico «Usuario o contraseña incorrectos», igual que un usuario inexistente (que pasa por un hash ficticio para tardar lo mismo); solo con la contraseña correcta sale el 403 de cuenta desactivada. Queda como está el 423 de una cuenta activa bloqueada, que sí indica que la cuenta existe | Desarrollo | Hecho (26/11/2026) |
 | Reactivar una cuenta no reinicia los intentos fallidos | Corregido (fila 168): `reactivar` (`backend/app/services/usuarios.py`) pone `intentos_fallidos` en 0, así que la cuenta no vuelve bloqueada; el evento USUARIO_REACTIVADO registra si estaba bloqueada (`desbloqueada`), sin contraseñas | Desarrollo | Hecho (26/11/2026) |
@@ -210,7 +210,7 @@ Todas son **pendientes**, salvo los valores clínicos `[VERIFICAR]`, ya validado
 | --- | --- | --- | --- |
 | Frases del reporte para el cuidador | `backend/app/reportes/lenguaje_sencillo.yaml` sigue con `revisado: false` y cada página lleva «Texto en revisión clínica: no entregar a pacientes». Las frases pendientes de aprobación (las 21 del YAML y los textos fijos del código) están en `docs/revision_frases_cuidador.md`; la derivación repetida, la frase final y la fecha con hora ya se corrigieron (fila 166) | Coordinación CRED y asesor | Por definir |
 | Rangos de plausibilidad y avisos de M12 | `backend/app/services/parametros_reglas.py`: Hb de 2,0 a 20,0 g/dL; vigencia de 7 a 90 días, con aviso por encima de 60; cobertura de altitud de al menos 4380 m; ajuste de 0 a 6,0 g/dL; aviso si un límite de Hb cambia más de 1,0 g/dL (también si «sin anemia» queda fuera de 10,0 a 12,0 o un ajuste cambia más de 0,5) | Asesor | Por definir |
-| Valores clínicos `[VERIFICAR]` | Puntos de corte de Hb, ajuste por altitud, vigencia de 30 días y niveles de riesgo: validados por la coordinación CRED el 25/11/2026, sin observaciones (`docs/validacion_parametros_clinicos.md`, fila 164). Confirmados en M12 el 26/11/2026 y huella de control calculada (la definitiva se calcula al congelar) | Equipo del proyecto (registro hecho en M12 con la cuenta de demostración coord.ortiz, sobre la ficha del CRED) | Hecho el 26/11/2026; el congelamiento sigue pendiente |
+| Valores clínicos `[VERIFICAR]` | Puntos de corte de Hb, ajuste por altitud, vigencia de 30 días y niveles de riesgo: validados por la coordinación CRED el 25/11/2026, sin observaciones (`docs/validacion_parametros_clinicos.md`, fila 164). Confirmados en M12 el 26/11/2026; huella definitiva registrada al congelar el sistema (etiqueta `oe3-congelado-v1`, igual a la de control; sección 8) | Equipo del proyecto (registro hecho en M12 con la cuenta de demostración coord.ortiz, sobre la ficha del CRED) | Hecho el 26/11/2026, con el sistema congelado |
 | Altitudes de los distritos `[VERIFICAR]` | Catálogo de `db/init/02_catalogos.sql` contra el INEI; fuera de M12, por migración | Desarrollo | Antes del OE3 (por definir) |
 | Descriptores MeSH y DeCS `[VERIFICAR]` | Los de `clinico.sintoma` (`02_catalogos.sql`) y los de `diccionario_normalizacion.yaml`, tomados de memoria. **Hallazgo de la parte Z:** ningún código de recuperación, reescritura de la consulta ni filtro los usa; solo existen como datos (detalle abajo). Conviene corregir el documento de tesis | Desarrollo | Por definir |
 | Revisión de las guías de nivel 1 (N1) | Las tablas críticas transcritas están verificadas (en la última versión, 22 fragmentos de transcripción con `verificado` verdadero: 8 de la NTS 213 y 14 de la RM 429); el resto del texto de nivel 1 viene de la capa de texto del PDF (180 fragmentos de la última versión) sin una revisión clínica fragmento por fragmento | Asesor y personal de salud | Por definir |
@@ -277,6 +277,27 @@ desde la raíz del repositorio y con el stack levantado.
 
 **Pendiente:** hoy nada impide, salvo el procedimiento, cambiar `VERSION_PROMPT` por migración o
 cambiar `.env` durante la evaluación; la huella del paso 5 lo detecta.
+
+### Congelamiento ejecutado (26/11/2026, VM de Azure, Chile Central; fila 171)
+
+Pasos 1 a 6 **hechos** el 26/11/2026:
+
+| Paso | Resultado |
+| --- | --- |
+| 1. Sin cambios en curso | 4 guías vigentes e indexadas (OMS 2024: 60 fragmentos; NTS 213 / RM 251: 83; RM 429: 14; OMS 2016: 26; 183 vigentes), versión de indexación 1, sin trabajos pendientes |
+| 2. Mismo prompt | `VERSION_PROMPT` v1.1 |
+| 3. Verificar y respaldar | ChromaDB: verificación «Coincide con PostgreSQL», respaldo `respaldo_20261126_185838` (202 vectores, 183 vigentes). PostgreSQL: `data/respaldos/pg_20261126.dump` en la VM (450718 bytes, 664 entradas reconocidas por `pg_restore -l`) |
+| 4. Modo de evaluación | `CDSS_MODO_EVALUACION=true` en el backend de la VM; M11 y M12 responden 423 |
+| 5. Huella de la configuración | `a3e653743e5ec2ab411dc0680e596a55d99312c3059c70eb172fcb8f650f1449`, igual a la huella de control y calculada de nuevo después de activar el modo de evaluación; los seis componentes no cambiaron desde la confirmación en M12 (`validacion_parametros_clinicos.md`, sección 7) |
+| 6. Etiqueta de versión | `oe3-congelado-v1` (anotada), sobre el commit `fb7b25c` (Merge pull request #50); la VM está en ese commit |
+
+Además se comprobó en la VM la regla garantizada de derivación en anemia severa (fila 165): 1
+fragmento cumple la condición (NTS 213, página 22, 155 tokens, versión de indexación 1) y la función
+del sistema lo encuentra. Resultado OK.
+
+**Estado actual: sistema congelado.** No cambiar M12, M11, `VERSION_PROMPT` ni `.env`. Siguen
+pendientes el conjunto de casos y su revisión por el CRED, que no afectan al sistema ni a la huella.
+El conjunto se registrará con su propia etiqueta y su SHA-256 antes de la corrida única de OE3-A.
 
 **Diseño de la evaluación (26/11/2026):** está en [`diseno_evaluacion_oe3.md`](diseno_evaluacion_oe3.md)
 (fila 169). CUE se reporta con la definición del OE2 (proporción de los fragmentos enviados que
