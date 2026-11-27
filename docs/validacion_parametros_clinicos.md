@@ -6,7 +6,8 @@ coordinación CRED del Centro de Salud San Luis el 25/11/2026. Este documento no
 los valores son los de `db/init/02_catalogos.sql` y `db/init/01_esquema.sql`.
 
 Estado al 26/11/2026: validación del CRED hecha, sin observaciones, y registrada en M12 (sección 6);
-huella de control calculada (sección 7). **Falta** la huella definitiva, al congelar el sistema.
+sistema congelado para el OE3 con la huella definitiva y la etiqueta de git `oe3-congelado-v1`
+(sección 7).
 
 ## 1. Fuentes normativas
 
@@ -156,8 +157,9 @@ la ficha.
 
 ## 7. Huella de la configuración
 
-Huella de control, calculada después del registro en M12 y antes del congelamiento; no es la
-definitiva, que se calcula al congelar el sistema para el OE3 (`docs/cierre_sprint3.md`, paso 5):
+Huella definitiva, registrada al congelar el sistema para el OE3 el 26/11/2026 en la VM de Azure
+(Chile Central), con el procedimiento de `docs/cierre_sprint3.md`, sección 8 (fila 171 de
+`docs/cambios_respecto_al_OE2.md`):
 
 ```bash
 docker compose exec backend python -m app.scripts.huella_configuracion --json
@@ -165,9 +167,14 @@ docker compose exec backend python -m app.scripts.huella_configuracion --json
 
 | Dato | Valor |
 | --- | --- |
-| Fecha | 2026-11-26 02:59:12 UTC (25/11/2026, 21:59 hora de Perú) |
-| Etiqueta de git | Se asigna al congelar el sistema |
+| Fecha del congelamiento | 26/11/2026 |
+| Etiqueta de git | `oe3-congelado-v1` (anotada), sobre el commit `fb7b25c` (Merge pull request #50); la VM está en ese commit |
+| Modo de evaluación | `CDSS_MODO_EVALUACION=true` en el backend de la VM (M11 y M12 responden 423) |
 | Huella (SHA-256) | `a3e653743e5ec2ab411dc0680e596a55d99312c3059c70eb172fcb8f650f1449` |
+| `VERSION_PROMPT` | v1.1 |
+
+La huella es igual a la huella de control y se calculó de nuevo después de activar el modo de
+evaluación, con el mismo resultado. Los seis componentes no cambiaron desde la confirmación en M12:
 
 | Componente | Elementos | SHA-256 |
 | --- | --- | --- |
@@ -181,4 +188,12 @@ docker compose exec backend python -m app.scripts.huella_configuracion --json
 En `indexacion`, las cuatro guías (NTS 213, RM 429, OMS 2016 y OMS 2024) tienen la versión de
 indexación 1.
 
-Esta huella es un punto de control. La definitiva se calcula y se registra al congelar el sistema; si algún valor cambia después, se genera una huella nueva y se repite la evaluación.
+Si algún valor cambia después del congelamiento, se genera una huella nueva y se repite la
+evaluación.
+
+### Historial
+
+| Fecha | Huella (SHA-256) | Nota |
+| --- | --- | --- |
+| 2026-11-26 02:59:12 UTC (25/11/2026, 21:59 hora de Perú) | `a3e653743e5ec2ab411dc0680e596a55d99312c3059c70eb172fcb8f650f1449` | Huella de control, calculada después del registro en M12 y antes del congelamiento, sin etiqueta de git |
+| 26/11/2026 | `a3e653743e5ec2ab411dc0680e596a55d99312c3059c70eb172fcb8f650f1449` | Huella definitiva, etiqueta `oe3-congelado-v1`; la misma que la de control |
