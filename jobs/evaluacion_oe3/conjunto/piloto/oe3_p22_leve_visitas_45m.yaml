@@ -1,0 +1,77 @@
+id: OE3-P22
+version_caso: 1
+conjunto: piloto
+origen: nuevo
+origen_detalle: Visitas domiciliarias durante el tratamiento, tramo de 36 a 59 meses
+tipos: [anemia_leve, tratamiento, control_tratamiento]
+paciente:
+  fuente: ficticio
+  dni_ficticio: "89000022"
+  fecha_tamizaje: 2026-10-14
+  datos_ficticios:
+    sexo: M
+    fecha_nacimiento: 2023-01-03
+    ubigeo: "150134"
+    edad_gestacional: A_TERMINO
+    bajo_peso_al_nacer: false
+    tamizaje:
+      hemoglobina_g_dl: 10.3
+      peso_kg: 15.1
+      talla_cm: 100.5
+      recibe_suplementacion_hierro: false
+      lactancia_materna_actual: false
+      parasitosis: false
+      sintomas: []
+fecha_referencia: 2026-10-20
+consulta: ¿Cuántas visitas domiciliarias debe recibir durante el tratamiento de la anemia y cuándo?
+estado_esperado: VERIFICADA
+clasificacion_esperada: ANEMIA_LEVE
+requiere_derivacion: false
+evidencia_suficiente_esperada: true
+criterios:
+  - id: C1
+    descripcion: Primera visita a los 7 días
+    obligatorio: true
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [23, 23]
+        numeral: 6.1.2 B.11
+        texto_anclaje: "La primera visita domiciliaria se realiza a los 7 días de iniciado el tratamiento."
+  - id: C2
+    descripcion: Segunda visita entre el primer y segundo mes
+    obligatorio: true
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [23, 23]
+        numeral: 6.1.2 B.11
+        texto_anclaje: "La segunda visita domiciliaria o telemonitoreo se realiza entre el primer y segundo mes del tratamiento."
+  - id: C3
+    descripcion: Tercera visita entre el tercer y cuarto mes
+    obligatorio: true
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [23, 23]
+        numeral: 6.1.2 B.11
+        texto_anclaje: "La tercera visita domiciliaria o telemonitoreo se realiza entre el tercer y cuarto mes del tratamiento."
+  - id: C4
+    descripcion: Cuarta visita entre el quinto y sexto mes
+    obligatorio: true
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [23, 23]
+        numeral: 6.1.2 B.11
+        texto_anclaje: "La cuarta visita domiciliaria o telemonitoreo se realiza entre el quinto y sexto mes del tratamiento."
+respuesta_referencia: >-
+  Recibe cuatro visitas domiciliarias o de telemonitoreo: la primera a los 7 días de iniciado el
+  tratamiento, la segunda entre el primer y segundo mes, la tercera entre el tercer y cuarto mes y
+  la cuarta entre el quinto y sexto mes del tratamiento.
+afirmaciones_clave:
+  - La primera visita domiciliaria es a los 7 días de iniciado el tratamiento.
+  - "Son cuatro visitas: a los 7 días, entre el primer y segundo mes, entre el tercer y cuarto mes y entre el quinto y sexto mes."
+revisado: false
+revisado_por: null
+fecha_revision: null
+observaciones_revision: null
+notas: >-
+  Los cuatro criterios están en el mismo fragmento: se cumplen juntos. Las visitas de la
+  suplementación preventiva (6.1.1 C, ítem 5) son otro tema y no cuentan.

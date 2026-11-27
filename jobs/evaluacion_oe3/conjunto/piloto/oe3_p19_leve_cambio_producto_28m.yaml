@@ -1,0 +1,62 @@
+id: OE3-P19
+version_caso: 1
+conjunto: piloto
+origen: desarrollo_reutilizado
+origen_detalle: backend/app/rag/consultas_validacion.yaml, V06
+tipos: [anemia_leve, tratamiento]
+paciente:
+  fuente: ficticio
+  dni_ficticio: "89000019"
+  fecha_tamizaje: 2026-10-16
+  datos_ficticios:
+    sexo: M
+    fecha_nacimiento: 2024-06-03
+    ubigeo: "150134"
+    edad_gestacional: A_TERMINO
+    bajo_peso_al_nacer: false
+    tamizaje:
+      hemoglobina_g_dl: 10.4
+      peso_kg: 12.0
+      talla_cm: 88.0
+      recibe_suplementacion_hierro: true
+      lactancia_materna_actual: false
+      parasitosis: false
+      sintomas: []
+fecha_referencia: 2026-10-20
+consulta: La mamá dice que el niño casi no toma el sulfato ferroso, ¿puedo cambiarlo por otro producto de hierro?
+estado_esperado: VERIFICADA
+clasificacion_esperada: ANEMIA_LEVE
+requiere_derivacion: false
+evidencia_suficiente_esperada: true
+criterios:
+  - id: C1
+    descripcion: Complejo polimaltosado férrico como alternativa ante adherencia no adecuada
+    obligatorio: true
+    alternativas:
+      - documento: RM 429-2024/MINSA
+        paginas: [5, 5]
+        numeral: 5.4.2 (modificación N.° 3)
+        texto_anclaje: "Cuando la adherencia al sulfato ferroso no es adecuada (< 75% de consumo del suplemento en el mes) o se presentan efectos adversos que limitan la continuidad, se emplea como alternativa el Complejo Polimaltosado Férrico."
+  - id: C2
+    descripcion: Definición de adherencia adecuada
+    obligatorio: false
+    alternativas:
+      - documento: RM 429-2024/MINSA
+        paginas: [4, 4]
+        numeral: 5.1 (modificación N.° 1)
+        texto_anclaje: "Se considera que la adherencia es adecuada cuando se consume el 75% a más de la dosis indicada del suplemento de hierro durante un periodo mensual."
+respuesta_referencia: >-
+  Sí. Cuando la adherencia al sulfato ferroso no es adecuada (menos del 75 % de consumo del
+  suplemento en el mes) o hay efectos adversos que limitan la continuidad, se emplea como
+  alternativa el complejo polimaltosado férrico. La adherencia es adecuada cuando se consume el 75 %
+  o más de la dosis indicada durante un periodo mensual.
+afirmaciones_clave:
+  - Ante una adherencia no adecuada al sulfato ferroso se emplea como alternativa el complejo polimaltosado férrico.
+  - La adherencia no es adecuada con menos del 75 % de consumo del suplemento en el mes.
+revisado: false
+revisado_por: null
+fecha_revision: null
+observaciones_revision: null
+notas: >-
+  Consulta V06 sin cambios. El numeral 5.4.2 original de la NTS (página 8, «en la semana o el mes»)
+  no está vigente: solo cuenta el texto de la RM 429 («en el mes»).

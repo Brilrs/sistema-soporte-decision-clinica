@@ -1,0 +1,65 @@
+id: OE3-P40
+version_caso: 1
+conjunto: piloto
+origen: nuevo
+origen_detalle: Mediciones de hemoglobina del nacido prematuro con bajo peso (Tabla N° 4 vigente), menor de 6 meses
+tipos: [menor_de_6_meses, calendario_hb, suplementacion_preventiva]
+paciente:
+  fuente: ficticio
+  dni_ficticio: "89000040"
+  fecha_tamizaje: 2026-10-14
+  datos_ficticios:
+    sexo: F
+    fecha_nacimiento: 2026-07-03
+    ubigeo: "150134"
+    edad_gestacional: PRETERMINO
+    bajo_peso_al_nacer: true
+    tamizaje:
+      hemoglobina_g_dl: 10.5
+      peso_kg: 4.6
+      talla_cm: 56.0
+      recibe_suplementacion_hierro: true
+      lactancia_materna_actual: true
+      parasitosis: false
+      sintomas: []
+fecha_referencia: 2026-10-20
+consulta: Nació prematura y con bajo peso. ¿Cuándo se le mide la hemoglobina durante la suplementación con hierro?
+estado_esperado: VERIFICADA
+clasificacion_esperada: null
+requiere_derivacion: null
+evidencia_suficiente_esperada: true
+criterios:
+  - id: C1
+    descripcion: Mediciones del recién nacido con bajo peso o prematuro (Tabla N° 4 vigente)
+    obligatorio: true
+    alternativas:
+      - documento: RM 429-2024/MINSA
+        paginas: [6, 6]
+        numeral: 6.1.1 A, Tabla N° 4 (modificación N.° 5)
+        texto_anclaje: "| RN con bajo peso al nacer o prematuro | 2 mediciones: a los 30 días de nacido; al tercer mes de iniciada la suplementación |"
+  - id: C2
+    descripcion: Inicio de la suplementación a los 30 días de nacido
+    obligatorio: false
+    alternativas:
+      - documento: RM 429-2024/MINSA
+        paginas: [6, 7]
+        numeral: 6.1.1 B, Tabla N° 5 (modificación N.° 6)
+        texto_anclaje: "| Niña/niño con bajo peso al nacer y/o prematuro/a | A los 30 días de nacido | 2mg/Kg/día | Sulfato ferroso o Complejo Polimaltosado férrico* | gotas | Diaria | Hasta los 6 meses cumplidos |"
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [12, 12]
+        numeral: 6.1.1 B.1
+        texto_anclaje: "El niño y la niña con bajo peso al nacer y/o prematuro/a inicia la suplementación preventiva a los 30 días de nacido/a."
+respuesta_referencia: >-
+  En el nacido con bajo peso o prematuro son 2 mediciones: a los 30 días de nacido y al tercer mes
+  de iniciada la suplementación. La suplementación preventiva se inicia a los 30 días de nacido, con
+  2 mg/kg/día en gotas, de forma diaria, hasta los 6 meses cumplidos.
+afirmaciones_clave:
+  - "Son 2 mediciones: a los 30 días de nacido y al tercer mes de iniciada la suplementación."
+revisado: false
+revisado_por: null
+fecha_revision: null
+observaciones_revision: null
+notas: >-
+  Sin punto de corte para menores de 6 meses: el sistema no clasifica (clasificación y derivación
+  null). La Tabla N° 4 original de la NTS (página 11) y la Tabla N° 5 original (página 12) no están
+  vigentes.

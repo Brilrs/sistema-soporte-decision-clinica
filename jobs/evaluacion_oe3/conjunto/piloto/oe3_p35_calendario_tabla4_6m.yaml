@@ -1,0 +1,79 @@
+id: OE3-P35
+version_caso: 1
+conjunto: piloto
+origen: desarrollo_reutilizado
+origen_detalle: backend/app/rag/consultas_referencia.yaml, R09
+tipos: [sin_anemia, calendario_hb]
+paciente:
+  fuente: ficticio
+  dni_ficticio: "89000035"
+  fecha_tamizaje: 2026-10-15
+  datos_ficticios:
+    sexo: F
+    fecha_nacimiento: 2026-04-03
+    ubigeo: "150134"
+    edad_gestacional: A_TERMINO
+    bajo_peso_al_nacer: false
+    tamizaje:
+      hemoglobina_g_dl: 11.0
+      peso_kg: 7.4
+      talla_cm: 65.5
+      recibe_suplementacion_hierro: false
+      lactancia_materna_actual: true
+      parasitosis: false
+      sintomas: []
+fecha_referencia: 2026-10-20
+consulta: ¿A qué edades se debe medir la hemoglobina en el niño para descartar anemia?
+estado_esperado: VERIFICADA
+clasificacion_esperada: SIN_ANEMIA
+requiere_derivacion: false
+evidencia_suficiente_esperada: true
+criterios:
+  - id: C1
+    descripcion: Mediciones de 6 a 11 meses (Tabla N° 4 vigente)
+    obligatorio: true
+    alternativas:
+      - documento: RM 429-2024/MINSA
+        paginas: [6, 6]
+        numeral: 6.1.1 A, Tabla N° 4 (modificación N.° 5)
+        texto_anclaje: "| 6 a 11 meses de edad | 3 mediciones: a partir de los 6 meses de edad; al tercer mes de iniciada la suplementación (control); al término de la suplementación (control) |"
+  - id: C2
+    descripcion: Mediciones de 12 a 23 meses (Tabla N° 4 vigente)
+    obligatorio: false
+    alternativas:
+      - documento: RM 429-2024/MINSA
+        paginas: [6, 6]
+        numeral: 6.1.1 A, Tabla N° 4 (modificación N.° 5)
+        texto_anclaje: "| 12 a 23 meses de edad | 3 mediciones: antes de iniciar la suplementación; al tercer mes de iniciada la suplementación (control); al término de la suplementación (control) |"
+  - id: C3
+    descripcion: Mediciones de 24 a 35 meses (Tabla N° 4 vigente)
+    obligatorio: false
+    alternativas:
+      - documento: RM 429-2024/MINSA
+        paginas: [6, 6]
+        numeral: 6.1.1 A, Tabla N° 4 (modificación N.° 5)
+        texto_anclaje: "| 24 a 35 meses de edad | 2 mediciones al año: antes de iniciar la suplementación; al término de la suplementación (control) |"
+  - id: C4
+    descripcion: Mediciones de 36 a 59 meses (Tabla N° 4 vigente)
+    obligatorio: false
+    alternativas:
+      - documento: RM 429-2024/MINSA
+        paginas: [6, 6]
+        numeral: 6.1.1 A, Tabla N° 4 (modificación N.° 5)
+        texto_anclaje: "| 36-59 meses de edad | 2 mediciones al año: antes de iniciar la suplementación; al término de la suplementación (control) |"
+respuesta_referencia: >-
+  De 6 a 11 meses son 3 mediciones: a partir de los 6 meses de edad, al tercer mes de iniciada la
+  suplementación y al término de la suplementación. De 12 a 23 meses también son 3: antes de iniciar
+  la suplementación, al tercer mes y al término. De 24 a 35 meses y de 36 a 59 meses son 2
+  mediciones al año: antes de iniciar la suplementación y al término.
+afirmaciones_clave:
+  - "De 6 a 11 meses son 3 mediciones: a partir de los 6 meses, al tercer mes de iniciada la suplementación y al término."
+  - "De 24 a 59 meses son 2 mediciones al año: antes de iniciar la suplementación y al término."
+revisado: false
+revisado_por: null
+fecha_revision: null
+observaciones_revision: null
+notas: >-
+  Consulta R09 sin cambios. La Tabla N° 4 original de la NTS (página 11) no está vigente (2
+  mediciones de 6 a 11 meses): solo cuenta la de la RM 429. El paciente tiene 6 meses: solo su tramo
+  es obligatorio.

@@ -1,0 +1,54 @@
+id: OE3-P15
+version_caso: 1
+conjunto: piloto
+origen: desarrollo_reutilizado
+origen_detalle: backend/app/rag/consultas_referencia.yaml, R06
+tipos: [menor_de_6_meses, suplementacion_preventiva]
+paciente:
+  fuente: seed_demo
+  dni_ficticio: "82123456"
+  fecha_tamizaje: 2026-10-15
+fecha_referencia: 2026-10-20
+consulta: ¿Cómo es la suplementación preventiva con hierro en un niño menor de 6 meses nacido a término?
+estado_esperado: VERIFICADA
+clasificacion_esperada: null
+requiere_derivacion: null
+evidencia_suficiente_esperada: true
+criterios:
+  - id: C1
+    descripcion: Dosis, producto, presentación y duración en el nacido a término con adecuado peso (Tabla N° 5 vigente)
+    obligatorio: true
+    alternativas:
+      - documento: RM 429-2024/MINSA
+        paginas: [6, 7]
+        numeral: 6.1.1 B, Tabla N° 5 (modificación N.° 6)
+        texto_anclaje: "| Niña/niño nacido/a a término con adecuado peso al nacer | A los 4 meses de edad | 2mg/Kg/día | Sulfato ferroso o Complejo Polimaltosado férrico* | gotas | Diaria | Hasta los 6 meses cumplidos |"
+  - id: C2
+    descripcion: Edad de inicio en el nacido a término con buen peso
+    obligatorio: true
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [12, 12]
+        numeral: 6.1.1 B.1
+        texto_anclaje: "El niño y la niña nacido/a a término y con buen peso al nacer inicia la suplementación preventiva a los 4 meses de edad."
+      - documento: RM 429-2024/MINSA
+        paginas: [6, 7]
+        numeral: 6.1.1 B, Tabla N° 5 (modificación N.° 6)
+        texto_anclaje: "| Niña/niño nacido/a a término con adecuado peso al nacer | A los 4 meses de edad | 2mg/Kg/día | Sulfato ferroso o Complejo Polimaltosado férrico* | gotas | Diaria | Hasta los 6 meses cumplidos |"
+respuesta_referencia: >-
+  El niño nacido a término y con buen peso al nacer inicia la suplementación preventiva a los 4
+  meses de edad, con 2 mg/kg/día de sulfato ferroso o complejo polimaltosado férrico en gotas, de
+  forma diaria, hasta los 6 meses cumplidos.
+afirmaciones_clave:
+  - La suplementación preventiva del nacido a término con adecuado peso inicia a los 4 meses de edad.
+  - La dosis es de 2 mg/kg/día en gotas.
+  - Se da de forma diaria hasta los 6 meses cumplidos.
+revisado: false
+revisado_por: null
+fecha_revision: null
+observaciones_revision: null
+notas: >-
+  Consulta R06 sin cambios; paciente de la semilla de 4 meses, a término y con peso adecuado. No hay
+  punto de corte para menores de 6 meses: el sistema no clasifica (clasificación y derivación null)
+  y genera con SIN_CLASIFICACION. La Tabla N° 5 original de la NTS (página 12) no está vigente: solo
+  cuenta la de la RM 429. El texto del numeral B.1 de la NTS sigue vigente.

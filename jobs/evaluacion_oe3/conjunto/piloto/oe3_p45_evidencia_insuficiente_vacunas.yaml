@@ -1,0 +1,34 @@
+id: OE3-P45
+version_caso: 1
+conjunto: piloto
+origen: nuevo
+origen_detalle: Relación entre el hierro y las vacunas, que las guías no tratan
+tipos: [sin_anemia, evidencia_insuficiente]
+paciente:
+  fuente: seed_demo
+  dni_ficticio: "82012345"
+  fecha_tamizaje: 2026-10-14
+fecha_referencia: 2026-10-20
+consulta: ¿Hay que suspender el sulfato ferroso unos días antes o después de una vacuna?
+estado_esperado: EVIDENCIA_INSUFICIENTE
+clasificacion_esperada: SIN_ANEMIA
+requiere_derivacion: false
+evidencia_suficiente_esperada: false
+criterios: []
+respuesta_referencia: >-
+  Las guías indexadas no relacionan la suplementación con hierro con la vacunación ni indican
+  suspenderla por una vacuna. El sistema debe declarar evidencia insuficiente.
+afirmaciones_clave:
+  - Las guías disponibles no indican suspender el sulfato ferroso por una vacuna.
+revisado: false
+revisado_por: null
+fecha_revision: null
+observaciones_revision: null
+notas: >-
+  Sin criterios. Comprobación (26/11/2026): búsqueda con expresiones regulares, sin tildes ni
+  mayúsculas, en el texto de los 202 fragmentos de la última versión de las cuatro guías (vigentes y
+  no vigentes, base del ensayo, con las mismas cifras de fragmentos que la VM). «vacun»: 4
+  coincidencias, todas en la Tabla N° 21 de la NTS (página 24), que lista la vacunación como
+  intervención, sin relación con el hierro. «vaccin|immuni[sz]»: 0. El numeral 5.6.1 (suspensión por
+  enfermedades concomitantes) y el Anexo N° 4 (suspensión durante el tratamiento con antibióticos)
+  no mencionan vacunas: si el sistema los usa para responder, la respuesta es incorrecta.

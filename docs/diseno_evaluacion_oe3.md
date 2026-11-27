@@ -19,7 +19,8 @@ Cada regla lleva una de estas marcas:
 | Documento o carpeta | Qué contiene |
 | --- | --- |
 | `jobs/evaluacion_oe3/conjunto/esquema_caso.json` | Esquema de un caso (JSON Schema, sección 5) |
-| `jobs/evaluacion_oe3/conjunto/piloto/` | Piloto de 12 casos, uno por archivo YAML, sin revisar |
+| `jobs/evaluacion_oe3/conjunto/piloto/` | Conjunto de 48 casos, uno por archivo YAML, sin revisar: el piloto (P01 a P12) y los 36 que lo completan (P13 a P48, sección 9) |
+| `docs/revision_casos_oe3.md` | Tabla de los 48 casos para la revisión de la coordinación CRED |
 | `jobs/evaluacion_oe3/README.md` | Uso del job, fases, ensayo y pasos de la corrida definitiva |
 | `backend/app/evaluacion/` | Código del job (sección 6) |
 | `docs/cambios_respecto_al_OE2.md`, fila 170 | Registro de la implementación |
@@ -310,9 +311,23 @@ Un archivo YAML por caso, validado contra `esquema_caso.json`:
 | `notas` | Vigencia, equivalencias y riesgos del caso |
 
 - **SHA-256 del conjunto (decisión):** no va dentro de cada caso, porque cambiaría al escribirlo. Se
-  calcula al congelar el conjunto: SHA-256 de cada archivo y, sobre la lista ordenada de líneas
-  «nombre de archivo, dos espacios, huella», la huella global. Se guarda en el informe y junto a la
-  etiqueta de git.
+  calcula al congelar el conjunto y se guarda en el informe y junto a la etiqueta de git. Algoritmo
+  exacto (`dataset.huella_archivo` y `dataset.huella_conjunto`):
+  1. Para cada archivo `*.yaml` de la carpeta del grupo (todos, aunque se elija un subconjunto de
+     ids), se leen sus bytes y se normaliza el fin de línea: primero cada CRLF (bytes 0D 0A) pasa a
+     LF (0A) y después cada CR suelto (0D) pasa a LF. Ningún otro byte cambia: no se toca la
+     codificación, los espacios finales ni la última línea.
+  2. La huella del archivo es el SHA-256 en hexadecimal (minúsculas) de esos bytes normalizados.
+  3. Se arma una línea por archivo, «nombre del archivo (sin carpeta), dos espacios, huella, LF»,
+     y las líneas se ordenan por nombre (orden de los puntos de código).
+  4. La huella del conjunto es el SHA-256 en hexadecimal del texto de todas las líneas unidas,
+     codificado en UTF-8.
+
+  El esquema (`esquema_caso.json`) tiene su propia huella, con la misma normalización del paso 1.
+  Con un archivo en LF su huella es el SHA-256 de sus bytes tal cual, así que la huella coincide con
+  la de una copia de git; con CRLF o una mezcla da la misma. `.gitattributes` además fuerza LF en
+  `jobs/evaluacion_oe3/conjunto/**`. Las pruebas comprueban que LF, CRLF y una mezcla dan la misma
+  huella y que un cambio de contenido da otra.
 - **Los casos reutilizados del desarrollo no son independientes.** Las 35 consultas R y V ajustaron
   y validaron la recuperación, y `casos_e2e.yaml` se usó en las pruebas de punta a punta. Cada caso
   lo declara en `origen`, y el informe da las cifras por separado para reutilizados y nuevos. P06
@@ -450,7 +465,40 @@ estimaciones de los tokens ya registrados, más un 20 a 30 % por reintentos.
   tramos de 6 a 23 y de 24 a 59 meses, y la anemia severa por ajuste de altitud.
 - Con la opción A del piloto (sección 5.1), los 8 casos del piloto que vienen de `casos_e2e` y los
   4 nuevos se cuentan dentro de estos 48.
-- **Pendiente:** la composición final después de la ficha del CRED.
+- **Composición definida (26/11/2026, fila 172):** los 36 casos que faltaban son P13 a P48, con el
+  mismo esquema que el piloto. Dependen de un fragmento en inglés de la OMS P09, P14, P21 y P30. Los
+  130 anclajes encajan cada uno en exactamente un fragmento vigente de la base del ensayo y en
+  ninguno no vigente (`validar --con-base`). Las preguntas de evidencia insuficiente se comprobaron
+  con búsquedas en el texto de las guías; cada caso anota cómo. Tabla para la ficha en
+  `docs/revision_casos_oe3.md`. Huella del conjunto al 27/11/2026:
+  `9cae4f53cd1f012adbd3c49de398410a8c3826514ab52fef88be3ec85e6302a0`.
+- **Decisión (fin de línea, 27/11/2026):** la huella se calculaba sobre los bytes de cada archivo, y
+  en una copia de Windows con `core.autocrlf=true` el mismo contenido daba otra huella (en CRLF,
+  `613f3349...`; con los 12 del piloto en CRLF y los 36 nuevos en LF, `091e7e5b...`). Ahora el job
+  normaliza el fin de línea antes de calcular (sección 5) y `.gitattributes` fuerza LF en
+  `jobs/evaluacion_oe3/conjunto/**`. La huella normalizada es la de todo en LF, `9cae4f53...`, en
+  cualquier copia.
+- **Decisión (desglose por origen):** 20 reutilizados del desarrollo y 28 nuevos, como en la tabla.
+  Los 20 reutilizados son 12 consultas de desarrollo y los 8 casos del piloto que vienen de
+  `casos_e2e`. El informe da las cifras de cada origen por separado.
+- **Decisión (P41 y P46):** ninguna de las 35 consultas R y V es de evidencia insuficiente ni de
+  fuera de dominio. Por eso P41 (evidencia insuficiente) y P46 (fuera de dominio) salen de las
+  listas `dominio.dentro` y `dominio.fuera` de `consultas_validacion.yaml`, que se usaron para
+  calibrar el filtro de dominio: cuentan como `desarrollo_reutilizado`. Las otras 10 son consultas R
+  o V.
+- **Decisión (pacientes de los reutilizados):** 9 de las 12 consultas de desarrollo reutilizadas
+  (P13, P14, P18, P19, P24, P25, P30, P35 y P36) usan pacientes ficticios, porque la semilla no tiene
+  uno compatible con la pregunta (edad o clasificación); P15, P41 y P46 usan pacientes de la semilla.
+  La consulta original se mantiene sin cambios. Los 8 casos de `casos_e2e` usan los pacientes de la
+  semilla de origen.
+- **Decisión (carpeta y etiqueta):** los 48 casos permanecen en `jobs/evaluacion_oe3/conjunto/piloto/`
+  hasta la revisión del CRED. Después pasan a `jobs/evaluacion_oe3/conjunto/evaluacion/` con los
+  mismos ids (solo cambia el campo `conjunto` a `evaluacion`, que el cargador exige igual a la
+  carpeta) y una etiqueta de git propia que registra el SHA-256 final del conjunto. El job no
+  ejecuta el grupo `piloto` con el modelo real, así que la corrida única de OE3-A se hace sobre
+  `evaluacion/`.
+- **Pendiente:** la revisión del CRED, que puede cambiar casos, y la huella definitiva del conjunto
+  con su etiqueta de git antes de la corrida única de OE3-A.
 
 ## 10. Resumen de decisiones
 
@@ -475,4 +523,7 @@ estimaciones de los tokens ya registrados, más un 20 a 30 % por reintentos.
 | Rúbrica del juez de adherencia (sección 3.4) | Propuesta en uso; pendiente de tu revisión |
 | Modelo juez, razonamiento y valor final de k | Pendiente (comparación Sonnet frente a Haiku, preparada, sin ejecutar) |
 | Equivalencias entre guías (OMS y norma nacional, tabla y texto, g/L y g/dL) | Pendiente (ficha del CRED) |
-| Composición final de los 48 casos | Pendiente (después de la ficha) |
+| Composición final de los 48 casos | Definida (26/11/2026, P01 a P48, fila 172); pendiente la revisión del CRED |
+| Carpeta del conjunto: `piloto/` hasta la revisión del CRED y después `evaluacion/` con los mismos ids y una etiqueta con el SHA-256 final | Tomada (responsable) |
+| P41 y P46 de las listas de dominio de `consultas_validacion.yaml`; 9 de las 12 consultas reutilizadas con pacientes ficticios; 20 reutilizados y 28 nuevos | Tomada (responsable) |
+| Huella del conjunto con el fin de línea normalizado (CRLF y CR a LF) y LF forzado en `.gitattributes` | Adoptada e implementada (27/11/2026) |

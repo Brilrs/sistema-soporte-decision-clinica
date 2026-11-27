@@ -1,0 +1,73 @@
+id: OE3-P30
+version_caso: 1
+conjunto: piloto
+origen: desarrollo_reutilizado
+origen_detalle: backend/app/rag/consultas_referencia.yaml, R19
+tipos: [anemia_severa, derivacion, fragmento_en_ingles]
+paciente:
+  fuente: ficticio
+  dni_ficticio: "89000030"
+  fecha_tamizaje: 2026-10-16
+  datos_ficticios:
+    sexo: M
+    fecha_nacimiento: 2025-02-03
+    ubigeo: "150134"
+    edad_gestacional: A_TERMINO
+    bajo_peso_al_nacer: false
+    tamizaje:
+      hemoglobina_g_dl: 6.7
+      peso_kg: 9.6
+      talla_cm: 80.0
+      recibe_suplementacion_hierro: false
+      lactancia_materna_actual: true
+      parasitosis: false
+      sintomas: [Palidez, Fatiga o somnolencia]
+fecha_referencia: 2026-10-20
+consulta: ¿Cómo clasifica la OMS la severidad de la anemia en niños pequeños?
+estado_esperado: VERIFICADA
+clasificacion_esperada: ANEMIA_SEVERA
+requiere_derivacion: true
+evidencia_suficiente_esperada: true
+criterios:
+  - id: C1
+    descripcion: Puntos de corte de severidad de la OMS de 6 a 23 meses (Table 3)
+    obligatorio: true
+    alternativas:
+      - documento: OMS 2024
+        paginas: [31, 31]
+        numeral: Table 3
+        texto_anclaje: "Children, 6-23 months ≥105 95-104 70-94 <70"
+  - id: C2
+    descripcion: Puntos de corte de severidad de la OMS de 24 a 59 meses (Table 3)
+    obligatorio: false
+    alternativas:
+      - documento: OMS 2024
+        paginas: [31, 31]
+        numeral: Table 3
+        texto_anclaje: "Children, 24-59 months ≥110 100-109 70-99 <70"
+  - id: C3
+    descripcion: Tratamiento como anemia moderada y referencia inmediata (caso severo)
+    obligatorio: true
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [22, 22]
+        numeral: 6.1.2 B.7
+        texto_anclaje: "Se indica el tratamiento como un caso de anemia moderada y se refiere inmediatamente a un establecimiento de salud de mayor capacidad resolutiva para la atención especializada."
+respuesta_referencia: >-
+  Según la OMS, de 6 a 23 meses no hay anemia con 105 g/L o más; la anemia es leve de 95 a 104 g/L,
+  moderada de 70 a 94 g/L y severa por debajo de 70 g/L. De 24 a 59 meses: sin anemia con 110 g/L o
+  más, leve de 100 a 109, moderada de 70 a 99 y severa por debajo de 70 g/L. Como este niño tiene
+  anemia severa, se indica el tratamiento como un caso de anemia moderada y se refiere
+  inmediatamente a un establecimiento de mayor capacidad resolutiva para la atención especializada.
+afirmaciones_clave:
+  - Según la OMS, de 6 a 23 meses la anemia es severa por debajo de 70 g/L.
+  - Según la OMS, de 6 a 23 meses la anemia es moderada de 70 a 94 g/L y leve de 95 a 104 g/L.
+  - En la anemia severa se refiere inmediatamente a un establecimiento de mayor capacidad resolutiva.
+revisado: false
+revisado_por: null
+fecha_revision: null
+observaciones_revision: null
+notas: >-
+  Consulta R19 sin cambios. Depende de un fragmento en inglés (OMS 2024, Table 3, en g/L). C3 viene
+  de la regla garantizada de la fila 165. La Tabla N° 13 de la RM 429 (g/dL) no se acepta para C1:
+  la pregunta es por la OMS.

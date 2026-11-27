@@ -1,0 +1,71 @@
+id: OE3-P13
+version_caso: 1
+conjunto: piloto
+origen: desarrollo_reutilizado
+origen_detalle: backend/app/rag/consultas_referencia.yaml, R01
+tipos: [sin_anemia, suplementacion_preventiva]
+paciente:
+  fuente: ficticio
+  dni_ficticio: "89000013"
+  fecha_tamizaje: 2026-10-14
+  datos_ficticios:
+    sexo: F
+    fecha_nacimiento: 2026-02-03
+    ubigeo: "150134"
+    edad_gestacional: A_TERMINO
+    bajo_peso_al_nacer: false
+    tamizaje:
+      hemoglobina_g_dl: 11.3
+      peso_kg: 8.1
+      talla_cm: 69.0
+      recibe_suplementacion_hierro: false
+      lactancia_materna_actual: true
+      parasitosis: false
+      sintomas: []
+fecha_referencia: 2026-10-20
+consulta: ¿Qué dosis de hierro preventivo le corresponde a un lactante de 8 meses?
+estado_esperado: VERIFICADA
+clasificacion_esperada: SIN_ANEMIA
+requiere_derivacion: false
+evidencia_suficiente_esperada: true
+criterios:
+  - id: C1
+    descripcion: Condición de hemoglobina, frecuencia y duración de 6 a 11 meses
+    obligatorio: true
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [12, 12]
+        numeral: 6.1.1 B.2
+        texto_anclaje: "Inicia la suplementación de hierro, si la Hb es ≥ 10.5 g/dL, de forma diaria durante 6 meses continuos (Tabla N° 6)."
+  - id: C2
+    descripcion: Dosis, producto y presentación de 6 a 11 meses (Tabla N° 6)
+    obligatorio: true
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [12, 12]
+        numeral: 6.1.1 B.2, Tabla N° 6
+        texto_anclaje: "| 6 a 11 meses | 2 mg/kg | Sulfato Ferroso o Complejo Polimaltosado Férrico* | gotas o jarabe | Diaria | 6 meses consecutivos |"
+  - id: C3
+    descripcion: Alternativa de micronutrientes de 6 a 11 meses (Tabla N° 6)
+    obligatorio: false
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [12, 12]
+        numeral: 6.1.1 B.2, Tabla N° 6
+        texto_anclaje: "| 6 a 11 meses | 1 sobre | Micronutrientes | polvo de 1 g | Diaria | 6 meses consecutivos |"
+respuesta_referencia: >-
+  Con hemoglobina de 10,5 g/dL o más, inicia la suplementación de hierro de forma diaria durante 6
+  meses continuos. La dosis es de 2 mg/kg, con sulfato ferroso o complejo polimaltosado férrico en
+  gotas o jarabe, diaria, durante 6 meses consecutivos. La Tabla N° 6 incluye también 1 sobre diario
+  de micronutrientes durante 6 meses consecutivos.
+afirmaciones_clave:
+  - La dosis preventiva de 6 a 11 meses es de 2 mg/kg de hierro.
+  - La suplementación es diaria durante 6 meses.
+  - Se inicia si la hemoglobina es de 10,5 g/dL o más.
+revisado: false
+revisado_por: null
+fecha_revision: null
+observaciones_revision: null
+notas: >-
+  Consulta R01 sin cambios; paciente ficticio de 8 meses en Lima (la semilla no tiene uno de esa
+  edad sin anemia). La Tabla N° 6 es de la NTS y sigue vigente (la RM 429 no la modifica).

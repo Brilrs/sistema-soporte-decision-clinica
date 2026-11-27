@@ -1,0 +1,68 @@
+id: OE3-P27
+version_caso: 1
+conjunto: piloto
+origen: nuevo
+origen_detalle: "Sin incremento de hemoglobina al mes pese a buena adherencia: criterio de referencia"
+tipos: [anemia_moderada, control_tratamiento]
+paciente:
+  fuente: ficticio
+  dni_ficticio: "89000027"
+  fecha_tamizaje: 2026-10-18
+  datos_ficticios:
+    sexo: F
+    fecha_nacimiento: 2025-06-03
+    ubigeo: "150134"
+    edad_gestacional: A_TERMINO
+    bajo_peso_al_nacer: false
+    tamizaje:
+      hemoglobina_g_dl: 8.8
+      peso_kg: 9.4
+      talla_cm: 76.0
+      recibe_suplementacion_hierro: true
+      lactancia_materna_actual: true
+      parasitosis: false
+      sintomas: [Palidez]
+fecha_referencia: 2026-10-20
+consulta: Lleva un mes de tratamiento con hierro, la madre se lo da todos los días y la hemoglobina no subió. ¿Qué se debe hacer?
+estado_esperado: VERIFICADA
+clasificacion_esperada: ANEMIA_MODERADA
+requiere_derivacion: false
+evidencia_suficiente_esperada: true
+criterios:
+  - id: C1
+    descripcion: Referencia si no hay incremento de Hb pese a la adherencia
+    obligatorio: true
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [22, 23]
+        numeral: 6.1.2 B.11
+        texto_anclaje: "referir al establecimiento de salud con mayor capacidad resolutiva cuando no hay incremento del valor de Hb a pesar de la adherencia al tratamiento"
+  - id: C2
+    descripcion: Incremento esperado de hemoglobina a los 30 días
+    obligatorio: true
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [22, 23]
+        numeral: 6.1.2 B.11
+        texto_anclaje: "A los 30 días de iniciado el tratamiento con suplemento de hierro, el incremento de Hb debe ser mayor o igual de 1g/dL"
+respuesta_referencia: >-
+  A los 30 días de iniciado el tratamiento, el incremento de hemoglobina debe ser de 1 g/dL o más.
+  Si no hay incremento a pesar de la adherencia al tratamiento, se refiere al establecimiento de
+  salud con mayor capacidad resolutiva.
+afirmaciones_clave:
+  - A los 30 días el incremento de hemoglobina debe ser de 1 g/dL o más.
+  - Si no hay incremento a pesar de la adherencia se refiere a un establecimiento de mayor capacidad resolutiva.
+revisado: false
+revisado_por: null
+fecha_revision: null
+observaciones_revision: null
+notas: >-
+  requiere_derivacion es el de la clasificación (moderada: false); la referencia de la respuesta
+  viene de la falta de respuesta al tratamiento, no de la clasificación. C1 tiene una sola
+  alternativa, la del apartado 11 (página 22 a 23). El apartado 10 (página 22) dice lo mismo en su
+  primera viñeta, pero el texto indexado está dañado («Si no hay incremento de Hbstg/dL pero existe
+  buena adherencia al tratamiento.») y no tiene un tramo limpio que sostenga el criterio: si el
+  modelo recibe solo ese fragmento, C1 no se cumple. La viñeta limpia del mismo apartado («En los
+  siguientes controles de Hb, el valor es menor al normal a pesar de haber adherencia a los
+  suplementos de hierro.») trata de los controles siguientes, no del primer mes: la ficha decide si
+  se acepta como alternativa.
