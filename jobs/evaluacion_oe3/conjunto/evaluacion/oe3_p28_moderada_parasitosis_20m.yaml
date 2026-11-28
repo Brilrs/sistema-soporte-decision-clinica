@@ -1,0 +1,58 @@
+id: OE3-P28
+version_caso: 1
+conjunto: evaluacion
+origen: nuevo
+origen_detalle: Suspensión del hierro por parasitosis y reinicio (modificación N.° 4 de la RM 429)
+tipos: [anemia_moderada, tratamiento]
+paciente:
+  fuente: seed_demo
+  dni_ficticio: "81456789"
+  fecha_tamizaje: 2026-10-18
+fecha_referencia: 2026-10-20
+consulta: Tiene parasitosis. ¿Se suspende el tratamiento con hierro y cómo se continúa después?
+estado_esperado: VERIFICADA
+clasificacion_esperada: ANEMIA_MODERADA
+requiere_derivacion: false
+evidencia_suficiente_esperada: true
+criterios:
+  - id: C1
+    descripcion: Suspensión ante enfermedades concomitantes, incluidas las parasitarias
+    obligatorio: true
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [9, 9]
+        numeral: 5.6.1
+        texto_anclaje: "Se suspende la suplementación preventiva o terapéutica cuando se presentan enfermedades concomitantes (infecciones bacterianas, parasitarias, gastritis, enfermedad diarreica aguda, entre otras) y/o efectos adversos."
+  - id: C2
+    descripcion: "Suspensión menor a 3 meses: se continúa hasta completar el esquema"
+    obligatorio: true
+    alternativas:
+      - documento: RM 429-2024/MINSA
+        paginas: [5, 6]
+        numeral: 5.6.2 (modificación N.° 4)
+        texto_anclaje: "Si la suspensión del suplemento de hierro es menor a 3 meses, se continúa la indicación hasta completar el esquema previamente indicado."
+  - id: C3
+    descripcion: "Suspensión mayor a 3 meses: nuevo esquema con medición de hemoglobina"
+    obligatorio: false
+    alternativas:
+      - documento: RM 429-2024/MINSA
+        paginas: [5, 6]
+        numeral: 5.6.3 (modificación N.° 4)
+        texto_anclaje: "Si la suspensión del suplemento de hierro es mayor a 3 meses, debe reiniciar un nuevo esquema, previa medición de hemoglobina"
+respuesta_referencia: >-
+  Se suspende la suplementación preventiva o terapéutica cuando se presentan enfermedades
+  concomitantes, entre ellas las parasitarias. Si la suspensión es menor a 3 meses, se continúa la
+  indicación hasta completar el esquema previamente indicado; si es mayor a 3 meses, se reinicia un
+  nuevo esquema previa medición de hemoglobina.
+afirmaciones_clave:
+  - La suplementación se suspende cuando se presentan enfermedades concomitantes como las parasitarias.
+  - Si la suspensión es menor a 3 meses se continúa hasta completar el esquema indicado.
+revisado: true
+revisado_por: "Coordinador CRED, Centro de Salud San Luis"
+fecha_revision: 2026-11-27
+observaciones_revision: null
+notas: >-
+  Paciente de la semilla con parasitosis (el mismo de P03 y P07). Los numerales 5.6.2 y 5.6.3
+  originales de la NTS (página 9, «se reinicia la indicación») no están vigentes: solo cuenta el
+  texto de la RM 429. No confundir con P07, que pregunta por un intervalo en horas que las guías no
+  dan.

@@ -1,0 +1,74 @@
+id: OE3-P25
+version_caso: 1
+conjunto: evaluacion
+origen: desarrollo_reutilizado
+origen_detalle: backend/app/rag/consultas_referencia.yaml, R14
+tipos: [anemia_moderada, tratamiento]
+paciente:
+  fuente: ficticio
+  dni_ficticio: "89000025"
+  fecha_tamizaje: 2026-10-17
+  datos_ficticios:
+    sexo: F
+    fecha_nacimiento: 2025-02-03
+    ubigeo: "150134"
+    edad_gestacional: A_TERMINO
+    bajo_peso_al_nacer: false
+    tamizaje:
+      hemoglobina_g_dl: 8.5
+      peso_kg: 10.0
+      talla_cm: 81.0
+      recibe_suplementacion_hierro: true
+      lactancia_materna_actual: true
+      parasitosis: false
+      sintomas: [Palidez, Hiporexia]
+fecha_referencia: 2026-10-20
+consulta: ¿Qué hacer si el niño presenta estreñimiento u otros efectos adversos con el sulfato ferroso?
+estado_esperado: VERIFICADA
+clasificacion_esperada: ANEMIA_MODERADA
+requiere_derivacion: false
+evidencia_suficiente_esperada: true
+criterios:
+  - id: C1
+    descripcion: Recomendación ante estreñimiento en menores de 36 meses
+    obligatorio: true
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [8, 8]
+        numeral: 5.4.3
+        texto_anclaje: "Estreñimiento Dele lactancia materna más seguida. Fraccione la dosis en 2 tomas."
+  - id: C2
+    descripcion: Complejo polimaltosado férrico como alternativa ante efectos adversos
+    obligatorio: true
+    alternativas:
+      - documento: RM 429-2024/MINSA
+        paginas: [5, 5]
+        numeral: 5.4.2 (modificación N.° 3)
+        texto_anclaje: "Cuando la adherencia al sulfato ferroso no es adecuada (< 75% de consumo del suplemento en el mes) o se presentan efectos adversos que limitan la continuidad, se emplea como alternativa el Complejo Polimaltosado Férrico."
+  - id: C3
+    descripcion: Notificación de la sospecha de reacción adversa
+    obligatorio: false
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [9, 9]
+        numeral: "5.5"
+        texto_anclaje: "deben reportar en el formato de \"Notificación de sospechas de reacciones adversas a medicamentos\""
+respuesta_referencia: >-
+  Ante estreñimiento en menores de 36 meses se recomienda darle lactancia materna más seguida y
+  fraccionar la dosis en 2 tomas. Si los efectos adversos limitan la continuidad del sulfato
+  ferroso, se emplea como alternativa el complejo polimaltosado férrico. Las reacciones adversas se
+  reportan en el formato de notificación de sospechas de reacciones adversas a medicamentos.
+afirmaciones_clave:
+  - Ante estreñimiento se da lactancia materna más seguida y se fracciona la dosis en 2 tomas.
+  - Si los efectos adversos limitan la continuidad se emplea como alternativa el complejo polimaltosado férrico.
+revisado: true
+revisado_por: "Coordinador CRED, Centro de Salud San Luis"
+fecha_revision: 2026-11-27
+observaciones_revision: null
+notas: >-
+  Consulta R14 sin cambios. El anclaje de C1 no tiene caracteres dañados y es el único texto del
+  fragmento vigente de 5.4.3 que une el estreñimiento con su recomendación en menores de 36 meses.
+  En el texto indexado el resto de la tabla tiene las columnas mezcladas, pero la extracción por
+  disposición del PDF (página 8) confirma la fila: «Estreñimiento: Dele lactancia materna más
+  seguida. Fraccione la dosis en 2 tomas.». El numeral 5.4.2 original de la NTS (página 8) no está
+  vigente.

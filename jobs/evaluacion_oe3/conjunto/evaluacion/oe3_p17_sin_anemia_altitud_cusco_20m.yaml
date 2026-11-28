@@ -1,0 +1,79 @@
+id: OE3-P17
+version_caso: 1
+conjunto: evaluacion
+origen: nuevo
+origen_detalle: Hemoglobina normal después del ajuste por altitud (Cusco, 3399 msnm), tramo de 12 a 23 meses
+tipos: [sin_anemia, altitud, suplementacion_preventiva]
+paciente:
+  fuente: ficticio
+  dni_ficticio: "89000017"
+  fecha_tamizaje: 2026-10-07
+  datos_ficticios:
+    sexo: M
+    fecha_nacimiento: 2025-02-03
+    ubigeo: "080101"
+    edad_gestacional: A_TERMINO
+    bajo_peso_al_nacer: false
+    tamizaje:
+      hemoglobina_g_dl: 12.9
+      peso_kg: 10.9
+      talla_cm: 82.0
+      recibe_suplementacion_hierro: false
+      lactancia_materna_actual: true
+      parasitosis: false
+      sintomas: []
+fecha_referencia: 2026-10-20
+consulta: ¿Cuánto se le resta a la hemoglobina por la altitud y qué suplementación preventiva le corresponde?
+estado_esperado: VERIFICADA
+clasificacion_esperada: SIN_ANEMIA
+requiere_derivacion: false
+evidencia_suficiente_esperada: true
+criterios:
+  - id: C1
+    descripcion: Valor del ajuste para 3000 a 3499 msnm (Cusco, 3399 msnm)
+    obligatorio: true
+    alternativas:
+      - documento: RM 429-2024/MINSA
+        paginas: [4, 5]
+        numeral: 5.3.2, Tabla N° 1 (modificación N.° 2)
+        texto_anclaje: "| 3000 - 3499 | 2.1 |"
+      - documento: OMS 2024
+        paginas: [34, 34]
+        numeral: Table 4
+        texto_anclaje: "3000-3499 21"
+  - id: C2
+    descripcion: El ajuste se resta de la hemoglobina observada
+    obligatorio: false
+    alternativas:
+      - documento: RM 429-2024/MINSA
+        paginas: [4, 5]
+        numeral: 5.3.2, Tabla N° 1 (modificación N.° 2)
+        texto_anclaje: "Los ajustes son la cantidad restada del nivel de hemoglobina observado o agregada al límite de hemoglobina que define la anemia"
+      - documento: OMS 2024
+        paginas: [34, 34]
+        numeral: Table 4
+        texto_anclaje: "Adjustments are the amount subtracted from an individual's observed haemoglobin level or added to the haemoglobin cutoff defining anaemia"
+  - id: C3
+    descripcion: Dosis, producto y duración de 12 a 23 meses (Tabla N° 7)
+    obligatorio: true
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [12, 13]
+        numeral: 6.1.1 B.3, Tabla N° 7
+        texto_anclaje: "| 12 a 23 meses | 2 mg/kg/día | Sulfato Ferroso o Complejo Polimaltosado Férrico* | Gotas o jarabe | Diaria | 6 meses consecutivos |"
+respuesta_referencia: >-
+  Para una residencia entre 3000 y 3499 msnm el ajuste es de 2,1 g/dL, que se resta de la
+  hemoglobina observada: 12,9 menos 2,1 da 10,8 g/dL, sin anemia. La suplementación preventiva de 12
+  a 23 meses es con 2 mg/kg/día de sulfato ferroso o complejo polimaltosado férrico en gotas o
+  jarabe, diaria, durante 6 meses consecutivos.
+afirmaciones_clave:
+  - El ajuste por altitud para 3000 a 3499 msnm es 2,1 g/dL y se resta de la hemoglobina observada.
+  - La hemoglobina ajustada es 10,8 g/dL.
+  - La dosis preventiva de 12 a 23 meses es de 2 mg/kg/día durante 6 meses.
+revisado: true
+revisado_por: "Coordinador CRED, Centro de Salud San Luis"
+fecha_revision: 2026-11-27
+observaciones_revision: null
+notas: >-
+  La OMS 2024 expresa el ajuste en g/L (21 g/L equivale a 2,1 g/dL); la equivalencia la confirma la
+  ficha. La Tabla N° 1 original de la NTS (página 7) no está vigente.

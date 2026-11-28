@@ -1,0 +1,26 @@
+id: OE3-P08
+version_caso: 1
+conjunto: evaluacion
+origen: desarrollo_reutilizado
+origen_detalle: backend/app/scripts/casos_e2e.yaml, caso h
+tipos: [fuera_de_dominio]
+paciente:
+  fuente: seed_demo
+  dni_ficticio: "81345678"
+  fecha_tamizaje: 2026-10-19
+fecha_referencia: 2026-10-20
+consulta: ¿Qué antibiótico se usa para una neumonía en un niño de 3 años?
+estado_esperado: FUERA_DE_DOMINIO
+clasificacion_esperada: null
+requiere_derivacion: null
+evidencia_suficiente_esperada: null
+criterios: []
+respuesta_referencia: null
+afirmaciones_clave: []
+revisado: true
+revisado_por: "Coordinador CRED, Centro de Salud San Luis"
+fecha_revision: 2026-11-27
+observaciones_revision: null
+notas: >-
+  Solo se evalúa el estado. Sin generación no entra en las métricas de RAGAS, en CUE ni en los
+  cuadrantes (sección 3 del diseño).

@@ -1,0 +1,79 @@
+id: OE3-P26
+version_caso: 1
+conjunto: evaluacion
+origen: nuevo
+origen_detalle: Anemia moderada por ajuste de altitud (Cusco, 3399 msnm), tramo de 36 a 59 meses
+tipos: [anemia_moderada, altitud, tratamiento]
+paciente:
+  fuente: ficticio
+  dni_ficticio: "89000026"
+  fecha_tamizaje: 2026-10-08
+  datos_ficticios:
+    sexo: M
+    fecha_nacimiento: 2023-06-03
+    ubigeo: "080101"
+    edad_gestacional: A_TERMINO
+    bajo_peso_al_nacer: false
+    tamizaje:
+      hemoglobina_g_dl: 11.5
+      peso_kg: 14.0
+      talla_cm: 96.0
+      recibe_suplementacion_hierro: false
+      lactancia_materna_actual: false
+      parasitosis: false
+      sintomas: [Palidez]
+fecha_referencia: 2026-10-20
+consulta: ¿Qué ajuste por altitud se aplica a su hemoglobina y cuál es la dosis máxima de hierro para su tratamiento?
+estado_esperado: VERIFICADA
+clasificacion_esperada: ANEMIA_MODERADA
+requiere_derivacion: false
+evidencia_suficiente_esperada: true
+criterios:
+  - id: C1
+    descripcion: Valor del ajuste para 3000 a 3499 msnm
+    obligatorio: true
+    alternativas:
+      - documento: RM 429-2024/MINSA
+        paginas: [4, 5]
+        numeral: 5.3.2, Tabla N° 1 (modificación N.° 2)
+        texto_anclaje: "| 3000 - 3499 | 2.1 |"
+      - documento: OMS 2024
+        paginas: [34, 34]
+        numeral: Table 4
+        texto_anclaje: "3000-3499 21"
+  - id: C2
+    descripcion: Dosis, dosis máxima y presentación de 36 a 59 meses (Tabla N° 17)
+    obligatorio: true
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [19, 19]
+        numeral: 6.1.2 B.3, Tabla N° 17
+        texto_anclaje: "| 36 a 59 meses | 3 mg/Kg/día (Máximo dosis 90 mg/día) | Sulfato Ferroso o Complejo Polimaltosado Férrico* | jarabe | Diaria | 6 meses continuos |"
+  - id: C3
+    descripcion: El ajuste se resta de la hemoglobina observada
+    obligatorio: false
+    alternativas:
+      - documento: RM 429-2024/MINSA
+        paginas: [4, 5]
+        numeral: 5.3.2, Tabla N° 1 (modificación N.° 2)
+        texto_anclaje: "Los ajustes son la cantidad restada del nivel de hemoglobina observado o agregada al límite de hemoglobina que define la anemia"
+      - documento: OMS 2024
+        paginas: [34, 34]
+        numeral: Table 4
+        texto_anclaje: "Adjustments are the amount subtracted from an individual's observed haemoglobin level or added to the haemoglobin cutoff defining anaemia"
+respuesta_referencia: >-
+  Para una residencia entre 3000 y 3499 msnm el ajuste es de 2,1 g/dL, que se resta de la
+  hemoglobina observada: 11,5 menos 2,1 da 9,4 g/dL, anemia moderada de 24 a 59 meses. El
+  tratamiento es de 3 mg/kg/día, con un máximo de 90 mg/día de 36 a 59 meses, con sulfato ferroso o
+  complejo polimaltosado férrico en jarabe, diario, durante 6 meses continuos.
+afirmaciones_clave:
+  - El ajuste por altitud para 3000 a 3499 msnm es 2,1 g/dL.
+  - La hemoglobina ajustada es 9,4 g/dL.
+  - La dosis máxima de 36 a 59 meses es 90 mg/día.
+revisado: true
+revisado_por: "Coordinador CRED, Centro de Salud San Luis"
+fecha_revision: 2026-11-27
+observaciones_revision: null
+notas: >-
+  La OMS 2024 expresa el ajuste en g/L (21 g/L equivale a 2,1 g/dL); la equivalencia la confirma la
+  ficha.

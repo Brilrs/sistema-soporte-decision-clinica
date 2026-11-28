@@ -20,6 +20,9 @@ import yaml
 
 ESQUEMA = "esquema_caso.json"
 GRUPOS = ("piloto", "evaluacion")
+# Grupo por omisión: el conjunto revisado por la coordinación CRED (27/11/2026). El piloto queda
+# como grupo válido para ensayos, pero hoy no tiene casos: cargarlo da «No hay casos en ...».
+GRUPO_DEFECTO = "evaluacion"
 DIR_CONJUNTO_DEFECTO = Path(os.environ.get("EVALUACION_DIR_CONJUNTO", "/datos/conjunto"))
 # DNI ficticios de seed_demo (app/scripts/seed_demo.py); los ficticios del conjunto empiezan con 89.
 PREFIJO_FICTICIO = "89"
@@ -192,7 +195,7 @@ def cargar_esquema(dir_conjunto: Path) -> tuple[dict, str]:
     return json.loads(crudo), huella_archivo(crudo)
 
 
-def cargar_conjunto(dir_conjunto: Path = DIR_CONJUNTO_DEFECTO, grupo: str = "piloto",
+def cargar_conjunto(dir_conjunto: Path = DIR_CONJUNTO_DEFECTO, grupo: str = GRUPO_DEFECTO,
                     ids: set[str] | None = None) -> Conjunto:
     """Lee y valida todos los casos de <dir_conjunto>/<grupo>. Con errores, no devuelve nada."""
     if grupo not in GRUPOS:

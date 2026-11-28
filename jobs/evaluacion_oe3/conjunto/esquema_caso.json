@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "cdss-anemia/evaluacion_oe3/esquema_caso.json",
   "title": "Caso del conjunto de evaluación del OE3",
-  "description": "Un archivo YAML por caso. Diseño en docs/diseno_evaluacion_oe3.md, sección 5. Todo esperado queda con revisado: false hasta la ficha de la coordinación CRED.",
+  "description": "Un archivo YAML por caso. Diseño en docs/diseno_evaluacion_oe3.md, sección 5. Los casos de evaluacion/ llevan revisado: true con el cargo y la fecha de la ficha de la coordinación CRED (27/11/2026).",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -13,7 +13,7 @@
     "fecha_revision", "observaciones_revision", "notas"
   ],
   "properties": {
-    "id": {"type": "string", "pattern": "^OE3-[PE][0-9]{2,3}$", "description": "P: piloto; E: conjunto de evaluación."},
+    "id": {"type": "string", "pattern": "^OE3-[PE][0-9]{2,3}$", "description": "P: casos que nacieron en el piloto (OE3-P01 a OE3-P48, ids de la ficha firmada, también en evaluacion/); E: casos agregados después al conjunto de evaluación."},
     "version_caso": {"type": "integer", "minimum": 1, "description": "Sube con cada cambio del caso; el cambio queda en git."},
     "conjunto": {"enum": ["piloto", "evaluacion"]},
     "origen": {"enum": ["desarrollo_reutilizado", "nuevo"], "description": "desarrollo_reutilizado: la consulta o el caso ya se usó durante el desarrollo (no es independiente)."},
@@ -103,7 +103,7 @@
     },
     "respuesta_referencia": {"type": ["string", "null"], "description": "Respuesta de referencia redactada solo con lo que dicen las guías indexadas."},
     "afirmaciones_clave": {"type": "array", "items": {"type": "string"}},
-    "revisado": {"type": "boolean", "description": "Queda en false hasta la ficha de la coordinación CRED."},
+    "revisado": {"type": "boolean", "description": "false hasta la ficha de la coordinación CRED; true exige revisado_por y fecha_revision."},
     "revisado_por": {"type": ["string", "null"], "description": "Cargo de quien revisó (no el nombre)."},
     "fecha_revision": {"type": ["string", "null"], "format": "date"},
     "observaciones_revision": {"type": ["string", "null"]},

@@ -1,0 +1,36 @@
+id: OE3-P42
+version_caso: 1
+conjunto: evaluacion
+origen: nuevo
+origen_detalle: Manejo de una ingesta accidental del suplemento
+tipos: [sin_anemia, evidencia_insuficiente]
+paciente:
+  fuente: seed_demo
+  dni_ficticio: "81345678"
+  fecha_tamizaje: 2026-10-19
+fecha_referencia: 2026-10-20
+consulta: ¿Qué se hace si el niño tomó por accidente todo el contenido del suplemento de hierro?
+estado_esperado: EVIDENCIA_INSUFICIENTE
+clasificacion_esperada: SIN_ANEMIA
+requiere_derivacion: false
+evidencia_suficiente_esperada: false
+criterios: []
+respuesta_referencia: >-
+  Las guías indexadas solo indican guardar el suplemento lejos del alcance de los niños para evitar
+  una ingesta accidental que pudiera causar intoxicación; no dicen cómo se maneja. El sistema debe
+  declarar evidencia insuficiente y no proponer un manejo.
+afirmaciones_clave:
+  - Las guías disponibles no indican cómo manejar una ingesta accidental del suplemento de hierro.
+revisado: true
+revisado_por: "Coordinador CRED, Centro de Salud San Luis"
+fecha_revision: 2026-11-27
+observaciones_revision: null
+notas: >-
+  Sin criterios. Comprobación (26/11/2026): búsqueda con expresiones regulares, sin tildes ni
+  mayúsculas, en el texto de los 202 fragmentos de la última versión de las cuatro guías (vigentes y
+  no vigentes, base del ensayo, con las mismas cifras de fragmentos que la VM).
+  «intoxica|sobredosis|overdose|poisoning|accidental»: 3 coincidencias, ninguna con un manejo: Anexo
+  N° 4 de la NTS (página 34, guardar lejos del alcance de los niños «para evitar la ingesta
+  accidental que pudiera causar intoxicación») y OMS 2016 (página 17, falta de datos sobre daño a
+  largo plazo por sobredosis). «toxic»: 4, ninguna sobre el manejo. Si el sistema cita el Anexo N° 4
+  para un manejo, la respuesta es incorrecta.

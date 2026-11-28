@@ -19,7 +19,7 @@ Cada regla lleva una de estas marcas:
 | Documento o carpeta | Qué contiene |
 | --- | --- |
 | `jobs/evaluacion_oe3/conjunto/esquema_caso.json` | Esquema de un caso (JSON Schema, sección 5) |
-| `jobs/evaluacion_oe3/conjunto/piloto/` | Conjunto de 48 casos, uno por archivo YAML, sin revisar: el piloto (P01 a P12) y los 36 que lo completan (P13 a P48, sección 9) |
+| `jobs/evaluacion_oe3/conjunto/evaluacion/` | Conjunto definitivo de 48 casos, uno por archivo YAML, revisados por la coordinación CRED (ficha firmada el 27/11/2026): el piloto (P01 a P12) y los 36 que lo completan (P13 a P48, sección 9). `piloto/` quedó sin casos |
 | `docs/revision_casos_oe3.md` | Tabla de los 48 casos para la revisión de la coordinación CRED |
 | `jobs/evaluacion_oe3/README.md` | Uso del job, fases, ensayo y pasos de la corrida definitiva |
 | `backend/app/evaluacion/` | Código del job (sección 6) |
@@ -254,7 +254,9 @@ clínica por criterio. Por ejemplo, para un tratamiento: dosis, duración y cont
   convierte unidades. Si un criterio obligatorio solo se cumple con alternativas marcadas, el éxito
   cuenta, pero el informe lo separa como «éxito que depende de una equivalencia pendiente». En el
   piloto están marcadas las tres alternativas de la OMS 2024 en g/L (P04, P10 y P12, que pasaron a
-  `version_caso: 2`).
+  `version_caso: 2`). La ficha del CRED del 27/11/2026 confirmó la equivalencia de la Table 4 de la
+  OMS 2024 con la Tabla N° 1 de la RM 429 en los seis casos de altitud (P04, P10, P12, P17, P26 y
+  P32): la marca se quitó y hoy ninguna alternativa del conjunto la lleva.
 
 ### 4.1 Cómo se hace el cruce sin columna de numeral
 
@@ -299,7 +301,7 @@ Un archivo YAML por caso, validado contra `esquema_caso.json`:
 
 | Campo | Contenido |
 | --- | --- |
-| `id`, `version_caso`, `conjunto` | `OE3-P01` (piloto) u `OE3-E001` (evaluación); la versión sube con cada cambio |
+| `id`, `version_caso`, `conjunto` | `OE3-P01` a `OE3-P48`: los casos nacieron en el piloto y conservan el prefijo P en `evaluacion/`, porque la ficha firmada usa esos ids (`OE3-E001` queda para casos agregados después); la versión sube con cada cambio |
 | `origen`, `origen_detalle` | `desarrollo_reutilizado` o `nuevo`, con el archivo de origen |
 | `tipos` | Etiquetas para el desglose (clasificación, derivación, calendario, altitud, inglés, etc.) |
 | `paciente` | `seed_demo` con DNI ficticio y fecha de tamizaje, o `ficticio` con sus datos (sin nombre) |
@@ -307,7 +309,7 @@ Un archivo YAML por caso, validado contra `esquema_caso.json`:
 | `estado_esperado`, `clasificacion_esperada`, `requiere_derivacion`, `evidencia_suficiente_esperada` | Campos deterministas; `null` si no se evalúan |
 | `criterios` | Criterios atómicos con `obligatorio` y sus alternativas (sección 4) |
 | `respuesta_referencia`, `afirmaciones_clave` | Redactadas solo con lo que dicen las guías indexadas |
-| `revisado`, `revisado_por`, `fecha_revision`, `observaciones_revision` | `false` y `null` hasta la ficha; `revisado_por` es el cargo, no el nombre |
+| `revisado`, `revisado_por`, `fecha_revision`, `observaciones_revision` | `false` y `null` hasta la ficha; desde la ficha del 27/11/2026, `true`, «Coordinador CRED, Centro de Salud San Luis» y `2026-11-27`. `revisado_por` es el cargo, no el nombre; con `revisado: true` el cargo y la fecha son obligatorios |
 | `notas` | Vigencia, equivalencias y riesgos del caso |
 
 - **SHA-256 del conjunto (decisión):** no va dentro de cada caso, porque cambiaría al escribirlo. Se
@@ -335,8 +337,10 @@ Un archivo YAML por caso, validado contra `esquema_caso.json`:
 - **Todo se mide con el sistema congelado**, una sola vez.
 - **Revisión (decisión):** la hace la coordinación CRED con una ficha por caso. La ficha muestra la
   consulta, el paciente, los campos esperados, cada criterio con el texto del PDF y la respuesta de
-  referencia, y la coordinación marca «de acuerdo» o propone un cambio. **Pendiente:** el formato
-  de la ficha y la fecha. Hasta entonces, todos los casos quedan con `revisado: false`.
+  referencia, y la coordinación marca «de acuerdo» o propone un cambio. **Hecha:** la coordinación
+  CRED del Centro de Salud San Luis firmó la ficha el 27/11/2026 sobre la tabla de
+  `docs/revision_casos_oe3.md`: los 48 casos quedaron «De acuerdo», sin cambios. Cada caso lleva
+  `revisado: true`, `revisado_por` con el cargo y `fecha_revision: 2026-11-27`.
 
 ### 5.1 Piloto (12 casos)
 
@@ -435,7 +439,7 @@ El informe guarda:
 | Juez no determinista y sin temperatura fija | Dos corridas del juez pueden diferir | k repeticiones, dispersión informada y caché |
 | Prompts de RAGAS en inglés | Juicio entre idiomas con contenido en español (y fragmentos en inglés) | Desglose de los casos con inglés; no se traducen los prompts para no apartarse de RAGAS |
 | Base de pacientes pequeña | 10 pacientes en la semilla y un solo caso severo | Pacientes ficticios nuevos para los casos severos y de derivación |
-| Esperados sin revisión clínica externa | Criterios y referencias propuestos por el equipo | `revisado: false` hasta la ficha del CRED; se informa la fecha de la revisión |
+| Esperados sin revisión clínica externa | Criterios y referencias propuestos por el equipo | Revisados por la coordinación CRED (ficha del 27/11/2026, los 48 «De acuerdo»); se informa la fecha de la revisión. Es una revisión del propio establecimiento, no un panel externo |
 | Casos reutilizados del desarrollo | Sobreestiman el desempeño | Cifras por separado para reutilizados y nuevos |
 | Puntaje del reranker según el lote | El umbral de 0,15 hereda esa dependencia | Limitación conocida (cierre, sección 7) |
 | P3, P4, P7 y P8 | Errores conocidos que se miden como están (decisión 15) | Se citan al interpretar los fallos |
@@ -491,21 +495,31 @@ estimaciones de los tokens ya registrados, más un 20 a 30 % por reintentos.
   uno compatible con la pregunta (edad o clasificación); P15, P41 y P46 usan pacientes de la semilla.
   La consulta original se mantiene sin cambios. Los 8 casos de `casos_e2e` usan los pacientes de la
   semilla de origen.
-- **Decisión (carpeta y etiqueta):** los 48 casos permanecen en `jobs/evaluacion_oe3/conjunto/piloto/`
-  hasta la revisión del CRED. Después pasan a `jobs/evaluacion_oe3/conjunto/evaluacion/` con los
-  mismos ids (solo cambia el campo `conjunto` a `evaluacion`, que el cargador exige igual a la
+- **Decisión (carpeta y etiqueta, aplicada el 27/11/2026):** los 48 casos permanecieron en
+  `jobs/evaluacion_oe3/conjunto/piloto/` hasta la revisión del CRED. Después pasaron a
+  `jobs/evaluacion_oe3/conjunto/evaluacion/` (con `git mv`) con los mismos ids (solo cambia el campo `conjunto` a `evaluacion`, que el cargador exige igual a la
   carpeta) y una etiqueta de git propia que registra el SHA-256 final del conjunto. El job no
   ejecuta el grupo `piloto` con el modelo real, así que la corrida única de OE3-A se hace sobre
   `evaluacion/`.
-- **Pendiente:** la revisión del CRED, que puede cambiar casos, y la huella definitiva del conjunto
-  con su etiqueta de git antes de la corrida única de OE3-A.
+- **Revisión del CRED (27/11/2026):** los 48 «De acuerdo», sin cambios de contenido. En cada caso
+  solo cambiaron `conjunto` (`evaluacion`), `revisado` (`true`), `revisado_por` (el cargo) y
+  `fecha_revision` (`2026-11-27`). El grupo por omisión del job pasó a ser `evaluacion`; `piloto`
+  sigue siendo un grupo válido (y nunca se corre con `--llm real`), pero no tiene casos y cargarlo
+  da «No hay casos». El punto 1 de la ficha (la Table 4 de la OMS 2024 equivale a la Tabla N° 1 de
+  la RM 429 en el ajuste por altitud de P04, P10, P12, P17, P26 y P32) quedó aprobado con el
+  «De acuerdo»: en esos seis casos se quitó la línea `equivalencia_pendiente: true`, sin otro
+  cambio. Huella del conjunto `evaluacion` (48 casos):
+  `49628174086e9ce69cdf1096de1b9e3bab6b99284ff3d41f326f78363ed214ac`. Las anteriores eran
+  `eb8c9502...` (`evaluacion/` revisado, con la marca) y `9cae4f53...` (`piloto/` sin revisar).
+- **Pendiente:** la etiqueta de git propia que registra esta huella, antes de la corrida única de
+  OE3-A.
 
 ## 10. Resumen de decisiones
 
 | Decisión | Estado |
 | --- | --- |
 | CUE del OE2 como cifra principal y cuadrantes RAG-X como diagnóstico | Tomada (responsable) |
-| Revisión clínica por la coordinación CRED con una ficha | Tomada (responsable); formato y fecha pendientes |
+| Revisión clínica por la coordinación CRED con una ficha | Hecha: ficha firmada el 27/11/2026, los 48 casos «De acuerdo» sin cambios |
 | Relevancia del contexto con `ContextRelevance`; Answer Relevancy omitida | Adoptada |
 | Éxito de recuperación con todos los obligatorios entre los enviados; «y» entre criterios y «o» entre alternativas | Adoptada |
 | Cruce por documento, páginas y texto de anclaje normalizado | Adoptada |
@@ -522,8 +536,8 @@ estimaciones de los tokens ya registrados, más un 20 a 30 % por reintentos.
 | Marca `equivalencia_pendiente` en las alternativas, con el éxito que depende de ella informado aparte | Adoptada |
 | Rúbrica del juez de adherencia (sección 3.4) | Propuesta en uso; pendiente de tu revisión |
 | Modelo juez, razonamiento y valor final de k | Pendiente (comparación Sonnet frente a Haiku, preparada, sin ejecutar) |
-| Equivalencias entre guías (OMS y norma nacional, tabla y texto, g/L y g/dL) | Pendiente (ficha del CRED) |
-| Composición final de los 48 casos | Definida (26/11/2026, P01 a P48, fila 172); pendiente la revisión del CRED |
-| Carpeta del conjunto: `piloto/` hasta la revisión del CRED y después `evaluacion/` con los mismos ids y una etiqueta con el SHA-256 final | Tomada (responsable) |
+| Equivalencias entre guías (OMS y norma nacional, tabla y texto, g/L y g/dL) | Confirmada por el CRED el 27/11/2026 |
+| Composición final de los 48 casos | Definida (26/11/2026, P01 a P48, fila 172) y revisada por el CRED (27/11/2026) |
+| Carpeta del conjunto: `piloto/` hasta la revisión del CRED y después `evaluacion/` con los mismos ids y una etiqueta con el SHA-256 final | Tomada (responsable); movida a `evaluacion/` el 27/11/2026, etiqueta pendiente |
 | P41 y P46 de las listas de dominio de `consultas_validacion.yaml`; 9 de las 12 consultas reutilizadas con pacientes ficticios; 20 reutilizados y 28 nuevos | Tomada (responsable) |
 | Huella del conjunto con el fin de línea normalizado (CRLF y CR a LF) y LF forzado en `.gitattributes` | Adoptada e implementada (27/11/2026) |

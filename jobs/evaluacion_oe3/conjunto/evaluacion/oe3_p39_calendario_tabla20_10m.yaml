@@ -1,0 +1,54 @@
+id: OE3-P39
+version_caso: 1
+conjunto: evaluacion
+origen: nuevo
+origen_detalle: Controles de hemoglobina en el tratamiento, tramo de 6 a 35 meses
+tipos: [anemia_leve, calendario_hb, control_tratamiento]
+paciente:
+  fuente: ficticio
+  dni_ficticio: "89000039"
+  fecha_tamizaje: 2026-10-17
+  datos_ficticios:
+    sexo: M
+    fecha_nacimiento: 2025-12-03
+    ubigeo: "150134"
+    edad_gestacional: A_TERMINO
+    bajo_peso_al_nacer: false
+    tamizaje:
+      hemoglobina_g_dl: 10.0
+      peso_kg: 8.6
+      talla_cm: 72.0
+      recibe_suplementacion_hierro: false
+      lactancia_materna_actual: true
+      parasitosis: false
+      sintomas: []
+fecha_referencia: 2026-10-20
+consulta: ¿En qué meses se controla la hemoglobina durante el tratamiento?
+estado_esperado: VERIFICADA
+clasificacion_esperada: ANEMIA_LEVE
+requiere_derivacion: false
+evidencia_suficiente_esperada: true
+criterios:
+  - id: C1
+    descripcion: Controles de hemoglobina de 6 a 35 meses
+    obligatorio: true
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [23, 23]
+        numeral: 6.1.2 B.11, Tabla N° 20
+        texto_anclaje: "| 6 meses a 35 meses | Al mes de iniciado tratamiento. Al segundo, tercer y sexto mes de iniciado tratamiento |"
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [22, 23]
+        numeral: 6.1.2 B.11
+        texto_anclaje: "En el niño y la niña menor de 36 meses, se realiza al mes, al 2o mes, 3o mes y 6o mes de iniciado el tratamiento."
+respuesta_referencia: >-
+  De 6 a 35 meses, la hemoglobina se controla al mes de iniciado el tratamiento y al segundo, tercer
+  y sexto mes de iniciado el tratamiento.
+afirmaciones_clave:
+  - La hemoglobina se controla al mes, al segundo, al tercer y al sexto mes de iniciado el tratamiento.
+revisado: true
+revisado_por: "Coordinador CRED, Centro de Salud San Luis"
+fecha_revision: 2026-11-27
+observaciones_revision: null
+notas: >-
+  C1 tiene dos alternativas equivalentes: la Tabla N° 20 y el texto que la resume (como P03).

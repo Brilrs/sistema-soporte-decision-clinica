@@ -33,6 +33,9 @@ def alt(documento, texto, paginas=(10, 10), pendiente=False):
 # Conjunto y esquema
 # ---------------------------------------------------------------------------
 PILOTO_ORIGINAL = frozenset(f"OE3-P{i:02d}" for i in range(1, 13))
+# Revisión de la coordinación CRED (ficha firmada el 27/11/2026): los 48, «De acuerdo».
+CARGO_REVISOR = "Coordinador CRED, Centro de Salud San Luis"
+FECHA_REVISION = "2026-11-27"
 # Composición de los 48 casos (docs/diseno_evaluacion_oe3.md, sección 9).
 COMPOSICION = {
     "sin_anemia": [1, 9, 11, 13, 14, 15, 16, 17],
@@ -47,14 +50,16 @@ COMPOSICION = {
 
 @pytest.fixture(scope="module")
 def conjunto48():
-    """Toda la carpeta piloto/: los 12 casos del piloto y los 36 que lo completan (P13 a P48)."""
-    return dataset.cargar_conjunto(CONJUNTO, "piloto")
+    """Toda la carpeta evaluacion/ (grupo por omisión): los 12 casos que vienen del piloto y los 36
+    que lo completan (P13 a P48), revisados por la coordinación CRED."""
+    return dataset.cargar_conjunto(CONJUNTO)
 
 
 @pytest.fixture(scope="module")
 def piloto():
-    """Los 12 casos del piloto original (P01 a P12); la huella sigue cubriendo toda la carpeta."""
-    return dataset.cargar_conjunto(CONJUNTO, "piloto", set(PILOTO_ORIGINAL))
+    """Los 12 casos que vienen del piloto (P01 a P12), ahora en evaluacion/; la huella sigue
+    cubriendo toda la carpeta."""
+    return dataset.cargar_conjunto(CONJUNTO, "evaluacion", set(PILOTO_ORIGINAL))
 
 
 @pytest.fixture(scope="module")
@@ -62,19 +67,33 @@ def esquema():
     return json.loads((CONJUNTO / dataset.ESQUEMA).read_text(encoding="utf-8"))
 
 
-def test_el_piloto_carga_valida_y_tiene_huella(piloto):
-    assert len(piloto.casos) == 12
+def test_los_casos_del_piloto_cargan_desde_evaluacion_con_huella(piloto):
+    assert len(piloto.casos) == 12 and piloto.grupo == "evaluacion"
     assert [c.id for c in piloto.casos] == [f"OE3-P{i:02d}" for i in range(1, 13)]
-    assert all(c["revisado"] is False and c["revisado_por"] is None for c in piloto.casos)
-    archivos = sorted((CONJUNTO / "piloto").glob("*.yaml"))
+    archivos = sorted((CONJUNTO / "evaluacion").glob("*.yaml"))
     def con_lf(ruta):
         return ruta.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
 
     lineas = "".join(f"{p.name}  {dataset.sha256(con_lf(p))}\n" for p in archivos)
     assert piloto.huella == dataset.sha256(lineas.encode())
-    assert piloto.manifiesto()["casos"] == 12 and len(piloto.huellas) == len(archivos)
+    assert piloto.manifiesto()["casos"] == 12 and len(piloto.huellas) == len(archivos) == 48
     for c in piloto.casos:
-        assert piloto.huellas[c.archivo] == dataset.sha256(con_lf(CONJUNTO / "piloto" / c.archivo))
+        assert piloto.huellas[c.archivo] == dataset.sha256(con_lf(CONJUNTO / "evaluacion" / c.archivo))
+
+
+def test_el_grupo_por_omision_es_evaluacion_y_el_piloto_quedo_sin_casos(conjunto48):
+    assert dataset.GRUPO_DEFECTO == "evaluacion" and conjunto48.grupo == "evaluacion"
+    assert set(dataset.GRUPOS) == {"piloto", "evaluacion"}
+    assert not list((CONJUNTO / "piloto").glob("*.yaml"))
+    with pytest.raises(dataset.ErrorConjunto, match="No hay casos"):
+        dataset.cargar_conjunto(CONJUNTO, "piloto")
+
+
+def test_la_cli_usa_evaluacion_por_omision(capsys):
+    from app.evaluacion.__main__ import main
+    assert main(["validar", "--conjunto", str(CONJUNTO)]) == 0
+    manifiesto = json.loads(capsys.readouterr().out)
+    assert manifiesto["grupo"] == "evaluacion" and manifiesto["casos"] == 48
 
 
 def test_los_48_casos_tienen_ids_unicos_y_la_composicion_del_diseno(conjunto48):
@@ -88,7 +107,8 @@ def test_los_48_casos_tienen_ids_unicos_y_la_composicion_del_diseno(conjunto48):
                 "severa_con_derivacion": "ANEMIA_SEVERA"}
     for c in conjunto48.casos:
         g = grupos[int(c.id[5:])]
-        assert c["revisado"] is False and c["revisado_por"] is None
+        assert c["conjunto"] == "evaluacion" and c["revisado"] is True, c.id
+        assert c["revisado_por"] == CARGO_REVISOR and str(c["fecha_revision"]) == FECHA_REVISION, c.id
         if g in esperado and c.id != "OE3-P15":  # P15: menor de 6 meses, sin clasificación
             assert c["clasificacion_esperada"] == esperado[g], c.id
         if g == "severa_con_derivacion":
@@ -104,18 +124,23 @@ def test_los_48_casos_tienen_ids_unicos_y_la_composicion_del_diseno(conjunto48):
 
 
 def test_el_subconjunto_conserva_la_huella_de_toda_la_carpeta(piloto):
-    parte = dataset.cargar_conjunto(CONJUNTO, "piloto", {"OE3-P01", "OE3-P08"})
+    parte = dataset.cargar_conjunto(CONJUNTO, "evaluacion", {"OE3-P01", "OE3-P08"})
     assert [c.id for c in parte.casos] == ["OE3-P01", "OE3-P08"] and parte.huella == piloto.huella
     with pytest.raises(dataset.ErrorConjunto, match="inexistentes"):
-        dataset.cargar_conjunto(CONJUNTO, "piloto", {"OE3-P99"})
+        dataset.cargar_conjunto(CONJUNTO, "evaluacion", {"OE3-P99"})
 
 
 @pytest.mark.parametrize("cambio, error", [
     (lambda d: d.pop("consulta"), "falta consulta"),
     (lambda d: d.update(estado_esperado="APROBADA"), "no es un valor permitido"),
     (lambda d: d.update(campo_nuevo=1), "campo no permitido campo_nuevo"),
-    (lambda d: d.update(revisado=True), "revisado: true exige"),
-    (lambda d: d.update(revisado_por="Coordinación CRED"), "sin revisar no puede"),
+    (lambda d: d.update(revisado_por=None), "revisado: true exige"),
+    (lambda d: d.update(revisado_por=""), "revisado: true exige"),
+    (lambda d: d.update(fecha_revision=None), "revisado: true exige"),
+    (lambda d: d.update(revisado_por=None, fecha_revision=None), "revisado: true exige"),
+    (lambda d: d.update(fecha_revision="2026-11-31"), "fecha inválida"),
+    (lambda d: d.update(revisado=False), "sin revisar no puede"),
+    (lambda d: d.update(conjunto="piloto"), "en la carpeta 'evaluacion'"),
     (lambda d: d["paciente"].update(dni_ficticio="81111111"), "no es de un paciente de seed_demo"),
     (lambda d: d["criterios"][0].update(id="C7"), "C1, C2"),
     (lambda d: d["criterios"][0]["alternativas"][0].update(paginas=[12]), "cantidad de elementos"),
@@ -125,8 +150,13 @@ def test_el_subconjunto_conserva_la_huella_de_toda_la_carpeta(piloto):
 def test_la_validacion_detecta_cada_error(piloto, esquema, cambio, error):
     datos = copy.deepcopy(piloto.casos[0].datos)
     cambio(datos)
-    errores = dataset.validar_caso(datos, esquema, "piloto")
+    errores = dataset.validar_caso(datos, esquema, "evaluacion")
     assert any(error in e for e in errores), errores
+
+
+def test_los_casos_revisados_validan_sin_errores(conjunto48, esquema):
+    for c in conjunto48.casos:
+        assert dataset.validar_caso(copy.deepcopy(c.datos), esquema, "evaluacion") == [], c.id
 
 
 def test_paciente_ficticio_con_prefijo_89_y_sus_datos(piloto, esquema):
@@ -141,16 +171,39 @@ def test_paciente_ficticio_con_prefijo_89_y_sus_datos(piloto, esquema):
 
 def test_un_caso_invalido_impide_cargar_el_conjunto(tmp_path):
     shutil.copy(CONJUNTO / dataset.ESQUEMA, tmp_path / dataset.ESQUEMA)
-    (tmp_path / "piloto").mkdir()
-    origen = sorted((CONJUNTO / "piloto").glob("*.yaml"))[0]
+    (tmp_path / "evaluacion").mkdir()
+    origen = sorted((CONJUNTO / "evaluacion").glob("*.yaml"))[0]
     datos = yaml.safe_load(origen.read_text(encoding="utf-8"))
+    destino = tmp_path / "evaluacion" / origen.name
+    destino.write_text(yaml.safe_dump(datos, allow_unicode=True), encoding="utf-8")
+    assert len(dataset.cargar_conjunto(tmp_path).casos) == 1
+    for campo in ("revisado_por", "fecha_revision"):  # revisado: true sin cargo o sin fecha
+        incompleto = dict(datos, **{campo: None})
+        destino.write_text(yaml.safe_dump(incompleto, allow_unicode=True), encoding="utf-8")
+        with pytest.raises(dataset.ErrorConjunto, match="revisado: true exige"):
+            dataset.cargar_conjunto(tmp_path)
     datos["estado_esperado"] = "OTRO"
-    (tmp_path / "piloto" / origen.name).write_text(yaml.safe_dump(datos, allow_unicode=True), encoding="utf-8")
+    destino.write_text(yaml.safe_dump(datos, allow_unicode=True), encoding="utf-8")
     with pytest.raises(dataset.ErrorConjunto, match="Casos inválidos"):
-        dataset.cargar_conjunto(tmp_path, "piloto")
-    (tmp_path / "piloto" / origen.name).write_text("id: [sin cerrar", encoding="utf-8")
+        dataset.cargar_conjunto(tmp_path)
+    destino.write_text("id: [sin cerrar", encoding="utf-8")
     with pytest.raises(dataset.ErrorConjunto, match="YAML inválido"):
-        dataset.cargar_conjunto(tmp_path, "piloto")
+        dataset.cargar_conjunto(tmp_path)
+
+
+def test_la_cli_rechaza_el_piloto_con_el_modelo_real(tmp_path, capsys):
+    """La regla del piloto sigue: un caso de piloto/ no se corre con --llm real (antes de tocar la base)."""
+    from app.evaluacion.__main__ import main
+    shutil.copy(CONJUNTO / dataset.ESQUEMA, tmp_path / dataset.ESQUEMA)
+    (tmp_path / "piloto").mkdir()
+    origen = sorted((CONJUNTO / "evaluacion").glob("*.yaml"))[0]
+    datos = yaml.safe_load(origen.read_text(encoding="utf-8"))
+    datos.update(conjunto="piloto", revisado=False, revisado_por=None, fecha_revision=None)
+    (tmp_path / "piloto" / origen.name).write_text(yaml.safe_dump(datos, allow_unicode=True), encoding="utf-8")
+    codigo = main(["ejecutar", "--conjunto", str(tmp_path), "--grupo", "piloto", "--llm", "real",
+                   "--confirmo-datos-sinteticos", "--salida", str(tmp_path / "salida")])
+    assert codigo == 2 and "solo con el cliente falso" in capsys.readouterr().err
+    assert not (tmp_path / "salida").exists()
 
 
 def test_la_huella_cambia_con_un_byte():
@@ -167,10 +220,10 @@ def test_normalizar_fin_de_linea_solo_cambia_cr():
 
 
 def _copia_del_conjunto(destino, fin_de_linea):
-    """Copia el esquema y 4 casos del piloto con el fin de línea pedido: "lf", "crlf" o "mezcla"
+    """Copia el esquema y 4 casos del conjunto con el fin de línea pedido: "lf", "crlf" o "mezcla"
     (archivos alternados en LF y CRLF, y un caso con CRLF, CR sueltos y LF en sus líneas)."""
-    (destino / "piloto").mkdir(parents=True)
-    origenes = [CONJUNTO / dataset.ESQUEMA] + sorted((CONJUNTO / "piloto").glob("*.yaml"))[:4]
+    (destino / "evaluacion").mkdir(parents=True)
+    origenes = [CONJUNTO / dataset.ESQUEMA] + sorted((CONJUNTO / "evaluacion").glob("*.yaml"))[:4]
     for i, origen in enumerate(origenes):
         lf = dataset.normalizar_fin_de_linea(origen.read_bytes())
         if fin_de_linea == "crlf" or (fin_de_linea == "mezcla" and i % 2 == 0):
@@ -181,7 +234,7 @@ def _copia_del_conjunto(destino, fin_de_linea):
             datos = b"".join(l + finales[j % 3] for j, l in enumerate(lineas[:-1])) + lineas[-1]
         else:
             datos = lf
-        carpeta = destino if origen.name == dataset.ESQUEMA else destino / "piloto"
+        carpeta = destino if origen.name == dataset.ESQUEMA else destino / "evaluacion"
         (carpeta / origen.name).write_bytes(datos)
     return destino
 
@@ -194,24 +247,24 @@ def test_la_huella_no_depende_del_fin_de_linea(tmp_path):
     assert len(set(crudos.values())) == 3
     assert b"\r" in crudos["mezcla"] and b"\r" not in crudos["lf"]
     # ...y las huellas, iguales.
-    cargados = {f: dataset.cargar_conjunto(d, "piloto") for f, d in copias.items()}
+    cargados = {f: dataset.cargar_conjunto(d, "evaluacion") for f, d in copias.items()}
     assert len(cargados["lf"].casos) == 4
     assert len({c.huella for c in cargados.values()}) == 1
     assert len({c.huella_esquema for c in cargados.values()}) == 1
     assert cargados["lf"].huellas == cargados["crlf"].huellas == cargados["mezcla"].huellas
     # En LF, la huella de cada archivo es el SHA-256 de sus bytes tal cual.
     for nombre, h in cargados["lf"].huellas.items():
-        assert h == dataset.sha256((copias["lf"] / "piloto" / nombre).read_bytes())
+        assert h == dataset.sha256((copias["lf"] / "evaluacion" / nombre).read_bytes())
 
 
 def test_un_cambio_de_contenido_cambia_la_huella_aunque_cambie_el_fin_de_linea(tmp_path):
     lf = _copia_del_conjunto(tmp_path / "lf", "lf")
     otro = _copia_del_conjunto(tmp_path / "otro", "crlf")
-    ruta = sorted((otro / "piloto").glob("*.yaml"))[0]
+    ruta = sorted((otro / "evaluacion").glob("*.yaml"))[0]
     original = ruta.read_bytes()
-    ruta.write_bytes(original.replace(b"revisado: false", b"revisado:  false", 1))
+    ruta.write_bytes(original.replace(b"revisado: true", b"revisado:  true", 1))
     assert ruta.read_bytes() != original
-    a, b = dataset.cargar_conjunto(lf, "piloto"), dataset.cargar_conjunto(otro, "piloto")
+    a, b = dataset.cargar_conjunto(lf, "evaluacion"), dataset.cargar_conjunto(otro, "evaluacion")
     assert a.huella != b.huella
     assert [n for n in a.huellas if a.huellas[n] != b.huellas[n]] == [ruta.name]
 
@@ -271,13 +324,14 @@ def test_oms_en_g_por_litro_queda_como_equivalencia_pendiente():
     assert not cue.evaluar_criterios(c, [frag("F-02", OMS, "3500-3999 2.5", (34, 34))]).exito
 
 
-def test_los_anclajes_del_piloto_marcan_la_oms_en_g_por_litro(piloto, conjunto48):
-    pendientes = {(c.id, cr.id) for c in piloto.casos for cr in c.criterios for a in cr.alternativas
-                  if a.equivalencia_pendiente}
-    assert pendientes == {("OE3-P04", "C1"), ("OE3-P10", "C3"), ("OE3-P12", "C4")}
-    # En todo el conjunto, solo las alternativas de la OMS 2024 en g/L llevan la marca.
-    marcadas = [a for c in conjunto48.casos for cr in c.criterios for a in cr.alternativas if a.equivalencia_pendiente]
-    assert marcadas and all(a.documento == OMS and a.numeral == "Table 4" for a in marcadas)
+def test_las_equivalencias_de_la_oms_en_g_por_litro_quedaron_confirmadas(conjunto48):
+    """La ficha del CRED (27/11/2026) confirmó la Table 4 de la OMS 2024 (g/L) frente a la RM 429:
+    ninguna alternativa queda marcada y la de la OMS sigue en los 6 casos de altitud."""
+    assert not [a for c in conjunto48.casos for cr in c.criterios for a in cr.alternativas
+                if a.equivalencia_pendiente]
+    con_oms = {c.id for c in conjunto48.casos for cr in c.criterios for a in cr.alternativas
+               if a.documento == OMS and a.numeral == "Table 4"}
+    assert {"OE3-P04", "OE3-P10", "OE3-P12", "OE3-P17", "OE3-P26", "OE3-P32"} <= con_oms
 
 
 def test_caso_sin_criterios_es_recuperacion_fallida():

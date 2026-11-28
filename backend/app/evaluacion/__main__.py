@@ -10,7 +10,8 @@
     python -m app.evaluacion ensayo --salida DIR        (las cuatro fases con el cliente y el juez falsos)
 
 Opciones comunes: --conjunto DIR (con esquema_caso.json; por omisión EVALUACION_DIR_CONJUNTO o
-/datos/conjunto), --grupo piloto|evaluacion, --casos OE3-P01,OE3-P02.
+/datos/conjunto), --grupo evaluacion|piloto (evaluacion por omisión; el piloto nunca con
+--llm real), --casos OE3-P01,OE3-P02.
 
 Archivos en la carpeta de salida: manifiesto.json, ejecucion.jsonl, extraccion.jsonl,
 juez/<modelo>/llamadas.jsonl y resultados.jsonl, cache_juez/, informe_<modelo>.md y .json.
@@ -282,7 +283,7 @@ def main(argv: list[str] | None = None) -> int:
 
     def comunes(sp, salida=True):
         sp.add_argument("--conjunto", default=str(dataset.DIR_CONJUNTO_DEFECTO))
-        sp.add_argument("--grupo", default="piloto", choices=dataset.GRUPOS)
+        sp.add_argument("--grupo", default=dataset.GRUPO_DEFECTO, choices=dataset.GRUPOS)
         sp.add_argument("--casos", help="ids separados por comas")
         if salida:
             sp.add_argument("--salida", required=True)

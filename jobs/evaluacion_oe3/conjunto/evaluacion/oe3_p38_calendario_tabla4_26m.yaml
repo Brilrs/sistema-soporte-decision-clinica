@@ -1,0 +1,50 @@
+id: OE3-P38
+version_caso: 1
+conjunto: evaluacion
+origen: nuevo
+origen_detalle: Mediciones de hemoglobina de 24 a 35 meses (Tabla N° 4 vigente)
+tipos: [sin_anemia, calendario_hb, suplementacion_preventiva]
+paciente:
+  fuente: ficticio
+  dni_ficticio: "89000038"
+  fecha_tamizaje: 2026-10-11
+  datos_ficticios:
+    sexo: F
+    fecha_nacimiento: 2024-08-03
+    ubigeo: "150134"
+    edad_gestacional: A_TERMINO
+    bajo_peso_al_nacer: false
+    tamizaje:
+      hemoglobina_g_dl: 11.8
+      peso_kg: 12.0
+      talla_cm: 87.0
+      recibe_suplementacion_hierro: false
+      lactancia_materna_actual: false
+      parasitosis: false
+      sintomas: []
+fecha_referencia: 2026-10-20
+consulta: ¿Cuándo se le vuelve a medir la hemoglobina mientras recibe la suplementación preventiva?
+estado_esperado: VERIFICADA
+clasificacion_esperada: SIN_ANEMIA
+requiere_derivacion: false
+evidencia_suficiente_esperada: true
+criterios:
+  - id: C1
+    descripcion: Mediciones de 24 a 35 meses (Tabla N° 4 vigente)
+    obligatorio: true
+    alternativas:
+      - documento: RM 429-2024/MINSA
+        paginas: [6, 6]
+        numeral: 6.1.1 A, Tabla N° 4 (modificación N.° 5)
+        texto_anclaje: "| 24 a 35 meses de edad | 2 mediciones al año: antes de iniciar la suplementación; al término de la suplementación (control) |"
+respuesta_referencia: >-
+  De 24 a 35 meses son 2 mediciones al año: antes de iniciar la suplementación y al término de la
+  suplementación (control).
+afirmaciones_clave:
+  - "De 24 a 35 meses son 2 mediciones al año: antes de iniciar la suplementación y al término."
+revisado: true
+revisado_por: "Coordinador CRED, Centro de Salud San Luis"
+fecha_revision: 2026-11-27
+observaciones_revision: null
+notas: >-
+  La Tabla N° 4 original de la NTS (página 11) no está vigente.

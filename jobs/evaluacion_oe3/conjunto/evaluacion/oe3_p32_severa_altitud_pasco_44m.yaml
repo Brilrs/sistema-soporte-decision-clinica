@@ -1,0 +1,76 @@
+id: OE3-P32
+version_caso: 1
+conjunto: evaluacion
+origen: nuevo
+origen_detalle: Anemia severa por ajuste de altitud (Chaupimarca, 4380 msnm), tramo de 36 a 59 meses
+tipos: [anemia_severa, derivacion, altitud]
+paciente:
+  fuente: ficticio
+  dni_ficticio: "89000032"
+  fecha_tamizaje: 2026-10-10
+  datos_ficticios:
+    sexo: M
+    fecha_nacimiento: 2023-02-03
+    ubigeo: "190101"
+    edad_gestacional: A_TERMINO
+    bajo_peso_al_nacer: false
+    tamizaje:
+      hemoglobina_g_dl: 9.8
+      peso_kg: 14.6
+      talla_cm: 99.0
+      recibe_suplementacion_hierro: false
+      lactancia_materna_actual: false
+      parasitosis: false
+      sintomas: [Palidez, Fatiga o somnolencia]
+fecha_referencia: 2026-10-20
+consulta: ¿Cómo se interpreta su hemoglobina según la altitud donde vive y qué se debe hacer?
+estado_esperado: VERIFICADA
+clasificacion_esperada: ANEMIA_SEVERA
+requiere_derivacion: true
+evidencia_suficiente_esperada: true
+criterios:
+  - id: C1
+    descripcion: Valor del ajuste para 4000 a 4499 msnm
+    obligatorio: true
+    alternativas:
+      - documento: RM 429-2024/MINSA
+        paginas: [4, 5]
+        numeral: 5.3.2, Tabla N° 1 (modificación N.° 2)
+        texto_anclaje: "| 4000 - 4499 | 2.9 |"
+      - documento: OMS 2024
+        paginas: [34, 34]
+        numeral: Table 4
+        texto_anclaje: "4000-4499 29"
+  - id: C2
+    descripcion: Tratamiento como anemia moderada y referencia inmediata
+    obligatorio: true
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [22, 22]
+        numeral: 6.1.2 B.7
+        texto_anclaje: "Se indica el tratamiento como un caso de anemia moderada y se refiere inmediatamente a un establecimiento de salud de mayor capacidad resolutiva para la atención especializada."
+  - id: C3
+    descripcion: Contrarreferencia con evolución favorable
+    obligatorio: false
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [22, 22]
+        numeral: 6.1.2 B.7
+        texto_anclaje: "El/la paciente con evolución favorable al tratamiento de anemia severa es contrarreferido/a al establecimiento de salud, a fin de continuar y completar el tratamiento establecido."
+respuesta_referencia: >-
+  Para una residencia entre 4000 y 4499 msnm el ajuste es de 2,9 g/dL, que se resta de la
+  hemoglobina observada: 9,8 menos 2,9 da 6,9 g/dL, anemia severa. Se indica el tratamiento como un
+  caso de anemia moderada y se refiere inmediatamente a un establecimiento de mayor capacidad
+  resolutiva para la atención especializada; con evolución favorable es contrarreferido para
+  completar el tratamiento.
+afirmaciones_clave:
+  - El ajuste por altitud para 4000 a 4499 msnm es 2,9 g/dL.
+  - La hemoglobina ajustada es 6,9 g/dL, anemia severa.
+  - Se refiere inmediatamente a un establecimiento de mayor capacidad resolutiva.
+revisado: true
+revisado_por: "Coordinador CRED, Centro de Salud San Luis"
+fecha_revision: 2026-11-27
+observaciones_revision: null
+notas: >-
+  La OMS 2024 expresa el ajuste en g/L (29 g/L equivale a 2,9 g/dL); la equivalencia la confirma la
+  ficha.
