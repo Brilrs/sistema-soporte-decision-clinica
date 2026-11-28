@@ -1,0 +1,51 @@
+id: OE3-P18
+version_caso: 1
+conjunto: evaluacion
+origen: desarrollo_reutilizado
+origen_detalle: backend/app/rag/consultas_referencia.yaml, R15
+tipos: [anemia_leve, tratamiento]
+paciente:
+  fuente: ficticio
+  dni_ficticio: "89000018"
+  fecha_tamizaje: 2026-10-15
+  datos_ficticios:
+    sexo: F
+    fecha_nacimiento: 2025-07-03
+    ubigeo: "150134"
+    edad_gestacional: A_TERMINO
+    bajo_peso_al_nacer: false
+    tamizaje:
+      hemoglobina_g_dl: 9.9
+      peso_kg: 9.2
+      talla_cm: 75.0
+      recibe_suplementacion_hierro: true
+      lactancia_materna_actual: true
+      parasitosis: false
+      sintomas: [Palidez]
+fecha_referencia: 2026-10-20
+consulta: ¿Cuándo se da de alta del tratamiento de anemia a un niño?
+estado_esperado: VERIFICADA
+clasificacion_esperada: ANEMIA_LEVE
+requiere_derivacion: false
+evidencia_suficiente_esperada: true
+criterios:
+  - id: C1
+    descripcion: Criterio de alta del tratamiento
+    obligatorio: true
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [22, 22]
+        numeral: 6.1.2 B.9
+        texto_anclaje: "Se considera cuando se han cumplido los 6 meses de tratamiento continuo y el último control de Hb se encuentra en el rango de normalidad."
+respuesta_referencia: >-
+  El alta se considera cuando se han cumplido los 6 meses de tratamiento continuo y el último
+  control de hemoglobina se encuentra en el rango de normalidad.
+afirmaciones_clave:
+  - El alta requiere 6 meses de tratamiento continuo.
+  - El último control de hemoglobina debe estar en el rango de normalidad.
+revisado: true
+revisado_por: "Coordinador CRED, Centro de Salud San Luis"
+fecha_revision: 2026-11-27
+observaciones_revision: null
+notas: >-
+  Consulta R15 sin cambios.

@@ -1,0 +1,61 @@
+id: OE3-P20
+version_caso: 1
+conjunto: evaluacion
+origen: nuevo
+origen_detalle: Inicio del tratamiento antes de los resultados de laboratorio (modificación N.° 10 de la RM 429)
+tipos: [anemia_leve, tratamiento]
+paciente:
+  fuente: ficticio
+  dni_ficticio: "89000020"
+  fecha_tamizaje: 2026-10-15
+  datos_ficticios:
+    sexo: M
+    fecha_nacimiento: 2026-02-03
+    ubigeo: "150103"
+    edad_gestacional: A_TERMINO
+    bajo_peso_al_nacer: false
+    tamizaje:
+      hemoglobina_g_dl: 9.8
+      peso_kg: 7.9
+      talla_cm: 68.5
+      recibe_suplementacion_hierro: false
+      lactancia_materna_actual: true
+      parasitosis: false
+      sintomas: []
+fecha_referencia: 2026-10-20
+consulta: ¿Se inicia el tratamiento con hierro de inmediato o hay que esperar los resultados de laboratorio?
+estado_esperado: VERIFICADA
+clasificacion_esperada: ANEMIA_LEVE
+requiere_derivacion: false
+evidencia_suficiente_esperada: true
+criterios:
+  - id: C1
+    descripcion: Se inicia tratamiento hasta la evaluación de los exámenes de apoyo
+    obligatorio: true
+    alternativas:
+      - documento: RM 429-2024/MINSA
+        paginas: [10, 10]
+        numeral: 6.1.2 B (modificación N.° 10)
+        texto_anclaje: "Cuando el valor de la Hb es menor a lo normal, se considera anemia sin especificación y se inicia tratamiento hasta la evaluación de los resultados de los exámenes de apoyo al diagnóstico"
+  - id: C2
+    descripcion: Se solicitan de inmediato los análisis de laboratorio
+    obligatorio: false
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [16, 17]
+        numeral: 6.1.2 A
+        texto_anclaje: "se deben solicitar inmediatamente los siguientes análisis de laboratorio:"
+respuesta_referencia: >-
+  No hay que esperar. Cuando la hemoglobina es menor a lo normal se considera anemia sin
+  especificación y se inicia el tratamiento hasta la evaluación de los resultados de los exámenes de
+  apoyo al diagnóstico; esos análisis de laboratorio se solicitan de inmediato.
+afirmaciones_clave:
+  - El tratamiento se inicia sin esperar los resultados de los exámenes de apoyo al diagnóstico.
+  - Mientras tanto se considera anemia sin especificación.
+revisado: true
+revisado_por: "Coordinador CRED, Centro de Salud San Luis"
+fecha_revision: 2026-11-27
+observaciones_revision: null
+notas: >-
+  El texto vigente es el de la RM 429 (modificación N.° 10). La NTS original de la página 18
+  («prescribe el suplemento de hierro según el peso y condición») no está vigente.

@@ -1,0 +1,27 @@
+id: OE3-P47
+version_caso: 1
+conjunto: evaluacion
+origen: nuevo
+origen_detalle: Consulta de inmunizaciones sin términos del dominio
+tipos: [fuera_de_dominio]
+paciente:
+  fuente: seed_demo
+  dni_ficticio: "82012345"
+  fecha_tamizaje: 2026-10-14
+fecha_referencia: 2026-10-20
+consulta: ¿A qué edad se aplica la primera dosis de la vacuna contra el sarampión?
+estado_esperado: FUERA_DE_DOMINIO
+clasificacion_esperada: null
+requiere_derivacion: null
+evidencia_suficiente_esperada: null
+criterios: []
+respuesta_referencia: null
+afirmaciones_clave: []
+revisado: true
+revisado_por: "Coordinador CRED, Centro de Salud San Luis"
+fecha_revision: 2026-11-27
+observaciones_revision: null
+notas: >-
+  Solo se evalúa el estado. Sin generación no entra en las métricas de RAGAS, en CUE ni en los
+  cuadrantes (sección 3 del diseño). Sin términos del dominio: decide la similitud con las consultas
+  de referencia.

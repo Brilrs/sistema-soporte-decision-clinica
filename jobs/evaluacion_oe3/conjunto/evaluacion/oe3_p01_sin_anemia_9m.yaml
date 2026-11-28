@@ -1,0 +1,57 @@
+id: OE3-P01
+version_caso: 1
+conjunto: evaluacion
+origen: desarrollo_reutilizado
+origen_detalle: backend/app/scripts/casos_e2e.yaml, caso a
+tipos: [sin_anemia, suplementacion_preventiva, calendario_hb]
+paciente:
+  fuente: seed_demo
+  dni_ficticio: "81345678"
+  fecha_tamizaje: 2026-10-19
+fecha_referencia: 2026-10-20
+consulta: ¿Qué suplementación preventiva con hierro le corresponde y cuándo se vuelve a medir la hemoglobina?
+estado_esperado: VERIFICADA
+clasificacion_esperada: SIN_ANEMIA
+requiere_derivacion: false
+evidencia_suficiente_esperada: true
+criterios:
+  - id: C1
+    descripcion: Inicio y duración de la suplementación preventiva de 6 a 11 meses
+    obligatorio: true
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [12, 12]
+        numeral: 6.1.1 B.2
+        texto_anclaje: "Inicia la suplementación de hierro, si la Hb es ≥ 10.5 g/dL, de forma diaria durante 6 meses continuos (Tabla N° 6)."
+  - id: C2
+    descripcion: Dosis y producto de la suplementación preventiva de 6 a 11 meses (Tabla N° 6)
+    obligatorio: true
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [12, 12]
+        numeral: 6.1.1 B.2, Tabla N° 6
+        texto_anclaje: "| 6 a 11 meses | 2 mg/kg | Sulfato Ferroso o Complejo Polimaltosado Férrico* | gotas o jarabe | Diaria | 6 meses consecutivos |"
+  - id: C3
+    descripcion: Mediciones de hemoglobina de 6 a 11 meses durante la suplementación (Tabla N° 4 vigente)
+    obligatorio: true
+    alternativas:
+      - documento: RM 429-2024/MINSA
+        paginas: [6, 6]
+        numeral: 6.1.1 A, Tabla N° 4 (modificación N.° 5)
+        texto_anclaje: "3 mediciones: a partir de los 6 meses de edad; al tercer mes de iniciada la suplementación (control); al término de la suplementación (control)"
+respuesta_referencia: >-
+  La niña no tiene anemia. Le corresponde suplementación preventiva con hierro de forma diaria
+  durante 6 meses continuos: 2 mg/kg de sulfato ferroso o complejo polimaltosado férrico en gotas
+  o jarabe, o 1 sobre diario de micronutrientes. La hemoglobina se vuelve a medir al tercer mes de
+  iniciada la suplementación y al término de la suplementación.
+afirmaciones_clave:
+  - Le corresponde suplementación preventiva con hierro diaria durante 6 meses continuos.
+  - La dosis es 2 mg/kg de sulfato ferroso o complejo polimaltosado férrico en gotas o jarabe.
+  - La hemoglobina se controla al tercer mes de iniciada la suplementación y al término de la suplementación.
+revisado: true
+revisado_por: "Coordinador CRED, Centro de Salud San Luis"
+fecha_revision: 2026-11-27
+observaciones_revision: null
+notas: >-
+  La Tabla N° 4 original de la NTS (página 11) fue reemplazada por la RM 429 y no está vigente:
+  no cuenta para C3. La paciente ya recibe suplementación según el tamizaje.

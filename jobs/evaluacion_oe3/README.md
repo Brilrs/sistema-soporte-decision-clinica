@@ -7,14 +7,15 @@ y `backend/tests/test_oe3_ragas.py` (solo en la imagen de evaluación, donde est
 | Carpeta | Contenido |
 | --- | --- |
 | `conjunto/esquema_caso.json` | Esquema de un caso |
-| `conjunto/piloto/` | Piloto de 12 casos, sin revisar (`revisado: false`) |
-| `conjunto/evaluacion/` | Conjunto definitivo (todavía no existe) |
+| `conjunto/evaluacion/` | Conjunto definitivo: 48 casos (OE3-P01 a OE3-P48), revisados por la coordinación CRED (ficha firmada el 27/11/2026, los 48 «De acuerdo»; `revisado: true`). Grupo por omisión del job |
+| `conjunto/piloto/` | Sin casos: los 12 del piloto y los 36 que lo completaron pasaron a `evaluacion/` con los mismos ids. El grupo sigue existiendo para ensayos y cargarlo vacío da «No hay casos» |
 
 ## Reglas
 
 - Solo datos sintéticos (decisiones 12 y 13). El juez recibe la consulta filtrada, la respuesta, el
   texto de los fragmentos enviados y la referencia del caso, nunca `texto_consulta`.
-- **El piloto se prueba solo con el cliente falso** (opción A): `ejecutar --llm real` lo rechaza.
+- **El piloto se prueba solo con el cliente falso** (opción A): `ejecutar --grupo piloto --llm real`
+  lo rechaza. La corrida con el modelo real es solo sobre `evaluacion`.
 - El sistema se ejecuta una sola vez por carpeta de salida, congelado (sección 8 de
   `docs/cierre_sprint3.md`). El juez sí puede repetirse sobre la misma extracción.
 - Las corridas con la API (`--llm real`, `--juez anthropic`) las ejecuta solo el responsable y
@@ -37,14 +38,17 @@ salidas quedan en `data/evaluacion_oe3/` (fuera de git).
 
 ```bash
 E="docker compose --profile evaluacion run --rm evaluacion python -m app.evaluacion"
-$E validar --grupo piloto --con-base             # esquema, huellas y anclajes contra la base
-$E ejecutar --salida /datos/evaluacion/<corrida>  # grafo real, una vez; cliente falso por omisión
+$E validar --grupo evaluacion --con-base         # esquema, huellas y anclajes contra la base
+$E ejecutar --grupo evaluacion --salida /datos/evaluacion/<corrida>  # grafo real, una vez; cliente falso por omisión
 $E extraer --salida /datos/evaluacion/<corrida>   # solo lectura (cdss_generacion)
-$E juzgar --salida /datos/evaluacion/<corrida> --k 3   # juez falso por omisión
+$E juzgar --grupo evaluacion --salida /datos/evaluacion/<corrida> --k 3   # juez falso por omisión
 $E informe --salida /datos/evaluacion/<corrida> --git <etiqueta>
-$E comparar-jueces --salida /datos/evaluacion/<corrida> --modelos claude-sonnet-5-5,claude-haiku-5-5
-$E ensayo --salida /datos/evaluacion/<corrida> --falso-segun-esperado   # las cuatro fases, todo falso
+$E comparar-jueces --grupo evaluacion --salida /datos/evaluacion/<corrida> --modelos claude-sonnet-5-5,claude-haiku-5-5
+$E ensayo --grupo evaluacion --salida /datos/evaluacion/<corrida> --falso-segun-esperado   # las cuatro fases, todo falso
 ```
+
+`--grupo evaluacion` es el valor por omisión; se escribe para que el comando diga sobre qué carpeta
+corre (`extraer` e `informe` no lo llevan: leen la carpeta de salida). `--grupo piloto` sigue aceptado, pero hoy la carpeta no tiene casos.
 
 Archivos de una corrida: `manifiesto.json` (conjunto, huellas y configuración al ejecutar),
 `ejecucion.jsonl`, `extraccion.jsonl`, `juez/<modelo>/llamadas.jsonl`, `resultados.jsonl` y
@@ -63,9 +67,9 @@ real no se puede crear) y las conexiones apuntando a `cdss_ensayo_oe3`, en la re
 
 ## Antes de la corrida definitiva (responsable)
 
-1. Congelar el sistema (sección 8 de `docs/cierre_sprint3.md`) y crear `conjunto/evaluacion/` con los
-   casos revisados por la coordinación CRED.
+1. Congelar el sistema (sección 8 de `docs/cierre_sprint3.md`; hecho, etiqueta `oe3-congelado-v1`) y
+   crear `conjunto/evaluacion/` con los casos revisados por la coordinación CRED (hecho el 27/11/2026).
 2. `validar --grupo evaluacion --con-base`: todos los anclajes deben encajar en un solo fragmento.
 3. Comparar jueces sobre una extracción del cliente falso y fijar modelo, razonamiento y k.
-4. `ejecutar --grupo evaluacion --llm real --confirmo-datos-sinteticos`, luego `extraer`, `juzgar`
+4. `ejecutar --grupo evaluacion --llm real --confirmo-datos-sinteticos`, luego `extraer`, `juzgar --grupo evaluacion`
    con `--juez anthropic` e `informe --git <etiqueta>`. La huella del informe debe salir «(igual)».

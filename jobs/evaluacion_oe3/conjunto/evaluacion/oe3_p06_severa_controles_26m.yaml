@@ -1,0 +1,51 @@
+id: OE3-P06
+version_caso: 1
+conjunto: evaluacion
+origen: nuevo
+origen_detalle: Pregunta de controles en un caso severo, donde el criterio de derivación se perdía (fila 165)
+tipos: [anemia_severa, derivacion, control_tratamiento]
+paciente:
+  fuente: seed_demo
+  dni_ficticio: "81901234"
+  fecha_tamizaje: 2026-10-16
+fecha_referencia: 2026-10-20
+consulta: ¿Cada cuánto se controla la hemoglobina durante el tratamiento con hierro?
+estado_esperado: VERIFICADA
+clasificacion_esperada: ANEMIA_SEVERA
+requiere_derivacion: true
+evidencia_suficiente_esperada: true
+criterios:
+  - id: C1
+    descripcion: Referencia inmediata en anemia severa, aunque la pregunta sea de controles
+    obligatorio: true
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [22, 22]
+        numeral: 6.1.2 B.7
+        texto_anclaje: "Se indica el tratamiento como un caso de anemia moderada y se refiere inmediatamente a un establecimiento de salud de mayor capacidad resolutiva para la atención especializada."
+  - id: C2
+    descripcion: Controles de hemoglobina durante el tratamiento de 6 a 35 meses
+    obligatorio: true
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [23, 23]
+        numeral: 6.1.2 B.11, Tabla N° 20
+        texto_anclaje: "| 6 meses a 35 meses | Al mes de iniciado tratamiento. Al segundo, tercer y sexto mes de iniciado tratamiento |"
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [22, 23]
+        numeral: 6.1.2 B.11
+        texto_anclaje: "En el niño y la niña menor de 36 meses, se realiza al mes, al 2o mes, 3o mes y 6o mes de iniciado el tratamiento."
+respuesta_referencia: >-
+  La hemoglobina se controla al mes, al segundo, al tercer y al sexto mes de iniciado el
+  tratamiento. Por tratarse de anemia severa, la paciente se trata como un caso de anemia moderada y
+  se refiere inmediatamente a un establecimiento de salud de mayor capacidad resolutiva.
+afirmaciones_clave:
+  - La hemoglobina se controla al mes, al segundo, al tercer y al sexto mes de iniciado el tratamiento.
+  - Se refiere inmediatamente a un establecimiento de salud de mayor capacidad resolutiva.
+revisado: true
+revisado_por: "Coordinador CRED, Centro de Salud San Luis"
+fecha_revision: 2026-11-27
+observaciones_revision: null
+notas: >-
+  No es del todo independiente: la regla de fragmento garantizado (punteros.yaml, fila 165) se creó
+  para este tipo de pregunta. El fragmento de C1 puede llegar con origen PUNTERO y cuenta como enviado.

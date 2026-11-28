@@ -1,0 +1,64 @@
+id: OE3-P36
+version_caso: 1
+conjunto: evaluacion
+origen: desarrollo_reutilizado
+origen_detalle: backend/app/rag/consultas_referencia.yaml, R12
+tipos: [anemia_leve, calendario_hb, control_tratamiento]
+paciente:
+  fuente: ficticio
+  dni_ficticio: "89000036"
+  fecha_tamizaje: 2026-10-12
+  datos_ficticios:
+    sexo: F
+    fecha_nacimiento: 2023-08-03
+    ubigeo: "150134"
+    edad_gestacional: A_TERMINO
+    bajo_peso_al_nacer: false
+    tamizaje:
+      hemoglobina_g_dl: 10.5
+      peso_kg: 13.6
+      talla_cm: 94.0
+      recibe_suplementacion_hierro: false
+      lactancia_materna_actual: false
+      parasitosis: false
+      sintomas: []
+fecha_referencia: 2026-10-20
+consulta: ¿Cada cuánto tiempo se controla la hemoglobina durante el tratamiento de la anemia en el niño?
+estado_esperado: VERIFICADA
+clasificacion_esperada: ANEMIA_LEVE
+requiere_derivacion: false
+evidencia_suficiente_esperada: true
+criterios:
+  - id: C1
+    descripcion: Controles de hemoglobina de 36 meses a 11 años
+    obligatorio: true
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [23, 23]
+        numeral: 6.1.2 B.11, Tabla N° 20
+        texto_anclaje: "| 36 meses a 11 años | Al mes de iniciado el tratamiento. Al tercer y sexto mes del tratamiento |"
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [22, 23]
+        numeral: 6.1.2 B.11
+        texto_anclaje: "En el niño y la niña de 36 meses a 11 años de edad, la/el adolescente y mujer en edad fértil, se realiza al mes, tercer mes y sexto mes de iniciado el tratamiento."
+  - id: C2
+    descripcion: Incremento esperado de hemoglobina a los 30 días
+    obligatorio: false
+    alternativas:
+      - documento: NTS 213-MINSA/DGIESP-2024
+        paginas: [22, 23]
+        numeral: 6.1.2 B.11
+        texto_anclaje: "A los 30 días de iniciado el tratamiento con suplemento de hierro, el incremento de Hb debe ser mayor o igual de 1g/dL"
+respuesta_referencia: >-
+  De 36 meses a 11 años, la hemoglobina se controla al mes de iniciado el tratamiento y al tercer y
+  sexto mes del tratamiento. A los 30 días de iniciado el tratamiento el incremento de hemoglobina
+  debe ser de 1 g/dL o más.
+afirmaciones_clave:
+  - La hemoglobina se controla al mes, al tercer mes y al sexto mes del tratamiento.
+revisado: true
+revisado_por: "Coordinador CRED, Centro de Salud San Luis"
+fecha_revision: 2026-11-27
+observaciones_revision: null
+notas: >-
+  Consulta R12 sin cambios; paciente de 38 meses. C1 tiene dos alternativas equivalentes: la Tabla
+  N° 20 y el texto que la resume (como P03).
