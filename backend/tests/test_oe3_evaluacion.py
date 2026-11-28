@@ -485,6 +485,148 @@ def test_el_juez_real_no_se_crea_en_pruebas_ni_sin_confirmar(monkeypatch):
         JuezAnthropic("claude-sonnet-5-5", confirmo_datos_sinteticos=True)
 
 
+def objetos_de_esquema(s, ruta="$"):
+    """Todos los subesquemas de tipo objeto (también en $defs, items, anyOf y propiedades)."""
+    if isinstance(s, dict):
+        if s.get("type") == "object" or "properties" in s:
+            yield ruta, s
+        for k, v in s.items():
+            if k in ("enum", "required", "const"):
+                continue
+            yield from objetos_de_esquema(v, f"{ruta}.{k}")
+    elif isinstance(s, list):
+        for i, v in enumerate(s):
+            yield from objetos_de_esquema(v, f"{ruta}[{i}]")
+
+
+def claves_de_esquema(s):
+    """Palabras clave de todos los subesquemas (sin entrar en los nombres de las propiedades)."""
+    if not isinstance(s, dict):
+        return set()
+    claves = set(s)
+    hijos = list((s.get("properties") or {}).values()) + list((s.get("$defs") or {}).values())
+    hijos += [s["items"]] if isinstance(s.get("items"), dict) else []
+    hijos += [v for k in ("anyOf", "allOf", "oneOf") for v in s.get(k) or []]
+    return claves.union(*(claves_de_esquema(h) for h in hijos))
+
+
+class ClienteAnthropicSimulado:
+    """Reemplaza anthropic.Anthropic: guarda los argumentos de messages.create y responde con una
+    instancia mínima del esquema recibido. Nunca hay red."""
+
+    def __init__(self, api_key, max_retries):
+        self.max_retries, self.llamadas = max_retries, []
+        self.messages = self
+        ClienteAnthropicSimulado.ultimo = self
+
+    def create(self, **kw):
+        import random
+        from types import SimpleNamespace
+        from app.evaluacion.juez import _llenar
+        self.llamadas.append(copy.deepcopy(kw))
+        esquema = kw["output_config"]["format"]["schema"]
+        texto = json.dumps(_llenar(esquema, esquema, random.Random(0)), ensure_ascii=False)
+        return SimpleNamespace(content=[SimpleNamespace(type="text", text=texto)], model=kw["model"],
+                               usage=SimpleNamespace(input_tokens=10, output_tokens=5))
+
+
+@pytest.fixture
+def juez_anthropic_simulado(monkeypatch):
+    anthropic = pytest.importorskip("anthropic")
+    monkeypatch.setattr(anthropic, "Anthropic", ClienteAnthropicSimulado)
+    monkeypatch.setenv("CDSS_ENTORNO", "desarrollo")
+    return JuezAnthropic("claude-sonnet-5-5", confirmo_datos_sinteticos=True, api_key="clave-falsa")
+
+
+ESQUEMA_CON_RESTRICCIONES = {
+    "type": "object", "title": "Prueba",
+    "$defs": {"Hijo": {"type": "object", "properties": {"n": {"type": "integer", "minimum": 0, "maximum": 2}},
+                       "required": ["n"]}},
+    "properties": {
+        "texto": {"type": "string", "minLength": 1, "maxLength": 50, "format": "texto-libre"},
+        "lista": {"type": "array", "minItems": 3, "maxItems": 5, "items": {"$ref": "#/$defs/Hijo"}},
+        "opcional": {"anyOf": [{"type": "object", "properties": {"x": {"type": "number", "multipleOf": 0.5}}},
+                               {"type": "null"}], "default": None},
+        "anulable": {"type": ["integer", "null"], "description": "índice o null"},
+    },
+    "required": ["texto", "lista", "opcional", "anulable"],
+}
+
+
+@pytest.mark.parametrize("nombre", ["afirmaciones", "adherencia", "con_restricciones"])
+def test_el_esquema_para_la_api_cierra_todo_objeto_y_no_deja_claves_no_admitidas(nombre):
+    pytest.importorskip("anthropic")
+    from app.evaluacion.juez import CLAVES_ADMITIDAS_API, esquema_para_api, problemas_esquema_api
+    original = {"afirmaciones": pj.ESQUEMA_AFIRMACIONES, "adherencia": pj.ESQUEMA_ADHERENCIA,
+                "con_restricciones": ESQUEMA_CON_RESTRICCIONES}[nombre]
+    copia = copy.deepcopy(original)
+    normalizado = esquema_para_api(original)
+    assert original == copia  # el original no cambia
+    objetos = list(objetos_de_esquema(normalizado))
+    assert objetos and all(o.get("additionalProperties") is False for _, o in objetos), objetos
+    assert claves_de_esquema(normalizado) <= CLAVES_ADMITIDAS_API
+    assert problemas_esquema_api(normalizado) == []
+    assert '"type": [' not in json.dumps(normalizado)
+
+
+def test_el_esquema_para_la_api_conserva_el_significado_de_los_campos():
+    pytest.importorskip("anthropic")
+    from app.evaluacion.juez import esquema_para_api, problemas_esquema_api
+    crudos = problemas_esquema_api(ESQUEMA_CON_RESTRICCIONES)
+    for esperado in ("objeto sin additionalProperties false", "no admitida minLength", "no admitida minimum",
+                     "type con una lista", "minItems distinto", "formato no admitido"):
+        assert any(esperado in p for p in crudos), (esperado, crudos)
+    n = esquema_para_api(ESQUEMA_CON_RESTRICCIONES)
+    props = n["properties"]
+    # Las restricciones pasan a la descripción, los campos y los obligatorios siguen iguales
+    assert n["required"] == ESQUEMA_CON_RESTRICCIONES["required"] and set(props) == set(n["required"])
+    assert "maxLength: 50" in props["texto"]["description"] and props["texto"]["type"] == "string"
+    assert "minItems: 3" in props["lista"]["description"] and props["lista"]["items"] == {"$ref": "#/$defs/Hijo"}
+    assert "maximum: 2" in n["$defs"]["Hijo"]["properties"]["n"]["description"]
+    assert {r.get("type") for r in props["anulable"]["anyOf"]} == {"integer", "null"}
+    assert props["anulable"]["description"] == "índice o null"
+    assert {r.get("type") for r in props["opcional"]["anyOf"]} == {"object", "null"}
+    # La afirmación propia: clave entero o null, como antes
+    clave = esquema_para_api(pj.ESQUEMA_AFIRMACIONES)["properties"]["afirmaciones"]["items"]["properties"]["clave"]
+    assert clave == {"anyOf": [{"type": "integer"}, {"type": "null"}]}
+
+
+def test_un_esquema_recursivo_falla_antes_de_llamar(juez_anthropic_simulado):
+    from app.evaluacion.juez import esquema_para_api
+    recursivo = {"type": "object", "$defs": {"Nodo": {"type": "object", "properties": {
+        "hijos": {"type": "array", "items": {"$ref": "#/$defs/Nodo"}}}, "required": ["hijos"]}},
+        "properties": {"raiz": {"$ref": "#/$defs/Nodo"}}, "required": ["raiz"]}
+    with pytest.raises(ErrorJuez, match="recursivo"):
+        esquema_para_api(recursivo)
+    with pytest.raises(ErrorJuez, match="recursivo"):
+        juez_anthropic_simulado.generar("t", "s", "c", recursivo, ConfiguracionJuez(modelo="claude-sonnet-5-5"))
+    assert ClienteAnthropicSimulado.ultimo.llamadas == []
+
+
+def test_el_cliente_real_envia_el_esquema_normalizado_y_la_cache_no_cambia(juez_anthropic_simulado, tmp_path):
+    from app.evaluacion.juez import esquema_para_api
+    config = ConfiguracionJuez(modelo="claude-sonnet-5-5", razonamiento="adaptive", esfuerzo="medium", k=1)
+    juez = Juez(juez_anthropic_simulado, config, tmp_path)
+    esquema_ragas = {"type": "object", "properties": {"rating": {"type": "integer", "title": "Rating"}},
+                     "required": ["rating"], "title": "ContextRelevanceOutput"}
+    copia = copy.deepcopy(esquema_ragas)
+    assert set(juez.llamar("OE3-P02", "ragas:ContextRelevanceOutput", "s", "p", esquema_ragas, 2)) == {"rating"}
+    (llamada,) = ClienteAnthropicSimulado.ultimo.llamadas
+    assert ClienteAnthropicSimulado.ultimo.max_retries == 0
+    enviado = llamada["output_config"]["format"]
+    assert enviado["type"] == "json_schema" and enviado["schema"] == esquema_para_api(esquema_ragas)
+    assert enviado["schema"]["additionalProperties"] is False and "additionalProperties" not in esquema_ragas
+    assert esquema_ragas == copia
+    assert llamada["output_config"]["effort"] == "medium" and llamada["thinking"] == {"type": "adaptive"}
+    assert not {"temperature", "top_p", "top_k"} & set(llamada)
+    # La clave de caché se calcula con el esquema original: los mismos valores que antes del cambio
+    clave = "bb8ca45b1368b5fc957f7145c0b5cf117eec57f01951795dc60bf6a3a6f97739"
+    assert juez.clave("ragas:ContextRelevanceOutput", "s", "p", esquema_ragas, 2) == clave
+    assert (tmp_path / clave[:2] / f"{clave}.json").exists()
+    assert juez.clave(pj.AFIRMACIONES, "s", "{}", pj.ESQUEMA_AFIRMACIONES, 1) == \
+        "5fbdf626f0cfac2f87f69c45e44b74e61e105dea3101fc02faea2f8982f9a5d4"
+
+
 def test_configuracion_sin_temperatura_y_k_por_omision():
     c = ConfiguracionJuez()
     assert c.k == 3 and not hasattr(c, "temperatura")

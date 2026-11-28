@@ -12,6 +12,7 @@
 """
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import os
@@ -175,6 +176,114 @@ def _llenar(s: dict, raiz: dict, azar: random.Random):
 
 
 # ---------------------------------------------------------------------------
+# Esquema para la salida estructurada de la API
+# ---------------------------------------------------------------------------
+# Lo que admite la salida estructurada de la API (output_config.format con json_schema): todo
+# objeto con additionalProperties false, sin restricciones numéricas ni de longitud, minItems solo
+# 0 o 1, estos formatos de texto y sin esquemas recursivos.
+CLAVES_ADMITIDAS_API = frozenset({"type", "properties", "required", "additionalProperties", "items", "enum",
+                                  "const", "anyOf", "allOf", "$ref", "$defs", "description", "title",
+                                  "format", "minItems"})
+FORMATOS_ADMITIDOS_API = frozenset({"date-time", "time", "date", "duration", "email", "hostname", "uri",
+                                    "ipv4", "ipv6", "uuid"})
+_ANOTACIONES = ("description", "title", "default")
+
+
+def _tipos_en_lista_a_anyof(s):
+    """{"type": ["integer", "null"]} pasa a anyOf con una rama por tipo (mismo significado).
+    transform_schema del SDK no acepta una lista en type."""
+    if not isinstance(s, dict):
+        return s
+    s = dict(s)
+    for clave in ("properties", "$defs"):
+        if isinstance(s.get(clave), dict):
+            s[clave] = {k: _tipos_en_lista_a_anyof(v) for k, v in s[clave].items()}
+    if isinstance(s.get("items"), dict):
+        s["items"] = _tipos_en_lista_a_anyof(s["items"])
+    for clave in ("anyOf", "oneOf", "allOf"):
+        if isinstance(s.get(clave), list):
+            s[clave] = [_tipos_en_lista_a_anyof(v) for v in s[clave]]
+    tipos = s.get("type")
+    if isinstance(tipos, list):
+        comunes = {k: s.pop(k) for k in _ANOTACIONES if k in s}
+        del s["type"]
+        # Las palabras propias de un tipo (properties, items, format...) van en cada rama no nula.
+        ramas = [{"type": t} if t == "null" else {**s, "type": t} for t in tipos]
+        s = {**comunes, "anyOf": [_tipos_en_lista_a_anyof(r) for r in ramas]}
+    return s
+
+
+def problemas_esquema_api(esquema: dict) -> list[str]:
+    """Lo que la salida estructurada de la API rechazaría en `esquema` (lista vacía si nada)."""
+    problemas: list[str] = []
+    defs = esquema.get("$defs", {}) if isinstance(esquema, dict) else {}
+
+    def recorrer(s, ruta: str) -> None:
+        if not isinstance(s, dict):
+            problemas.append(f"{ruta}: no es un objeto de esquema")
+            return
+        problemas.extend(f"{ruta}: palabra clave no admitida {k}" for k in s if k not in CLAVES_ADMITIDAS_API)
+        if isinstance(s.get("type"), list):
+            problemas.append(f"{ruta}: type con una lista")
+        if s.get("type") == "object" or "properties" in s:
+            if s.get("additionalProperties") is not False:
+                problemas.append(f"{ruta}: objeto sin additionalProperties false")
+        if "format" in s and s["format"] not in FORMATOS_ADMITIDOS_API:
+            problemas.append(f"{ruta}: formato no admitido {s['format']}")
+        if "minItems" in s and s["minItems"] not in (0, 1):
+            problemas.append(f"{ruta}: minItems distinto de 0 o 1")
+        for k, v in (s.get("properties") or {}).items():
+            recorrer(v, f"{ruta}.properties.{k}")
+        if "items" in s:
+            recorrer(s["items"], f"{ruta}.items")
+        for clave in ("anyOf", "allOf"):
+            for i, v in enumerate(s.get(clave) or []):
+                recorrer(v, f"{ruta}.{clave}[{i}]")
+
+    def referencias(s) -> set[str]:
+        if isinstance(s, dict):
+            propias = {s["$ref"]} if isinstance(s.get("$ref"), str) else set()
+            return propias.union(*(referencias(v) for k, v in s.items() if k != "$defs"))
+        if isinstance(s, list):
+            return set().union(*(referencias(v) for v in s))
+        return set()
+
+    recorrer({k: v for k, v in esquema.items() if k != "$defs"} if isinstance(esquema, dict) else esquema, "$")
+    for nombre, s in defs.items():
+        recorrer(s, f"$defs.{nombre}")
+    # Recursividad: una definición que llega a sí misma por $ref, o un $ref a la raíz.
+    grafo = {n: {r.split("/")[-1] for r in referencias(s) if r.startswith("#/$defs/")} for n, s in defs.items()}
+    if "#" in referencias(esquema):
+        problemas.append("$: esquema recursivo ($ref a la raíz)")
+    for inicio in grafo:
+        pendientes, vistos = list(grafo[inicio]), set()
+        while pendientes:
+            n = pendientes.pop()
+            if n == inicio:
+                problemas.append(f"$defs.{inicio}: esquema recursivo")
+                break
+            if n not in vistos:
+                vistos.add(n)
+                pendientes.extend(grafo.get(n, ()))
+    return problemas
+
+
+def esquema_para_api(esquema: dict) -> dict:
+    """Copia del esquema lista para output_config.format: transform_schema del SDK de Anthropic
+    (la que usa messages.parse) pone additionalProperties false en todo objeto (también en $defs,
+    items y anyOf) y pasa a la descripción lo que la API no admite (minimum, maxLength, minItems
+    mayores que 1, formatos desconocidos, default), así el campo conserva su significado. Antes, las
+    listas en type pasan a anyOf. No modifica `esquema`. Si queda algo que la API rechazaría (por
+    ejemplo, recursividad), ErrorJuez antes de llamar."""
+    from anthropic import transform_schema
+    normalizado = transform_schema(_tipos_en_lista_a_anyof(copy.deepcopy(esquema)))
+    problemas = problemas_esquema_api(normalizado)
+    if problemas:
+        raise ErrorJuez("Esquema no admitido por la salida estructurada: " + "; ".join(problemas[:5]))
+    return normalizado
+
+
+# ---------------------------------------------------------------------------
 # Cliente de Anthropic (preparado; no se usa con el piloto)
 # ---------------------------------------------------------------------------
 class JuezAnthropic:
@@ -195,7 +304,8 @@ class JuezAnthropic:
 
     def generar(self, tarea, sistema, contenido, esquema, config) -> RespuestaJuez:
         inicio = time.perf_counter()
-        salida = {"format": {"type": "json_schema", "schema": esquema}}
+        # La API recibe una copia normalizada; la caché (Juez.clave) sigue con el esquema original.
+        salida = {"format": {"type": "json_schema", "schema": esquema_para_api(esquema)}}
         if config.esfuerzo:
             salida["effort"] = config.esfuerzo
         extra = {"thinking": {"type": config.razonamiento}} if config.razonamiento else {}
