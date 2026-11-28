@@ -404,6 +404,17 @@ Paquete `backend/app/evaluacion/` (implementado). Sigue el patrón de `app/index
   opción no se envía), `--esfuerzo`, `--max-tokens` y `--k` (3 por omisión). **Sin temperatura
   fija:** Sonnet 5.5 rechaza valores distintos del predeterminado (fila 6), y el juez nunca la envía.
   Los precios por modelo están en `PRECIOS_USD_MTOK` de `juez.py` y van en el informe.
+- **Esquema que recibe la API (corrección del 28/11/2026):** la salida estructurada exige
+  `additionalProperties: false` en todo objeto, y los esquemas de RAGAS
+  (`response_model.model_json_schema()`) no lo declaran: en la primera prueba real con
+  `claude-sonnet-5-5`, 45 de 63 llamadas `ragas:*` dieron 400. `JuezAnthropic.generar` envía ahora
+  una copia normalizada con `esquema_para_api`. Primero las listas en `type` (`["integer", "null"]`
+  del esquema de afirmaciones) pasan a `anyOf`; después, `transform_schema` del SDK de Anthropic
+  (la que usa `messages.parse`) cierra cada objeto (también en `$defs`, `items` y `anyOf`) y pasa a
+  la descripción las restricciones que la API no admite (numéricas, de longitud, `minItems` mayor que
+  1, formatos desconocidos, `default`). Si queda algo inadmisible, por ejemplo un esquema recursivo,
+  la llamada falla con `ErrorJuez` antes de salir. La clave de caché sigue calculándose con el
+  esquema original, y el juez falso recibe el original.
 - **Comparación Sonnet frente a Haiku:** `comparar-jueces --modelos claude-sonnet-5-5,claude-haiku-5-5`
   juzga la misma extracción con cada modelo y compara medias y cuadrantes. Está preparada y probada
   solo con el juez falso; con la API la ejecuta el responsable.
